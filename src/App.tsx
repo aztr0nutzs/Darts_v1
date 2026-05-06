@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 import { NerfReactor, FloatingOrb, ParticleSystem, DamageIndicator, ScanningLaser, CyberGridBackground, CRTOverlay } from './components/BackgroundElements';
-import { sounds } from './lib/sounds';
+import { sounds, HAPTIC, hapticForGun } from './lib/sounds';
 
 import MainMenu from './components/MainMenu';
 import { PauseOverlay } from './components/PauseOverlay';
@@ -593,15 +593,20 @@ export default function App() {
   const [uiSettings, setUiSettings] = useState(() => {
     try {
       const saved = localStorage.getItem('dart_uiSettings');
-      return saved ? JSON.parse(saved) : { leftHanded: false, hudScale: 'normal', crosshairStyle: 'tactical', hitMarkers: true, showFireButton: true, controlScale: 1.0 };
+      return saved ? JSON.parse(saved) : { leftHanded: false, hudScale: 'normal', crosshairStyle: 'tactical', hitMarkers: true, showFireButton: true, controlScale: 1.0, soundVolume: 0.7, hapticsEnabled: true, screenEffects: true };
     } catch {
-      return { leftHanded: false, hudScale: 'normal', crosshairStyle: 'tactical', hitMarkers: true, showFireButton: true, controlScale: 1.0 };
+      return { leftHanded: false, hudScale: 'normal', crosshairStyle: 'tactical', hitMarkers: true, showFireButton: true, controlScale: 1.0, soundVolume: 0.7, hapticsEnabled: true, screenEffects: true };
     }
   });
 
   useEffect(() => {
     localStorage.setItem('dart_uiSettings', JSON.stringify(uiSettings));
   }, [uiSettings]);
+
+  // Sync master volume whenever the setting changes
+  useEffect(() => {
+    sounds.setVolume(uiSettings.soundVolume ?? 0.7);
+  }, [uiSettings.soundVolume]);
 
   const takeDamage = useCallback((amount: number = 1) => {
     if (Date.now() < activeBuffs.shield) return; // Immune
@@ -857,8 +862,9 @@ export default function App() {
     }
   }, [isReloading, gameMode, socket, roomId]);
 
-  // Vibrate helper for Android
+  // Vibrate helper — respects haptics setting
   const vibrate = (pattern: number | number[]) => {
+    if (!uiSettings.hapticsEnabled) return;
     if (typeof window !== 'undefined' && window.navigator && window.navigator.vibrate) {
       window.navigator.vibrate(pattern);
     }
@@ -944,6 +950,17 @@ export default function App() {
       return () => clearInterval(interval);
     }
   }, [isFiring, recoilBuildup]);
+
+  // Low-ammo warning — one beep per threshold crossing, not per shot
+  const prevAmmoRef = useRef(ammo);
+  useEffect(() => {
+    const wasOk = prevAmmoRef.current > 2;
+    prevAmmoRef.current = ammo;
+    if (gameState !== 'playing' || !wasOk || ammo > 2 || ammo <= 0) return;
+    sounds.playWarningBeep();
+    vibrate(HAPTIC.LOW_AMMO);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ammo, gameState]);
 
   // Keyboard weapon switching
   useEffect(() => {
@@ -1171,16 +1188,16 @@ export default function App() {
     if (isReloading || ammo === currentGun.maxAmmo) return;
     
     setIsReloading(true);
-    vibrate([50, 100, 50]); // Reload haptic pattern
-    sounds.playReloadStart();
+    vibrate(HAPTIC.RELOAD_START);
+    sounds.playReloadStart(currentGun.id);
     
     const reloadDuration = Date.now() < activeBuffs.rapidFire ? currentGun.reloadTime * 0.3 : currentGun.reloadTime;
     
     setTimeout(() => {
       setAmmo(currentGun.maxAmmo);
       setIsReloading(false);
-      vibrate(100); // Reload complete
-      sounds.playReloadFinish();
+      vibrate(HAPTIC.RELOAD_FINISH);
+      sounds.playReloadFinish(currentGun.id);
     }, reloadDuration);
   }, [isReloading, ammo, currentGun, activeBuffs]);
 
@@ -1190,6 +1207,7 @@ export default function App() {
     if (ammo <= 0) {
       setIsFiring(false);
       sounds.playEmptyClick();
+      vibrate(HAPTIC.EMPTY);
       reload();
       return;
     }
@@ -1202,7 +1220,8 @@ export default function App() {
       setRecoilBuildup(prev => Math.min(10, prev + 1));
       setTotalShots(prev => prev + 1);
       setShotsFiredPerWeapon(prev => ({ ...prev, [currentGun.id]: (prev[currentGun.id] || 0) + 1 }));
-      vibrate(15);
+      sounds.playFire(currentGun.id);
+      vibrate(hapticForGun(currentGun.id));
       setAmmo(prev => Math.max(0, prev - 1));
       setIsShooting(true);
 
@@ -1344,17 +1363,14 @@ export default function App() {
       setTotalShots(prev => prev + 1);
       setShotsFiredPerWeapon(prev => ({ ...prev, [currentGun.id]: (prev[currentGun.id] || 0) + 1 }));
       
-      // Haptic Feedback for firing
-      if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        navigator.vibrate(15);
-      }
-      
+      sounds.playFire(currentGun.id);
+      vibrate(hapticForGun(currentGun.id));
+
       setAmmo(prev => {
         if (prev <= 0) return 0;
         return prev - 1;
       });
       setIsShooting(true);
-      vibrate(50);
       
       const recoilScale = isADS ? 0.3 : 1;
       setShakeIntensity((upgradedGun.recoil + Math.min(10, recoilBuildup) * 2) * recoilScale);
@@ -1408,6 +1424,7 @@ export default function App() {
           if (hitResult) {
             handleTargetHit(hitResult.targetId, (endX / rect.width) * 100, (endY / rect.height) * 100, hitResult.quality);
           } else {
+            sounds.playPlasticBounce();
             // Miss Effect
             const effectId = `miss-${hitEffectIdCounter.current++}`;
             setHitEffects(curr => [...curr, { id: effectId, x: (endX / rect.width) * 100, y: (endY / rect.height) * 100, color: upgradedGun.dartType.color, isMiss: true }]);
@@ -1583,15 +1600,14 @@ export default function App() {
         }
         
         newTargets[targetIndex] = updatedTarget;
-        vibrate(20);
-        
-        // Sound effect or light vibration can go here instead of screen shake for armor hits
-        
+        sounds.playHit(quality);
+        vibrate(HAPTIC.HIT);
         return newTargets;
       }
 
       // Target destroyed
-      vibrate([30, 50, 30]);
+      sounds.playTargetBreak();
+      vibrate(HAPTIC.DESTROY);
       
       // Heavy shake on destruction ONLY for big entities
       if (target.type === 'heavy_armor' || target.type === 'exploding') {
@@ -1607,8 +1623,8 @@ export default function App() {
         setHitEffects(curr => [...curr, { id: effectId, x: hitX, y: hitY, color: pwrColor, isDestroy: true }]);
         setTimeout(() => setHitEffects(curr => curr.filter(h => h.id !== effectId)), 1000);
         
-        vibrate([50, 150, 50]);
-        
+        vibrate(HAPTIC.POWERUP);
+
         if (target.type === 'powerup_damage') {
           setActiveBuffs(b => ({ ...b, damage: Date.now() + 10000 })); // 10 seconds
         } else if (target.type === 'powerup_rapid') {
@@ -1650,10 +1666,7 @@ export default function App() {
       setMaxCombo(prev => Math.max(prev, newCombo));
       setLastHitTime(now);
       
-      // Haptic Feedback for hit
-      if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        navigator.vibrate([20, 30, 20]);
-      }
+      vibrate(HAPTIC.DESTROY);
       
       const comboMultiplier = Math.min(newCombo, 5);
       const isCriticalHitForScore = target.type === 'erratic' || isCrit || Date.now() < activeBuffs.damage;
@@ -1737,7 +1750,7 @@ export default function App() {
           }
           return true;
         });
-        vibrate([100, 50, 100]); // Big explosion haptic
+        vibrate(HAPTIC.EXPLOSION);
       }
 
       const destroyedCount = prev.length - targetsToKeep.length;
