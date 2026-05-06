@@ -1,0 +1,242 @@
+import React from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { 
+  Users, CheckCircle2, Circle, Copy, LogOut, 
+  Settings, Wifi, ShieldCheck, Activity, Terminal
+} from 'lucide-react';
+import { Socket } from 'socket.io-client';
+
+interface MultiplayerLobbyProps {
+  roomId: string;
+  multiplayerState: any;
+  socket: Socket | null;
+  connectionStatus: 'connected' | 'disconnected' | 'connecting' | 'error';
+  roomError: string | null;
+  onLeave: () => void;
+  onReady: () => void;
+}
+
+export default function MultiplayerLobby({ 
+  roomId, 
+  multiplayerState, 
+  socket, 
+  connectionStatus,
+  roomError,
+  onLeave, 
+  onReady 
+}: MultiplayerLobbyProps) {
+  const players = multiplayerState?.players ? (Object.values(multiplayerState.players) as any[]) : [];
+  const localPlayer = players.find((p: any) => p.id === socket?.id);
+  const isHost = players.length > 0 && players[0].id === socket?.id;
+
+  const copyRoomCode = () => {
+    navigator.clipboard.writeText(roomId);
+    // Could add a toast here
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-[#020617]/95 backdrop-blur-2xl p-4 md:p-8 overflow-y-auto"
+    >
+      {/* Background Tech Effects */}
+      <div className="absolute inset-0 pointer-events-none opacity-20 overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_center,#1e3a8a_0%,transparent_70%)]" />
+        <div className="absolute top-0 left-0 w-full h-[1px] bg-cyan-500/20 animate-scan" style={{ animation: 'scan 4s linear infinite' }} />
+        <div className="grid grid-cols-8 gap-4 p-8">
+           {[...Array(64)].map((_, i) => (
+             <div key={i} className="aspect-square border border-white/5 rounded-sm" />
+           ))}
+        </div>
+      </div>
+
+      <div className="relative w-full max-w-4xl grid grid-cols-1 md:grid-cols-12 gap-6">
+        
+        {/* Left Column: Room Info */}
+        <div className="md:col-span-5 flex flex-col gap-6">
+          <div className="bg-slate-900/50 border border-slate-800 p-6 rounded-2xl relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-2 bg-slate-800 flex items-center gap-2">
+               {connectionStatus === 'connected' ? (
+                 <>
+                   <span className="text-[8px] font-black text-green-500 uppercase tracking-widest">Linked</span>
+                   <Wifi className="w-3 h-3 text-green-500 animate-pulse" />
+                 </>
+               ) : connectionStatus === 'connecting' ? (
+                 <>
+                   <span className="text-[8px] font-black text-yellow-500 uppercase tracking-widest">Linking</span>
+                   <Activity className="w-3 h-3 text-yellow-500 animate-spin" />
+                 </>
+               ) : (
+                 <>
+                   <span className="text-[8px] font-black text-red-500 uppercase tracking-widest">Offline</span>
+                   <Wifi className="w-3 h-3 text-red-500" />
+                 </>
+               )}
+            </div>
+            <span className="text-[10px] font-black text-slate-500 tracking-[0.4em] uppercase mb-2 block">TRANSMISSION_ID</span>
+            <h2 className="text-4xl font-black text-white italic tracking-tighter mb-4 flex items-center gap-3">
+              {roomId}
+              <button 
+                onClick={copyRoomCode}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                title="Copy Code"
+              >
+                <Copy className="w-4 h-4 text-cyan-400" />
+              </button>
+            </h2>
+
+            {roomError && (
+              <motion.div 
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                className="bg-red-500/10 border border-red-500/40 p-2 rounded text-[10px] font-bold text-red-500 uppercase mb-4"
+              >
+                Error: {roomError}
+              </motion.div>
+            )}
+
+            <div className="flex items-center gap-4 text-[10px] font-bold text-slate-400">
+              <span className="flex items-center gap-1.5"><ShieldCheck className="w-3 h-3 text-green-500" /> ENCRYPTED</span>
+              <span className="flex items-center gap-1.5"><Activity className="w-3 h-3 text-cyan-500" /> STABLE_PING</span>
+            </div>
+          </div>
+
+          <div className="bg-slate-900/50 border border-slate-800 p-6 rounded-2xl flex-1">
+             <div className="flex items-center justify-between mb-4">
+                <span className="text-[10px] font-black text-slate-500 tracking-[0.4em] uppercase">SYSTEM_OVERRIDE</span>
+                <Terminal className="w-4 h-4 text-slate-600" />
+             </div>
+             <div className="space-y-3">
+                <div className="p-3 bg-black/40 border border-white/5 rounded-lg flex items-center justify-between">
+                   <span className="text-xs font-bold text-slate-300 tracking-wider">WAITING_FOR_SQUAD</span>
+                   <span className="text-xs font-black text-cyan-400">{players.length}/4</span>
+                </div>
+                <div className="p-3 bg-black/40 border border-white/5 rounded-lg flex items-center justify-between">
+                   <span className="text-xs font-bold text-slate-300 tracking-wider">GAME_MODE</span>
+                   <span className="text-xs font-black text-orange-500">MULTIPLAYER_ARENA</span>
+                </div>
+                <div className="p-3 bg-black/40 border border-white/5 rounded-lg">
+                   <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold text-slate-300 tracking-wider">READY_STATUS</span>
+                      <span className="text-xs font-black text-white">{players.filter((p: any) => p.ready).length}/{players.length}</span>
+                   </div>
+                   <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${(players.filter((p: any) => p.ready).length / Math.max(1, players.length)) * 100}%` }}
+                        className="h-full bg-cyan-500 shadow-[0_0_10px_#06b6d4]"
+                      />
+                   </div>
+                </div>
+             </div>
+          </div>
+
+          <button 
+            onClick={onLeave}
+            className="w-full bg-red-950/20 border border-red-500/30 hover:bg-red-500/20 text-red-500 p-4 rounded-xl font-black text-xs tracking-[0.5em] transition-all flex items-center justify-center gap-3 active:scale-95"
+          >
+            <LogOut className="w-4 h-4" />
+            DISCONNECT_SESSION
+          </button>
+        </div>
+
+        {/* Right Column: Player List */}
+        <div className="md:col-span-7 flex flex-col gap-4">
+           <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-2xl flex-1 flex flex-col">
+              <div className="flex items-center gap-3 mb-6">
+                <Users className="w-6 h-6 text-cyan-400" />
+                <h3 className="text-2xl font-black text-white italic tracking-tight uppercase">Squad_Manifest</h3>
+              </div>
+
+              <div className="flex-1 space-y-3">
+                 <AnimatePresence>
+                    {players.map((p: any, idx: number) => (
+                      <motion.div 
+                        key={p.id}
+                        initial={{ x: 20, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        exit={{ x: -20, opacity: 0 }}
+                        className={`flex items-center justify-between p-4 rounded-xl border ${p.id === socket?.id ? 'bg-cyan-500/10 border-cyan-500/40 shadow-[0_0_20px_rgba(34,211,238,0.1)]' : 'bg-slate-900/60 border-slate-800'}`}
+                      >
+                         <div className="flex items-center gap-4">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black ${p.id === socket?.id ? 'bg-cyan-500 text-black' : 'bg-slate-800 text-slate-400'}`}>
+                               {idx + 1}
+                            </div>
+                            <div className="flex flex-col">
+                               <span className="text-sm font-black text-white tracking-widest uppercase flex items-center gap-2">
+                                  {p.id.substring(0, 8)}
+                                  {p.id === socket?.id && <span className="text-[8px] bg-cyan-500 text-black px-1 rounded">YOU</span>}
+                               </span>
+                               <span className="text-[10px] font-bold text-slate-500">OPERATIVE_ID_0x{p.id.substring(8, 12)}</span>
+                            </div>
+                         </div>
+                         <div className="flex items-center gap-3">
+                            <AnimatePresence mode="wait">
+                               {p.ready ? (
+                                 <motion.div 
+                                    key="ready"
+                                    initial={{ scale: 0 }} 
+                                    animate={{ scale: 1 }} 
+                                    className="bg-green-500/20 text-green-500 border border-green-500/40 px-3 py-1 rounded-full flex items-center gap-1.5"
+                                 >
+                                    <CheckCircle2 className="w-3 h-3" />
+                                    <span className="text-[10px] font-black uppercase">READY</span>
+                                 </motion.div>
+                               ) : (
+                                 <motion.div 
+                                    key="waiting"
+                                    initial={{ scale: 0 }} 
+                                    animate={{ scale: 1 }}
+                                    className="bg-slate-800 text-slate-500 border border-slate-700 px-3 py-1 rounded-full flex items-center gap-1.5"
+                                 >
+                                    <Circle className="w-3 h-3" />
+                                    <span className="text-[10px] font-black uppercase">WAITING</span>
+                                 </motion.div>
+                               )}
+                            </AnimatePresence>
+                            {idx === 0 && <span className="text-[10px] font-black text-orange-500 border border-orange-500/30 px-2 py-0.5 rounded">HOST</span>}
+                         </div>
+                      </motion.div>
+                    ))}
+                 </AnimatePresence>
+                 
+                 {players.length < 4 && (
+                   <div className="p-4 rounded-xl border border-dashed border-slate-800 flex items-center justify-center text-slate-700 font-bold text-xs uppercase tracking-[0.3em]">
+                      Waiting for reinforcement...
+                   </div>
+                 )}
+              </div>
+
+              <div className="mt-8">
+                 <button 
+                   onClick={onReady}
+                   disabled={localPlayer?.ready}
+                   className={`w-full py-5 rounded-2xl font-black text-lg tracking-[0.4em] italic uppercase transition-all shadow-2xl relative overflow-hidden group
+                    ${localPlayer?.ready 
+                      ? 'bg-zinc-800 text-zinc-600 cursor-default grayscale' 
+                      : 'bg-green-500 text-black hover:bg-green-400 active:scale-95'}`}
+                 >
+                    <div className="relative z-10 flex items-center justify-center gap-3">
+                       {localPlayer?.ready ? 'MOD_READY' : 'CONFIRM_READY'}
+                    </div>
+                    {!localPlayer?.ready && (
+                      <motion.div 
+                        animate={{ x: ['-100%', '100%'] }}
+                        transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+                        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent w-full"
+                      />
+                    )}
+                 </button>
+                 {isHost && players.length < 2 && (
+                   <p className="text-center text-[10px] font-bold text-orange-500 mt-2 animate-pulse uppercase">Host requires 2+ squad members to start</p>
+                 )}
+              </div>
+           </div>
+        </div>
+
+      </div>
+    </motion.div>
+  );
+}
