@@ -23,6 +23,7 @@ interface HUDProps {
   activeBuffs: { damage: number, rapidFire: number, shield: number };
   wave?: number;
   maxWave?: number;
+  waveName?: string;
   targetScore?: number;
   levelName?: string;
   levelNumber?: number;
@@ -88,7 +89,7 @@ const RadarMap = ({ targets = [], projectiles = [] }: { targets: any[], projecti
 export default function HUD({ 
   score, timeLeft, ammo, gun, dart, isReloading, combo, credits, 
   gameMode, lives,  targetsHit, targetGoal, activeBuffs,
-  wave = 2, maxWave = 3, targetScore = 45000,
+  wave = 2, maxWave = 3, waveName, targetScore = 45000,
   levelName = "SKYLINE ROOFTOP", levelNumber = 3,
   targets = [],
   warnings = [],
@@ -192,10 +193,11 @@ export default function HUD({
             {/* Sub Panel: Wave & Mission */}
             <div className="flex items-center gap-3 pl-4">
                <div className="bg-cyan-500/20 border border-cyan-500/50 px-3 py-1 skew-x-[-10deg] flex items-center gap-2">
-                 <div className="skew-x-[10deg] flex items-baseline gap-1 relative z-10">
+                 <div className="skew-x-[10deg] flex items-baseline gap-1.5 relative z-10">
                    <span className="text-[10px] font-black text-cyan-300 uppercase tracking-widest">Wave</span>
                    <span className="text-xl font-black italic">{wave}</span>
                    {maxWave && <span className="text-xs text-cyan-500">/{maxWave}</span>}
+                   {waveName && <span className="hidden sm:inline text-[9px] font-black text-cyan-400/70 tracking-[0.15em] uppercase ml-1">// {waveName}</span>}
                  </div>
                </div>
             </div>

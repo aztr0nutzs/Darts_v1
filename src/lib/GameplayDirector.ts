@@ -1,240 +1,470 @@
 import { TargetData } from '../components/Target';
 
 export type WaveObjective = 'score' | 'survival' | 'accuracy' | 'hit_count' | 'timed_rush';
+export type WaveIntensity = 'rest' | 'build' | 'normal' | 'intense' | 'boss';
 
 export interface WaveConfig {
   id: number;
   name: string;
   objective: WaveObjective;
-  objectiveValue: number; 
-  duration?: number; 
-  targetPool: string[]; 
-  spawnRateMs: number; 
-  maxConcurrent: number; 
+  objectiveValue: number;
+  duration?: number;
+  targetPool: TargetData['type'][];
+  spawnRateMs: number;
+  maxConcurrent: number;
   swarmChance: number;
-  bossTypes?: string[];
+  intensity: WaveIntensity;
+  bossTypes?: TargetData['type'][];
+  powerupChance: number;
+  depthBias: 'close' | 'mid' | 'far' | 'any';
+  lanePattern: 'center' | 'spread' | 'flanks' | 'any';
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Spawn layout
+// ─────────────────────────────────────────────────────────────────────────────
+
+const LANES = [
+  { xMin:  8, xMax: 20 },   // 0: far-left
+  { xMin: 25, xMax: 40 },   // 1: left-center
+  { xMin: 42, xMax: 58 },   // 2: center
+  { xMin: 60, xMax: 75 },   // 3: right-center
+  { xMin: 78, xMax: 92 },   // 4: far-right
+] as const;
+
+const DEPTH_Y = {
+  far:   [10, 28] as [number, number],   // high on screen → distant
+  mid:   [28, 54] as [number, number],
+  close: [52, 70] as [number, number],   // low on screen → close threat
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Weapon profiles mapped from gun IDs in Gun.tsx
+// ─────────────────────────────────────────────────────────────────────────────
+
+type WeaponProfile = 'precision' | 'heavy' | 'auto' | 'standard';
+
+const WEAPON_PROFILES: Record<string, WeaponProfile> = {
+  scout_rifle:  'precision',
+  slide_prime:  'precision',
+  iron_grip:    'precision',
+  protoscope:   'precision',
+  popper:       'precision',
+  boomer:       'heavy',
+  tactical_shotty: 'heavy',
+  rusty_rev:    'heavy',
+  heavy_dart_p: 'heavy',
+  triple_threat:'heavy',
+  compact_slinger: 'auto',
+  mini_sprayer: 'auto',
+  urban_carbine: 'auto',
+  aether_core:  'auto',
+  early_blaster: 'auto',
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 12-wave library
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const WAVES: WaveConfig[] = [
+  // ── Wave 1: CALIBRATION — gentle intro ────────────────────────────
   {
-    id: 1,
-    name: 'BASIC TRAINING',
-    objective: 'hit_count',
-    objectiveValue: 15,
-    targetPool: ['standard', 'moving', 'bonus'],
-    spawnRateMs: 1200,
-    maxConcurrent: 3,
-    swarmChance: 0
+    id: 1, name: 'CALIBRATION',
+    objective: 'hit_count', objectiveValue: 12,
+    targetPool: ['standard', 'standard', 'standard', 'moving', 'bonus'],
+    spawnRateMs: 1400, maxConcurrent: 3, swarmChance: 0,
+    intensity: 'rest', powerupChance: 0.05,
+    depthBias: 'mid', lanePattern: 'spread',
   },
+  // ── Wave 2: SKIRMISH — build-up ───────────────────────────────────
   {
-    id: 2,
-    name: 'SKIRMISH',
-    objective: 'hit_count',
-    objectiveValue: 20,
-    targetPool: ['standard', 'moving', 'armored', 'shielded'],
-    spawnRateMs: 900,
-    maxConcurrent: 5,
-    swarmChance: 0.1
+    id: 2, name: 'SKIRMISH',
+    objective: 'hit_count', objectiveValue: 18,
+    targetPool: ['standard', 'moving', 'moving', 'armored', 'bonus'],
+    spawnRateMs: 1100, maxConcurrent: 4, swarmChance: 0.10,
+    intensity: 'build', powerupChance: 0.07,
+    depthBias: 'any', lanePattern: 'spread',
   },
+  // ── Wave 3: ARMOR BREACH — introduce armored foes ─────────────────
   {
-    id: 3,
-    name: 'DRONE ASSAULT',
-    objective: 'timed_rush',
-    objectiveValue: 25,
-    duration: 30, // 30 seconds
-    targetPool: ['drone', 'moving', 'standard', 'exploding'],
-    spawnRateMs: 700,
-    maxConcurrent: 6,
-    swarmChance: 0.3
+    id: 3, name: 'ARMOR BREACH',
+    objective: 'hit_count', objectiveValue: 20,
+    targetPool: ['armored', 'armored', 'shielded', 'heavy_armor', 'standard'],
+    spawnRateMs: 1000, maxConcurrent: 4, swarmChance: 0.05,
+    intensity: 'normal', powerupChance: 0.06,
+    depthBias: 'mid', lanePattern: 'spread',
   },
+  // ── Wave 4: DRONE SWARM — fast, intense ───────────────────────────
   {
-    id: 4,
-    name: 'HEAVY RESISTANCE',
-    objective: 'survival',
-    objectiveValue: 0,
-    duration: 30,
-    targetPool: ['heavy_armor', 'shielded', 'reflector', 'hostile'],
-    spawnRateMs: 1000,
-    maxConcurrent: 4,
-    swarmChance: 0.1,
-    bossTypes: ['sentinel_bot']
+    id: 4, name: 'DRONE SWARM',
+    objective: 'timed_rush', objectiveValue: 25, duration: 30,
+    targetPool: ['drone', 'drone', 'moving', 'exploding', 'standard'],
+    spawnRateMs: 650, maxConcurrent: 7, swarmChance: 0.35,
+    intensity: 'intense', powerupChance: 0.08,
+    depthBias: 'far', lanePattern: 'any',
   },
+  // ── Wave 5: RECON PAUSE — rest after swarm ────────────────────────
   {
-    id: 5,
-    name: 'QUANTUM SHADOWS',
-    objective: 'hit_count',
-    objectiveValue: 25,
-    targetPool: ['phase_target', 'teleporting', 'decoy', 'standard'],
-    spawnRateMs: 800,
-    maxConcurrent: 5,
-    swarmChance: 0.2
+    id: 5, name: 'RECON PAUSE',
+    objective: 'hit_count', objectiveValue: 10,
+    targetPool: ['bonus', 'bonus', 'standard', 'moving'],
+    spawnRateMs: 1600, maxConcurrent: 3, swarmChance: 0,
+    intensity: 'rest', powerupChance: 0.22,
+    depthBias: 'mid', lanePattern: 'center',
   },
+  // ── Wave 6: HEAVY LINE — armored wall ─────────────────────────────
   {
-    id: 6,
-    name: 'OVERWHELM',
-    objective: 'score',
-    objectiveValue: 10000,
+    id: 6, name: 'HEAVY LINE',
+    objective: 'survival', objectiveValue: 0, duration: 35,
+    targetPool: ['heavy_armor', 'shielded', 'reflector', 'hostile', 'armored'],
+    spawnRateMs: 1050, maxConcurrent: 5, swarmChance: 0.10,
+    intensity: 'normal', bossTypes: ['sentinel_bot'],
+    powerupChance: 0.06, depthBias: 'close', lanePattern: 'spread',
+  },
+  // ── Wave 7: QUANTUM SHADOWS — tricky evasive targets ──────────────
+  {
+    id: 7, name: 'QUANTUM SHADOWS',
+    objective: 'hit_count', objectiveValue: 22,
+    targetPool: ['phase_target', 'teleporting', 'decoy', 'erratic', 'standard'],
+    spawnRateMs: 850, maxConcurrent: 5, swarmChance: 0.15,
+    intensity: 'normal', powerupChance: 0.07,
+    depthBias: 'any', lanePattern: 'any',
+  },
+  // ── Wave 8: HOSTILE INCURSION — enemies fire back ─────────────────
+  {
+    id: 8, name: 'HOSTILE INCURSION',
+    objective: 'survival', objectiveValue: 0, duration: 30,
+    targetPool: ['hostile', 'hostile', 'jammer', 'drone', 'exploding'],
+    spawnRateMs: 800, maxConcurrent: 6, swarmChance: 0.25,
+    intensity: 'intense', powerupChance: 0.08,
+    depthBias: 'mid', lanePattern: 'flanks',
+  },
+  // ── Wave 9: SURGE — score burst push ──────────────────────────────
+  {
+    id: 9, name: 'SURGE',
+    objective: 'score', objectiveValue: 8000,
+    targetPool: ['kinetic_swarm', 'exploding', 'moving', 'drone', 'hostile'],
+    spawnRateMs: 500, maxConcurrent: 8, swarmChance: 0.45,
+    intensity: 'intense', powerupChance: 0.07,
+    depthBias: 'far', lanePattern: 'any',
+  },
+  // ── Wave 10: SUPPLY DROP — accuracy rest moment ───────────────────
+  {
+    id: 10, name: 'SUPPLY DROP',
+    objective: 'accuracy', objectiveValue: 8,
+    targetPool: ['bonus', 'bonus', 'standard', 'standard'],
+    spawnRateMs: 1800, maxConcurrent: 2, swarmChance: 0,
+    intensity: 'rest', powerupChance: 0.32,
+    depthBias: 'mid', lanePattern: 'spread',
+  },
+  // ── Wave 11: SENTINEL PROTOCOL — boss wave ────────────────────────
+  {
+    id: 11, name: 'SENTINEL PROTOCOL',
+    objective: 'survival', objectiveValue: 0, duration: 40,
+    targetPool: ['drone', 'hostile', 'armored', 'moving'],
+    spawnRateMs: 900, maxConcurrent: 6, swarmChance: 0.20,
+    intensity: 'boss', bossTypes: ['sentinel_bot', 'phase_target'],
+    powerupChance: 0.06, depthBias: 'any', lanePattern: 'flanks',
+  },
+  // ── Wave 12: ORBITAL ASSAULT — climax boss wave ───────────────────
+  {
+    id: 12, name: 'ORBITAL ASSAULT',
+    objective: 'score', objectiveValue: 15000,
     targetPool: ['kinetic_swarm', 'hostile', 'drone', 'exploding', 'moving'],
-    spawnRateMs: 400,
-    maxConcurrent: 8,
-    swarmChance: 0.5,
-    bossTypes: ['orbital_array', 'warp_gate']
-  }
+    spawnRateMs: 450, maxConcurrent: 9, swarmChance: 0.50,
+    intensity: 'boss', bossTypes: ['orbital_array', 'warp_gate', 'neural_grid'],
+    powerupChance: 0.08, depthBias: 'any', lanePattern: 'any',
+  },
 ];
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Mode → wave sequence index arrays (0-based into WAVES)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const MODE_SEQUENCES: Record<string, number[]> = {
+  // classic: curated 6-wave arc that fits a 60-second match
+  classic:    [0, 1, 2, 3, 4, 5],
+  // endless: all 12, then procedural escalation past the end
+  endless:    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+  // timeAttack: 5 fast-paced waves for a 30-second sprint
+  timeAttack: [0, 3, 2, 7, 5],
+  // targetRush: hit-count waves with lots of spawns
+  targetRush: [0, 1, 3, 6, 8],
+  // hardcore: full 12-wave gauntlet, no rest
+  hardcore:   [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Per-type stat table
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface TargetStats {
+  points: number;
+  hp: number;
+  lifespan: number;
+  scale: number;
+}
+
+const TARGET_STATS: Partial<Record<TargetData['type'], TargetStats>> = {
+  warp_gate:      { points: 500, hp: 500, lifespan: 15000, scale: 1.8 },
+  orbital_array:  { points: 300, hp: 250, lifespan: 12000, scale: 1.6 },
+  aether_pylon:   { points: 450, hp: 400, lifespan: 10000, scale: 1.5 },
+  neural_grid:    { points: 350, hp: 300, lifespan: 11000, scale: 1.6 },
+  code_matrix:    { points: 200, hp: 150, lifespan:  8000, scale: 1.4 },
+  kinetic_swarm:  { points: 350, hp: 200, lifespan: 10000, scale: 1.5 },
+  gravity_tower:  { points: 200, hp: 150, lifespan:  8000, scale: 1.4 },
+  data_sphere:    { points: 200, hp: 150, lifespan:  8000, scale: 1.4 },
+  bot_sentry:     { points: 200, hp: 150, lifespan:  8000, scale: 1.4 },
+  hostile:        { points: 100, hp:  40, lifespan:  8000, scale: 1.0 },
+  sentinel_bot:   { points: 250, hp: 120, lifespan:  7000, scale: 1.5 },
+  astro_hive:     { points: 300, hp: 200, lifespan:  9000, scale: 1.5 },
+  phase_target:   { points: 150, hp:  80, lifespan:  6000, scale: 1.0 },
+  shielded:       { points:  80, hp:  60, lifespan:  6500, scale: 1.0 },
+  heavy_armor:    { points: 150, hp: 150, lifespan:  8000, scale: 1.1 },
+  armored:        { points:  50, hp:  40, lifespan:  5000, scale: 1.0 },
+  reflector:      { points: 120, hp:  80, lifespan:  7000, scale: 1.0 },
+  teleporting:    { points:  90, hp:  30, lifespan:  5000, scale: 0.9 },
+  erratic:        { points: 200, hp: 100, lifespan:  5000, scale: 0.9 },
+  decoy:          { points:  10, hp:  10, lifespan:  3000, scale: 0.8 },
+  drone:          { points:  25, hp:  10, lifespan:  4000, scale: 0.8 },
+  exploding:      { points:  40, hp:  10, lifespan:  3000, scale: 1.0 },
+  jammer:         { points:  60, hp:  30, lifespan:  5000, scale: 1.0 },
+  moving:         { points:  30, hp:  10, lifespan:  4500, scale: 1.0 },
+  bonus:          { points:  75, hp:  10, lifespan:  2500, scale: 0.8 },
+  powerup_damage: { points:   0, hp:  10, lifespan:  4000, scale: 0.9 },
+  powerup_rapid:  { points:   0, hp:  10, lifespan:  4000, scale: 0.9 },
+  powerup_shield: { points:   0, hp:  10, lifespan:  4000, scale: 0.9 },
+};
+
+const DEFAULT_STATS: TargetStats = { points: 15, hp: 10, lifespan: 3500, scale: 1.0 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GameplayDirector class
+// ─────────────────────────────────────────────────────────────────────────────
+
 export class GameplayDirector {
-  private waveIndex: number = 0;
+  private sequenceIndex: number = 0;  // position within the mode's wave sequence
   private currentWave: WaveConfig;
   private waveStartTime: number = 0;
   private waveTargetsHit: number = 0;
   private waveScoreStart: number = 0;
   private idCounter: number = 0;
-  
+  private mode: string = 'classic';
+  private sequence: number[] = MODE_SEQUENCES.classic;
+
   constructor() {
     this.currentWave = WAVES[0];
   }
 
-  startMatch() {
-    this.waveIndex = 0;
-    this.startWave(this.waveIndex);
+  startMatch(mode: string = 'classic') {
+    this.mode = mode;
+    this.sequence = MODE_SEQUENCES[mode] ?? MODE_SEQUENCES.classic;
+    this.sequenceIndex = 0;
+    this._applySequenceIndex(0, 0);
   }
 
-  startWave(index: number, currentScore: number = 0) {
-    this.waveIndex = Math.min(index, WAVES.length - 1);
-    this.currentWave = WAVES[this.waveIndex];
+  startWave(seqIndex: number, currentScore: number = 0) {
+    this._applySequenceIndex(seqIndex, currentScore);
+  }
+
+  getWaveIndex() {
+    return this.sequenceIndex;
+  }
+
+  getWaveName(): string {
+    return this.currentWave.name;
+  }
+
+  getMaxWaves(): number {
+    return this.sequence.length;
+  }
+
+  getWaveConfig(): WaveConfig {
+    return this._effectiveConfig();
+  }
+
+  handleTargetDestroyed(_type: string) {
+    this.waveTargetsHit++;
+  }
+
+  checkWaveCompletion(currentScore: number, accuracy: number): boolean {
+    const wave = this.currentWave;
+    const elapsed = (Date.now() - this.waveStartTime) / 1000;
+
+    switch (wave.objective) {
+      case 'hit_count':  return this.waveTargetsHit >= wave.objectiveValue;
+      case 'score':      return (currentScore - this.waveScoreStart) >= wave.objectiveValue;
+      case 'survival':   return elapsed >= (wave.duration ?? 30);
+      case 'accuracy':   return this.waveTargetsHit >= wave.objectiveValue && accuracy >= 70;
+      case 'timed_rush': return this.waveTargetsHit >= wave.objectiveValue;
+    }
+    return false;
+  }
+
+  generateSpawn(activeTargetCount: number, weaponId: string): TargetData[] {
+    const config = this._effectiveConfig();
+    if (activeTargetCount >= config.maxConcurrent) return [];
+
+    const profile: WeaponProfile = WEAPON_PROFILES[weaponId] ?? 'standard';
+    let typePool = [...config.targetPool];
+    let depthBias = config.depthBias;
+    let swarmChance = config.swarmChance;
+
+    // ── Weapon training: tune spawns to match the equipped weapon ──
+    if (profile === 'precision') {
+      // Precision rifles reward accurate long-range shots
+      typePool.push('phase_target', 'teleporting', 'erratic');
+      depthBias = 'far';
+    } else if (profile === 'heavy') {
+      // Heavy blasters are rewarded with armored targets they can crack
+      typePool.push('armored', 'heavy_armor', 'armored');
+      if (depthBias === 'far') depthBias = 'mid'; // bring targets closer
+    } else if (profile === 'auto') {
+      // Auto-blasters excel in swarms
+      swarmChance = Math.min(0.9, swarmChance + 0.15);
+    }
+
+    // ── Boss spawn: when the arena clears, give the boss a stage ───
+    if (config.bossTypes?.length && activeTargetCount === 0 && Math.random() < 0.06) {
+      const boss = config.bossTypes[Math.floor(Math.random() * config.bossTypes.length)];
+      return [this._makeTarget(boss, depthBias, config.lanePattern)];
+    }
+
+    // ── Powerup injection ─────────────────────────────────────────
+    if (this.mode !== 'hardcore' && Math.random() < config.powerupChance) {
+      const r = Math.random();
+      const pu: TargetData['type'] = r > 0.66 ? 'powerup_damage' : r > 0.33 ? 'powerup_rapid' : 'powerup_shield';
+      typePool.push(pu);
+    }
+
+    // ── Swarm burst ───────────────────────────────────────────────
+    let spawnCount = 1;
+    if (Math.random() < swarmChance) {
+      spawnCount = 3;
+      typePool.push('moving', 'drone');
+    }
+
+    const spawns: TargetData[] = [];
+    for (let i = 0; i < spawnCount; i++) {
+      if (activeTargetCount + spawns.length >= config.maxConcurrent) break;
+      const type = typePool[Math.floor(Math.random() * typePool.length)];
+      spawns.push(this._makeTarget(type, depthBias, config.lanePattern));
+    }
+    return spawns;
+  }
+
+  // ── Private helpers ────────────────────────────────────────────────
+
+  private _applySequenceIndex(seqIndex: number, currentScore: number) {
+    // Allow the sequence to loop from a mid-point for classic/timeAttack
+    const loopStart = this.mode === 'endless' || this.mode === 'hardcore' ? 0 : 2;
+    const clampedIndex = seqIndex < this.sequence.length
+      ? seqIndex
+      : loopStart + ((seqIndex - loopStart) % Math.max(1, this.sequence.length - loopStart));
+
+    this.sequenceIndex = clampedIndex;
+
+    const waveArrayIndex = this.sequence[clampedIndex] ?? this.sequence[this.sequence.length - 1];
+    this.currentWave = { ...WAVES[waveArrayIndex] };
+
     this.waveStartTime = Date.now();
     this.waveTargetsHit = 0;
     this.waveScoreStart = currentScore;
   }
 
-  getWaveConfig() {
-    return this.currentWave;
+  private _effectiveConfig(): WaveConfig {
+    // For endless mode past the known waves, escalate difficulty procedurally.
+    if (this.mode === 'endless' && this.sequenceIndex >= this.sequence.length) {
+      return this._proceduralEndlessConfig();
+    }
+
+    let config = { ...this.currentWave };
+
+    // Hardcore: 50% faster, no rest breathing room
+    if (this.mode === 'hardcore') {
+      config.spawnRateMs = Math.round(config.spawnRateMs * 0.55);
+      config.swarmChance = Math.min(0.9, config.swarmChance + 0.12);
+      config.powerupChance = 0;
+      config.maxConcurrent = Math.min(12, config.maxConcurrent + 1);
+    }
+
+    // TimeAttack: tighter windows, everything moves faster
+    if (this.mode === 'timeAttack') {
+      config.spawnRateMs = Math.round(config.spawnRateMs * 0.75);
+      config.maxConcurrent = Math.min(10, config.maxConcurrent + 1);
+    }
+
+    return config;
   }
 
-  getWaveIndex() {
-    return this.waveIndex;
-  }
+  private _proceduralEndlessConfig(): WaveConfig {
+    const overflow = this.sequenceIndex - this.sequence.length;
+    const escalation = Math.floor(overflow / 2);
 
-  handleTargetDestroyed(type: string) {
-    this.waveTargetsHit++;
-  }
-
-  // Returns true if wave is completed
-  checkWaveCompletion(currentScore: number, accuracy: number): boolean {
-    const wave = this.currentWave;
-    const elapsed = (Date.now() - this.waveStartTime) / 1000;
-    
-    switch (wave.objective) {
-      case 'hit_count':
-        return this.waveTargetsHit >= wave.objectiveValue;
-      case 'score':
-        return (currentScore - this.waveScoreStart) >= wave.objectiveValue;
-      case 'survival':
-        return elapsed >= (wave.duration || 30);
-      case 'accuracy':
-        return this.waveTargetsHit >= wave.objectiveValue && accuracy >= 70;
-      case 'timed_rush':
-        return this.waveTargetsHit >= wave.objectiveValue; 
-    }
-    return false;
-  }
-  
-  generateSpawn(activeTargetCount: number, weaponType: string): TargetData[] {
-    if (activeTargetCount >= this.currentWave.maxConcurrent) return [];
-    
-    // Weapon Training logic:
-    // If weapon is short range (shotgun), spawn closer (lower Y / specific behavior if 3D, here we just use what we have - maybe bigger targets).
-    // If weapon is sniper, spawn 'elite' or 'sniper' targets more often.
-    
-    let spawnCount = 1;
-    let typePool = [...this.currentWave.targetPool];
-    
-    if (weaponType === 'auto') {
-      // Swarm moments for auto blasters
-      if (Math.random() < 0.3) {
-        spawnCount = 3;
-        typePool = ['moving', 'drone', 'standard'];
-      }
-    } else if (weaponType === 'heavy') {
-      if (Math.random() < 0.4) {
-        typePool.push('armored', 'heavy_armor');
-      }
-    } else if (weaponType === 'precision') {
-      typePool.push('phase_target', 'teleporting', 'erratic');
-    }
-
-    if (Math.random() < this.currentWave.swarmChance) {
-      spawnCount = 3;
-      typePool.push('moving', 'drone');
-    }
-
-    // Boss spawn check
-    if (this.currentWave.bossTypes && this.currentWave.bossTypes.length > 0 && Math.random() < 0.05 && activeTargetCount === 0) {
-      const boss = this.currentWave.bossTypes[Math.floor(Math.random() * this.currentWave.bossTypes.length)] as TargetData['type'];
-      return [this.createTarget(boss)];
-    }
-
-    // Occasional powerups
-    if (Math.random() < 0.08) {
-      const p = Math.random();
-      if (p > 0.66) typePool.push('powerup_damage');
-      else if (p > 0.33) typePool.push('powerup_rapid');
-      else typePool.push('powerup_shield');
-    }
-
-    const spawns: TargetData[] = [];
-    for (let i = 0; i < spawnCount; i++) {
-        const type = typePool[Math.floor(Math.random() * typePool.length)] as TargetData['type'];
-        spawns.push(this.createTarget(type));
-    }
-    return spawns;
-  }
-
-  private createTarget(type: TargetData['type']): TargetData {
-    this.idCounter++;
-    
-    let points = 20;
-    let hp = 10;
-    let lifespan = 4000;
-    let scale = 1;
-
-    switch (type) {
-      case 'warp_gate': points = 500; lifespan = 15000; hp = 500; break;
-      case 'orbital_array': points = 300; lifespan = 12000; hp = 250; break;
-      case 'aether_pylon': points = 450; lifespan = 10000; hp = 400; break;
-      case 'code_matrix': points = 200; lifespan = 8000; hp = 150; break;
-      case 'kinetic_swarm': points = 350; lifespan = 10000; hp = 200; break;
-      case 'hostile': points = 100; lifespan = 8000; hp = 40; break;
-      case 'sentinel_bot': points = 250; lifespan = 7000; hp = 120; break;
-      case 'phase_target': points = 150; lifespan = 6000; hp = 80; break;
-      case 'shielded': points = 80; lifespan = 6500; hp = 60; break;
-      case 'heavy_armor': points = 150; lifespan = 8000; hp = 150; break;
-      case 'armored': points = 50; lifespan = 5000; hp = 40; break;
-      case 'reflector': points = 120; lifespan = 7000; hp = 80; break;
-      case 'teleporting': points = 90; lifespan = 5000; hp = 30; break;
-      case 'decoy': points = 10; lifespan = 3000; hp = 10; break;
-      case 'erratic': points = 200; lifespan = 5000; hp = 100; break;
-      case 'drone': points = 25; lifespan = 4000; hp = 10; break;
-      case 'exploding': points = 40; lifespan = 3000; hp = 10; break;
-      case 'powerup_damage':
-      case 'powerup_rapid':
-      case 'powerup_shield': points = 0; lifespan = 4000; hp = 10; break;
-      case 'moving': points = 30; lifespan = 4500; hp = 10; break;
-      case 'bonus': points = 75; lifespan = 2500; hp = 10; break;
-      default: points = 15; lifespan = 3500; hp = 10; break;
-    }
+    const bossCandidates: TargetData['type'][] = [
+      'orbital_array', 'warp_gate', 'neural_grid', 'kinetic_swarm', 'sentinel_bot'
+    ];
+    const elitePool: TargetData['type'][] = [
+      'kinetic_swarm', 'hostile', 'drone', 'exploding', 'moving', 'heavy_armor'
+    ];
+    if (overflow >= 3) elitePool.push('orbital_array', 'warp_gate');
+    if (overflow >= 5) elitePool.push('neural_grid', 'aether_pylon', 'gravity_tower');
 
     return {
-      id: `target-dir-${this.idCounter}`,
-      x: 15 + Math.random() * 70,
-      y: 15 + Math.random() * 50,
+      id: 12 + overflow + 1,
+      name: overflow % 2 === 0 ? 'ENDLESS SURGE' : 'CRITICAL MASS',
+      objective: overflow % 3 === 0 ? 'survival' : 'score',
+      objectiveValue: overflow % 3 === 0 ? 0 : 10000 + escalation * 3000,
+      duration: 30,
+      targetPool: elitePool,
+      spawnRateMs: Math.max(280, 450 - escalation * 25),
+      maxConcurrent: Math.min(12, 9 + Math.floor(escalation / 2)),
+      swarmChance: Math.min(0.85, 0.5 + escalation * 0.05),
+      intensity: overflow % 4 === 0 ? 'boss' : 'intense',
+      bossTypes: overflow % 4 === 0 ? [bossCandidates[escalation % bossCandidates.length]] : undefined,
+      powerupChance: 0.05,
+      depthBias: 'any',
+      lanePattern: 'any',
+    };
+  }
+
+  private _makeTarget(type: TargetData['type'], depthBias: WaveConfig['depthBias'], lanePattern: WaveConfig['lanePattern']): TargetData {
+    this.idCounter++;
+
+    // Resolve spawn position
+    const laneIndices = this._laneIndices(lanePattern);
+    const lane = LANES[laneIndices[Math.floor(Math.random() * laneIndices.length)]];
+    const x = lane.xMin + Math.random() * (lane.xMax - lane.xMin);
+
+    const depth: 'close' | 'mid' | 'far' =
+      depthBias === 'any'
+        ? (['close', 'mid', 'far'] as const)[Math.floor(Math.random() * 3)]
+        : depthBias;
+    const [yMin, yMax] = DEPTH_Y[depth];
+    const y = yMin + Math.random() * (yMax - yMin);
+
+    const stats = TARGET_STATS[type] ?? DEFAULT_STATS;
+
+    return {
+      id: `tgt-${this.idCounter}`,
+      x,
+      y,
       type,
       createdAt: Date.now(),
-      lifespan,
-      points,
-      hp,
-      maxHp: hp,
-      scale
+      lifespan: stats.lifespan,
+      points: stats.points,
+      hp: stats.hp,
+      maxHp: stats.hp,
+      scale: stats.scale,
     };
+  }
+
+  private _laneIndices(pattern: WaveConfig['lanePattern']): number[] {
+    switch (pattern) {
+      case 'center': return [1, 2, 3];
+      case 'flanks': return [0, 4];
+      case 'spread': return [0, 1, 2, 3, 4];
+      default:       return [0, 1, 2, 3, 4];
+    }
   }
 }

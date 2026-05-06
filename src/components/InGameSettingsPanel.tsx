@@ -112,6 +112,53 @@ export function InGameSettingsPanel({ settings, setSettings, onClose }: any) {
                  </div>
                </div>
 
+               <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-800 flex justify-between items-center">
+                 <div className="flex flex-col">
+                   <span className="font-bold text-white mb-1">Screen Effects</span>
+                   <span className="text-[10px] sm:text-xs text-slate-500">Flash, shake & lens effects</span>
+                 </div>
+                 <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800">
+                   <button onClick={() => updateSetting('screenEffects', false)} className={`px-3 py-2 rounded-md text-[10px] font-bold transition-all ${settings.screenEffects === false ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'}`}>OFF</button>
+                   <button onClick={() => updateSetting('screenEffects', true)} className={`px-3 py-2 rounded-md text-[10px] font-bold transition-all ${settings.screenEffects !== false ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'}`}>ON</button>
+                 </div>
+               </div>
+
+             </div>
+          </div>
+
+          <div className="h-px bg-slate-800" />
+
+          {/* Audio & Haptics */}
+          <div className="flex flex-col gap-4">
+             <div className="flex items-center gap-2 mb-2">
+                <Volume2 className="w-5 h-5 text-fuchsia-400" />
+                <h3 className="text-sm font-black text-slate-300 uppercase tracking-widest">Audio & Haptics</h3>
+             </div>
+
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-800 flex justify-between items-center">
+                 <div className="flex flex-col">
+                   <span className="font-bold text-white mb-1">Sound Volume</span>
+                   <span className="text-[10px] sm:text-xs text-slate-500">Master volume for all SFX</span>
+                 </div>
+                 <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800">
+                   <button onClick={() => updateSetting('soundVolume', 0)} className={`px-3 py-2 rounded-md text-[10px] font-bold transition-all ${(settings.soundVolume ?? 0.7) === 0 ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'}`}>OFF</button>
+                   <button onClick={() => updateSetting('soundVolume', 0.35)} className={`px-3 py-2 rounded-md text-[10px] font-bold transition-all ${(settings.soundVolume ?? 0.7) === 0.35 ? 'bg-fuchsia-600 text-white' : 'text-slate-400 hover:text-white'}`}>LOW</button>
+                   <button onClick={() => updateSetting('soundVolume', 0.7)} className={`px-3 py-2 rounded-md text-[10px] font-bold transition-all ${(settings.soundVolume ?? 0.7) === 0.7 ? 'bg-fuchsia-600 text-white' : 'text-slate-400 hover:text-white'}`}>MED</button>
+                   <button onClick={() => updateSetting('soundVolume', 1.0)} className={`px-3 py-2 rounded-md text-[10px] font-bold transition-all ${(settings.soundVolume ?? 0.7) === 1.0 ? 'bg-fuchsia-600 text-white' : 'text-slate-400 hover:text-white'}`}>MAX</button>
+                 </div>
+               </div>
+
+               <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-800 flex justify-between items-center">
+                 <div className="flex flex-col">
+                   <span className="font-bold text-white mb-1">Haptic Feedback</span>
+                   <span className="text-[10px] sm:text-xs text-slate-500">Vibration on fire, hit, reload</span>
+                 </div>
+                 <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800">
+                   <button onClick={() => updateSetting('hapticsEnabled', false)} className={`px-4 py-2 rounded-md text-xs font-bold transition-all ${settings.hapticsEnabled === false ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'}`}>OFF</button>
+                   <button onClick={() => updateSetting('hapticsEnabled', true)} className={`px-4 py-2 rounded-md text-xs font-bold transition-all ${settings.hapticsEnabled !== false ? 'bg-fuchsia-600 text-white' : 'text-slate-400 hover:text-white'}`}>ON</button>
+                 </div>
+               </div>
              </div>
           </div>
 
