@@ -22,6 +22,7 @@ import CountdownOverlay from './components/CountdownOverlay';
 import MultiplayerLobby from './components/MultiplayerLobby';
 import ResultsOverlay from './components/ResultsOverlay';
 import { GameplayDirector } from './lib/GameplayDirector';
+import { resolveShotHit } from './lib/ShotResolver';
 
 export type DartType = {
   id: string;
@@ -556,6 +557,7 @@ export default function App() {
   const [isReloading, setIsReloading] = useState(false);
   const [isShooting, setIsShooting] = useState(false);
   const [targets, setTargets] = useState<TargetData[]>([]);
+  const targetsRef = useRef<TargetData[]>([]);
   const [darts, setDarts] = useState<DartData[]>([]);
   const [hitEffects, setHitEffects] = useState<HitEffectData[]>([]);
   const [enemyDarts, setEnemyDarts] = useState<any[]>([]);
@@ -826,6 +828,11 @@ export default function App() {
   useEffect(() => {
     gameModeRef.current = gameMode;
   }, [gameMode]);
+
+  // Keep targetsRef in sync so fire() setTimeout closures always see current targets.
+  useEffect(() => {
+    targetsRef.current = targets;
+  }, [targets]);
 
   // Sync local score from authoritative server state during multiplayer.
   useEffect(() => {
@@ -1393,56 +1400,23 @@ export default function App() {
         // Hit Resolver
         const travelMs = upgradedGun.dartType.speed;
         setTimeout(() => {
-          // Resolve hit using document.elementsFromPoint when dart visually lands
-          const hitPixelX = rect.left + endX;
-          const hitPixelY = rect.top + endY;
-          
-          // Use elementsFromPoint to find the top-most element
-          const elements = document.elementsFromPoint(hitPixelX, hitPixelY);
-          const targetEl = elements?.find(el => el.closest('[data-target="true"]'))?.closest('[data-target="true"]') as HTMLElement;
-          const hitZoneEl = elements?.find(el => el.hasAttribute('data-hit-zone')) as HTMLElement;
-          
-          if (targetEl) {
-            const targetId = targetEl.getAttribute('data-target-id');
-            if (targetId) {
-              const hitRect = targetEl.getBoundingClientRect();
-              const relX = hitPixelX - hitRect.left;
-              const relY = hitPixelY - hitRect.top;
-              
-              // Evaluate hit quality
-              const cx = hitRect.width / 2;
-              const cy = hitRect.height / 2;
-              const dist = Math.hypot(relX - cx, relY - cy);
-              const maxDist = Math.max(hitRect.width, hitRect.height) / 2;
-              
-              let quality = 'normal';
-              if (hitZoneEl) {
-                const zone = hitZoneEl.getAttribute('data-hit-zone');
-                if (zone) quality = zone;
-              } else if (dist < maxDist * 0.25) {
-                quality = 'center';
-              } else if (dist > maxDist * 0.8) {
-                quality = 'graze';
-              }
-              
-              handleTargetHit(targetId, (endX / rect.width) * 100, (endY / rect.height) * 100, quality);
-            }
+          const hitResult = resolveShotHit(endX, endY, rect.width, rect.height, targetsRef.current);
+
+          if (hitResult) {
+            handleTargetHit(hitResult.targetId, (endX / rect.width) * 100, (endY / rect.height) * 100, hitResult.quality);
           } else {
             // Miss Effect
             const effectId = `miss-${hitEffectIdCounter.current++}`;
             setHitEffects(curr => [...curr, { id: effectId, x: (endX / rect.width) * 100, y: (endY / rect.height) * 100, color: upgradedGun.dartType.color, isMiss: true }]);
-            // Clean up miss effect
             setTimeout(() => {
                setHitEffects(curr => curr.filter(h => h.id !== effectId));
             }, 600);
-            
-            // Reset combo on miss
+
             setCombo(0);
-            
-            // Endless mode penalty
+
             setGameMode(currMode => {
                if (currMode === 'endless') {
-                 takeDamage(1); 
+                 takeDamage(1);
                }
                return currMode;
             });
@@ -1680,7 +1654,8 @@ export default function App() {
       
       const comboMultiplier = Math.min(newCombo, 5);
       const isCriticalHitForScore = target.type === 'erratic' || isCrit || Date.now() < activeBuffs.damage;
-      const totalPoints = Math.round(target.points * comboMultiplier * (isCriticalHitForScore ? 2 : 1) * (quality === 'center' ? 1.5 : 1));
+      const qualityScoreBonus = quality === 'weak_point' ? 2.0 : quality === 'center' ? 1.5 : quality === 'graze' ? 0.75 : 1.0;
+      const totalPoints = Math.round(target.points * comboMultiplier * (isCriticalHitForScore ? 2 : 1) * qualityScoreBonus);
       
       setScore(s => s + totalPoints);
 
@@ -2048,6 +2023,8 @@ export default function App() {
           onContextMenu={(e) => e.preventDefault()}
           onPointerMove={(e) => {
             pointerDownPos.current = { x: e.clientX, y: e.clientY };
+            cursorX.set(e.clientX);
+            cursorY.set(e.clientY);
             const rect = gameAreaRef.current?.getBoundingClientRect();
             if (rect) {
               const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
