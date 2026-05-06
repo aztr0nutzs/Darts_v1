@@ -1,9 +1,9 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Trophy, Target, Zap, Clock, Coins, 
-  Home, RefreshCw, ChevronRight, Activity, 
-  Terminal, Shield, Users, Crosshair, Award
+import {
+  Trophy, Target, Zap, Clock, Coins,
+  Home, RefreshCw, ChevronRight, Activity,
+  Terminal, Shield, Users, Crosshair, Award, Layers
 } from 'lucide-react';
 import { GameMode } from '../App';
 
@@ -18,6 +18,7 @@ interface ResultsOverlayProps {
   weakPointHits: number;
   shotsFiredPerWeapon: Record<string, number>;
   earnedCredits: number;
+  waveReached?: number;
   onRestart: () => void;
   onMenu: () => void;
   multiplayerState?: any;
@@ -36,6 +37,7 @@ export default function ResultsOverlay({
   weakPointHits,
   shotsFiredPerWeapon,
   earnedCredits,
+  waveReached,
   onRestart,
   onMenu,
   multiplayerState,
@@ -97,13 +99,17 @@ export default function ResultsOverlay({
           
           {/* Main Stats Column */}
           <div className="md:col-span-7 flex flex-col gap-6">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <StatItem label="Precision_Rate" value={`${accuracy}%`} icon={Target} color="text-white" />
               <StatItem label="Entities_Neutralized" value={targetsHit} icon={Zap} color="text-cyan-400" />
               <StatItem label="Max_Sequence" value={`x${maxCombo}`} icon={ChevronRight} color="text-fuchsia-400" />
               <StatItem label="Combat_Score" value={score.toLocaleString()} icon={Activity} color="text-orange-500" />
               <StatItem label="Weak_Points" value={weakPointHits} icon={Crosshair} color="text-red-400" />
+              <StatItem label="Shots_Fired" value={totalShots} icon={Terminal} color="text-slate-300" />
               <StatItem label="Fav_Weapon" value={favoriteWeaponName} icon={Award} color="text-purple-400" />
+              {waveReached != null && (
+                <StatItem label="Wave_Reached" value={waveReached} icon={Layers} color="text-yellow-400" />
+              )}
             </div>
 
             <div className="bg-slate-900/60 border-2 border-yellow-500/30 p-8 rounded-3xl relative overflow-hidden group">

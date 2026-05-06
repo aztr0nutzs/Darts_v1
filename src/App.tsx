@@ -884,6 +884,7 @@ export default function App() {
   };
 
   const startGame = (mode: GameMode = gameMode) => {
+    directorRef.current.startMatch(mode);
     setGameMode(mode);
     setGameState('playing');
     setShowCountdown(true);
@@ -901,6 +902,8 @@ export default function App() {
     setShotsFiredPerWeapon({});
     setEarnedCredits(0);
     setActiveBuffs({ damage: 0, rapidFire: 0, shield: 0 });
+    setWave(1);
+    setMaxWave(directorRef.current.getMaxWaves());
     setCurrentArena(ARENAS[Math.floor(Math.random() * ARENAS.length)]);
   };
 
@@ -1869,6 +1872,7 @@ export default function App() {
             weakPointHits={weakPointHits}
             shotsFiredPerWeapon={shotsFiredPerWeapon}
             earnedCredits={earnedCredits}
+            waveReached={gameMode !== 'multiplayer' ? wave : undefined}
             onRestart={() => startGame(gameMode)}
             onMenu={() => setGameState('menu')}
             multiplayerState={multiplayerState}
@@ -2071,6 +2075,7 @@ export default function App() {
                 activeBuffs={activeBuffs}
                 wave={wave}
                 maxWave={maxWave}
+                waveName={directorRef.current.getWaveName()}
                 targetScore={targetScoreGoal}
                 levelName={currentArena.name}
                 levelNumber={currentArena.level}
