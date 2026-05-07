@@ -85,6 +85,16 @@ type CombatTextData = {
 };
 
 type HitMarkerType = 'normal' | 'crit' | 'critKill' | 'kill' | 'armor';
+type TargetFeedbackKind = NonNullable<TargetData['feedbackKind']>;
+
+function feedbackForHit(quality: string | undefined, isCrit: boolean, isDestroyed: boolean): TargetFeedbackKind {
+  if (isDestroyed && isCrit) return 'critical_kill';
+  if (isDestroyed) return 'kill';
+  if (isCrit || quality === 'weak_point' || quality === 'center') return 'critical_hit';
+  if (quality === 'armor') return 'armor_deflect';
+  if (quality === 'graze') return 'graze_hit';
+  return 'body_hit';
+}
 
 function CombatText({ text, x, y, color, isCritical }: { key?: React.Key; text: string; x: number; y: number; color: string; isCritical?: boolean }) {
   return (
@@ -926,6 +936,7 @@ export default function App() {
   const [ammo, setAmmo] = useState(GUNS.peacemaker.maxAmmo);
   const [isReloading, setIsReloading] = useState(false);
   const [isShooting, setIsShooting] = useState(false);
+  const [weaponFeedback, setWeaponFeedback] = useState<'critical' | 'empty' | 'reload' | undefined>(undefined);
   const [targets, setTargets] = useState<TargetData[]>([]);
   const targetsRef = useRef<TargetData[]>([]);
   const [darts, setDarts] = useState<DartData[]>([]);
@@ -1006,6 +1017,12 @@ export default function App() {
       return { leftHanded: false, hudScale: 'normal', crosshairStyle: 'tactical', hitMarkers: true, showFireButton: true, controlScale: 1.0, soundVolume: 0.7, hapticsEnabled: true, screenEffects: true };
     }
   });
+
+  const triggerWeaponFeedback = useCallback((kind: 'critical' | 'empty' | 'reload') => {
+    setWeaponFeedback(kind);
+    const ms = kind === 'empty' ? 95 : kind === 'reload' ? 170 : 150;
+    setTimeout(() => setWeaponFeedback(undefined), ms);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('dart_uiSettings', JSON.stringify(uiSettings));
@@ -1655,8 +1672,9 @@ export default function App() {
       setIsReloading(false);
       vibrate(HAPTIC.RELOAD_FINISH);
       sounds.playReloadFinish(currentGun.id);
+      triggerWeaponFeedback('reload');
     }, reloadDuration);
-  }, [isReloading, ammo, currentGun, activeBuffs]);
+  }, [isReloading, ammo, currentGun, activeBuffs, triggerWeaponFeedback]);
 
   const handleShoot = useCallback((e?: React.PointerEvent | { clientX: number, clientY: number }) => {
     if (gameState !== 'playing' || isReloading || showCountdown) return;
@@ -1665,6 +1683,7 @@ export default function App() {
       setIsFiring(false);
       sounds.playEmptyClick();
       vibrate(HAPTIC.EMPTY);
+      triggerWeaponFeedback('empty');
       reload();
       return;
     }
@@ -1753,10 +1772,8 @@ export default function App() {
         const isCritHit = isCrit || serverQuality === 'weak_point' || serverQuality === 'center';
         if (result.targetId || result.id) {
           const hitTargetId = result.targetId ?? result.id;
-          const feedbackKind = isDestroyed && isCritHit ? 'critical_kill' : isCritHit ? 'critical_hit' : serverQuality === 'armor' ? 'armor_deflect' : undefined;
-          if (feedbackKind) {
-            setTargets(prev => prev.map(t => t.id === hitTargetId ? { ...t, feedbackKind, feedbackNonce: Date.now() } : t));
-          }
+          const feedbackKind = feedbackForHit(serverQuality, isCritHit, isDestroyed);
+          setTargets(prev => prev.map(t => t.id === hitTargetId ? { ...t, feedbackKind, feedbackNonce: Date.now() } : t));
         }
 
         const effectId = `hit-${hitEffectIdCounter.current++}`;
@@ -1786,6 +1803,7 @@ export default function App() {
           setTimeout(() => setKillFlash(false), 150);
           setTimeout(() => setShakeIntensity(0), 280);
           triggerHitPause('kill');
+          triggerWeaponFeedback('critical');
           sounds.playCritKill();
           vibrate(HAPTIC.CRIT_KILL);
         } else if (isDestroyed) {
@@ -1800,6 +1818,7 @@ export default function App() {
           setTimeout(() => setCritFlash(false), 100);
           setTimeout(() => setShakeIntensity(0), 160);
           triggerHitPause('crit');
+          triggerWeaponFeedback('critical');
           sounds.playCritHit();
           vibrate(HAPTIC.CRIT_HIT);
         } else if (serverQuality === 'armor') {
@@ -1957,12 +1976,14 @@ export default function App() {
                 setTimeout(() => setCritFlash(false), 130);
                 setTimeout(() => setKillFlash(false), 150);
                 triggerHitPause('kill');
+                triggerWeaponFeedback('critical');
                 sounds.playCritKill();
                 vibrate(HAPTIC.CRIT_KILL);
               } else if (isCrit) {
                 setCritFlash(true);
                 setTimeout(() => setCritFlash(false), 100);
                 triggerHitPause('crit');
+                triggerWeaponFeedback('critical');
                 sounds.playCritHit();
                 vibrate(HAPTIC.CRIT_HIT);
               } else if (bossResult.hitZone === 'armor') {
@@ -2028,7 +2049,7 @@ export default function App() {
     } else if (upgradedGun.fireMode === 'auto') {
       fire(targetPos);
     }
-  }, [gameState, isReloading, ammo, reload, upgradedGun, isADS, gameMode, socket, roomId, currentGun, combo, lastHitTime, recoilBuildup]);
+  }, [gameState, isReloading, ammo, reload, upgradedGun, isADS, gameMode, socket, roomId, currentGun, combo, lastHitTime, recoilBuildup, triggerWeaponFeedback]);
 
   // Support for fully automatic firing
   const autoFireInterval = useRef<number | null>(null);
@@ -2163,6 +2184,7 @@ export default function App() {
         setTimeout(() => setKillFlash(false), 150);
         setTimeout(() => setShakeIntensity(0), 280);
         triggerHitPause('kill');
+        triggerWeaponFeedback('critical');
         sounds.playCritKill();
         vibrate(HAPTIC.CRIT_KILL);
       } else if (isDestroyed) {
@@ -2179,6 +2201,7 @@ export default function App() {
         setTimeout(() => setCritFlash(false), 100);
         setTimeout(() => setShakeIntensity(0), 160);
         triggerHitPause('crit');
+        triggerWeaponFeedback('critical');
         sounds.playCritHit();
         vibrate(HAPTIC.CRIT_HIT);
       } else if (quality === 'armor') {
@@ -2203,7 +2226,7 @@ export default function App() {
         let updatedTarget: TargetData = {
           ...target,
           hp: newHp,
-          feedbackKind: isCrit ? 'critical_hit' : quality === 'armor' ? 'armor_deflect' : undefined,
+          feedbackKind: feedbackForHit(quality, isCrit, false),
           feedbackNonce: Date.now(),
         };
         
@@ -2279,7 +2302,7 @@ export default function App() {
       setMaxCombo(prev => Math.max(prev, newCombo));
       setLastHitTime(now);
       
-      vibrate(HAPTIC.DESTROY);
+      if (!isCrit) vibrate(HAPTIC.DESTROY);
       
       const comboMultiplier = Math.min(newCombo, 5);
       const isCriticalHitForScore = target.type === 'erratic' || isCrit || Date.now() < activeBuffs.damage;
@@ -2377,7 +2400,7 @@ export default function App() {
 
       return targetsToKeep;
     });
-  }, [gameState, isReloading, ammo, combo, lastHitTime, currentGun, gameMode, activeBuffs]);
+  }, [gameState, isReloading, ammo, combo, lastHitTime, currentGun, gameMode, activeBuffs, triggerWeaponFeedback]);
 
   const removeDart = useCallback((id: string) => {
     setDarts(prev => prev.filter(d => d.id !== id));
@@ -2896,6 +2919,7 @@ export default function App() {
                 recoilBuildup={recoilBuildup}
                 isADS={isADS}
                 muzzleRef={muzzleRef}
+                weaponFeedback={weaponFeedback}
               />
             </>
           )}

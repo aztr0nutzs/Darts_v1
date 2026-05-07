@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { Zap, Shield, Swords } from 'lucide-react';
 import { getTargetAsset } from '../lib/assetRegistry';
-import { MountFrame, getMountType } from './TargetMounts';
+import { MountFrame, REACTION_PROFILES, getMountType, getTargetWeightClass } from './TargetMounts';
 
 export type TargetData = {
   id: string;
@@ -19,7 +19,7 @@ export type TargetData = {
   maxHp: number;
   scale?: number;
   nextFireTime?: number;
-  feedbackKind?: 'critical_hit' | 'critical_kill' | 'armor_deflect';
+  feedbackKind?: 'graze_hit' | 'body_hit' | 'critical_hit' | 'critical_kill' | 'armor_deflect' | 'kill';
   feedbackNonce?: number;
 };
 
@@ -159,16 +159,36 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
   const [settling, setSettling] = React.useState(false);
   // Directional recoil unit vector (away from incoming shot) captured at hit time
   const [recoilDir, setRecoilDir] = React.useState<{ x: number, y: number }>({ x: 0, y: 0 });
+  const weightClass = React.useMemo(() => getTargetWeightClass(target.type), [target.type]);
+  const reactionProfile = REACTION_PROFILES[weightClass];
+  const qualityResponse = React.useMemo(() => {
+    switch (target.feedbackKind) {
+      case 'graze_hit':
+        return { tierBoost: 0, recoilMul: 0.35, wobbleMul: 0.35, snapMul: 0.38, flashMs: 80, settleMul: 0.45 };
+      case 'armor_deflect':
+        return { tierBoost: 0, recoilMul: 0.45, wobbleMul: 0.55, snapMul: 0.55, flashMs: 95, settleMul: 0.55 };
+      case 'critical_hit':
+        return { tierBoost: 1, recoilMul: 1.35, wobbleMul: 1.28, snapMul: 1.45, flashMs: 145, settleMul: 1.25 };
+      case 'critical_kill':
+        return { tierBoost: 3, recoilMul: 1.65, wobbleMul: 1.5, snapMul: 1.7, flashMs: 220, settleMul: 1.35 };
+      case 'kill':
+        return { tierBoost: 2, recoilMul: 1.45, wobbleMul: 1.35, snapMul: 1.35, flashMs: 190, settleMul: 1.25 };
+      default:
+        return { tierBoost: 0, recoilMul: 1, wobbleMul: 1, snapMul: 1, flashMs: 0, settleMul: 1 };
+    }
+  }, [target.feedbackKind]);
 
   React.useEffect(() => {
     const dmg = prevHp.current - target.hp;
-    const isCriticalFeedback = target.feedbackKind === 'critical_hit' || target.feedbackKind === 'critical_kill';
-    if (dmg > 0 || isCriticalFeedback) {
+    const hasFeedback = !!target.feedbackKind;
+    if (dmg > 0 || hasFeedback) {
       const ratio = dmg / target.maxHp;
-      const tier = target.feedbackKind === 'critical_kill'
+      const tier = target.feedbackKind === 'critical_kill' || target.feedbackKind === 'kill'
         ? 3
-        : isCriticalFeedback
+        : target.feedbackKind === 'critical_hit'
         ? Math.max(2, ratio > 0.25 ? 3 : 2)
+        : target.feedbackKind === 'graze_hit'
+        ? 1
         : ratio > 0.25 ? 3 : ratio > 0.10 ? 2 : 1;
       setHitTier(tier);
       setFlash(true);
@@ -188,18 +208,18 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
       }
       setRecoilDir({ x: dirX, y: dirY });
 
-      const flashMs = target.feedbackKind === 'critical_kill' ? 220 : target.feedbackKind === 'critical_hit' ? 145 : tier === 3 ? 200 : tier === 2 ? 155 : 110;
+      const flashMs = qualityResponse.flashMs || (tier === 3 ? 200 : tier === 2 ? 155 : 110);
       setTimeout(() => {
         setFlash(false);
         // After flash ends, run a short settle wobble for medium/heavy
         if (tier >= 2) {
           setSettling(true);
-          setTimeout(() => setSettling(false), target.feedbackKind === 'critical_kill' ? 820 : tier === 3 ? 700 : 500);
+          setTimeout(() => setSettling(false), (target.feedbackKind === 'critical_kill' ? 820 : tier === 3 ? 700 : 500) * qualityResponse.settleMul);
         }
       }, flashMs);
     }
     prevHp.current = target.hp;
-  }, [target.hp, target.maxHp, target.feedbackKind, target.feedbackNonce]);
+  }, [target.hp, target.maxHp, target.feedbackKind, target.feedbackNonce, qualityResponse]);
 
   const baseScale = target.scale || 1;
   const hpPercentage = target.hp / target.maxHp;
@@ -219,21 +239,23 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
   const isRevealed = dist < 15;
 
   // Scaled hit reactions by damage magnitude
-  const hitScaleBoost = target.feedbackKind === 'critical_kill' ? 1.62 : target.feedbackKind === 'critical_hit' ? 1.38 : hitTier === 3 ? 1.48 : hitTier === 2 ? 1.30 : 1.18;
+  const hitScaleBoost = target.feedbackKind === 'critical_kill' ? 1.58 : target.feedbackKind === 'critical_hit' ? 1.34 : target.feedbackKind === 'armor_deflect' ? 1.08 : hitTier === 3 ? 1.42 : hitTier === 2 ? 1.25 : 1.14;
+  const wobble = reactionProfile.wobbleAmplitude * qualityResponse.wobbleMul;
+  const snap = reactionProfile.rotationalSnap * qualityResponse.snapMul;
   const hitRotate = hitTier === 3
     ? target.feedbackKind === 'critical_kill'
-      ? [0, -18, 17, -13, 10, -6, 3, 0]
-      : [0, -14, 14, -8, 7, -3, 2, 0]
+      ? [0, -wobble * 1.25, wobble * 1.1, -wobble * 0.75, wobble * 0.45, -wobble * 0.2, wobble * 0.08, 0]
+      : [0, -wobble * snap, wobble * 0.9, -wobble * 0.52, wobble * 0.28, -wobble * 0.12, 0]
     : hitTier === 2
-    ? target.feedbackKind === 'critical_hit' ? [0, -11, 10, -6, 4, 0] : [0, -8, 8, -4, 3, 0]
-    : [0, -4, 4, -2, 0];
+    ? [0, -wobble * 0.78 * snap, wobble * 0.68, -wobble * 0.34, wobble * 0.18, 0]
+    : [0, -wobble * 0.38 * snap, wobble * 0.32, -wobble * 0.16, 0];
   const hitFilter = hitTier === 3
     ? 'brightness(2.2) drop-shadow(0 0 22px rgba(255,255,255,0.95))'
     : hitTier === 2
     ? 'brightness(1.8) drop-shadow(0 0 14px white)'
     : 'brightness(1.5) drop-shadow(0 0 8px white)';
   // Post-flash settling rotation
-  const settleRotate = hitTier === 3 ? [0, -5, 4, -2, 1, 0] : [0, -3, 2, -1, 0];
+  const settleRotate = hitTier === 3 ? [0, -wobble * 0.34, wobble * 0.24, -wobble * 0.13, wobble * 0.05, 0] : [0, -wobble * 0.22, wobble * 0.14, -wobble * 0.06, 0];
 
   let animateProps: any = {
     scale: flash ? baseScale * hitScaleBoost : baseScale,
@@ -242,11 +264,11 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
     filter: flash ? hitFilter : 'none',
   };
   // Spring stiffness increases with hit strength for a snappier reaction
-  const hitStiffness = target.feedbackKind === 'critical_kill' ? 540 : target.feedbackKind === 'critical_hit' ? 460 : hitTier === 3 ? 420 : hitTier === 2 ? 320 : 260;
+  const hitStiffness = target.feedbackKind === 'critical_kill' ? reactionProfile.recoverySpeed + 120 : target.feedbackKind === 'critical_hit' ? reactionProfile.recoverySpeed + 90 : hitTier === 3 ? reactionProfile.recoverySpeed + 60 : hitTier === 2 ? reactionProfile.recoverySpeed : Math.max(220, reactionProfile.recoverySpeed - 60);
   let transitionProps: any = {
     type: 'spring',
     stiffness: flash ? hitStiffness : 260,
-    damping: flash ? (hitTier === 3 ? 6 : 8) : 9,
+    damping: flash ? (weightClass === 'heavy' ? 10 : hitTier === 3 ? 6 : 8) : 9,
   };
 
   if (isMoving || target.type === 'bot_sentry') {
@@ -262,7 +284,7 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
       x: { repeat: Infinity, duration: 2.3, ease: "easeInOut" },
       y: { repeat: Infinity, duration: 1.7, ease: "easeInOut" },
     };
-  } else if (isDrone || target.type === 'kinetic_swarm') {
+  } else if ((isDrone || target.type === 'kinetic_swarm') && !flash && !settling) {
     animateProps.scale = [baseScale, baseScale * 1.05, baseScale];
     animateProps.rotate = [0, 2, -2, 0];
     transitionProps = { ...transitionProps, scale: { repeat: Infinity, duration: 2 }, rotate: { repeat: Infinity, duration: 4 } };
@@ -949,7 +971,7 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
 
   // Directional recoil offset (px) when flash is active — kicks the target away
   // from the incoming shot, then springs back in transitionProps.
-  const recoilMag = flash ? (target.feedbackKind === 'critical_kill' ? 24 : target.feedbackKind === 'critical_hit' ? 16 : hitTier === 3 ? 18 : hitTier === 2 ? 12 : 7) : 0;
+  const recoilMag = flash ? reactionProfile.recoilDistance * qualityResponse.recoilMul * (hitTier === 3 ? 1.2 : hitTier === 2 ? 0.95 : 0.58) : 0;
   const recoilX = recoilDir.x * recoilMag;
   const recoilY = recoilDir.y * recoilMag;
 
@@ -983,7 +1005,7 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
             {isPowerupRapid && <Zap className="w-8 h-8 relative z-10" />}
             {isPowerupShield && <Shield className="w-8 h-8 relative z-10" />}
           </div>
-          <MountFrame mountType={mountType} hitTier={hitTier} flash={flash} settling={settling} />
+          <MountFrame mountType={mountType} hitTier={hitTier} flash={flash} settling={settling} weightClass={weightClass} reactionProfile={reactionProfile} />
         </motion.div>
       ) : (
         <motion.div
@@ -996,7 +1018,7 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
           {/* Physical mounting / grounding frame anchored below the target.
               Adds base plate, rail, hinge, or hover anchor depending on type
               along with a soft contact shadow and hit-driven physical reaction. */}
-          <MountFrame mountType={mountType} hitTier={hitTier} flash={flash} settling={settling} />
+          <MountFrame mountType={mountType} hitTier={hitTier} flash={flash} settling={settling} weightClass={weightClass} reactionProfile={reactionProfile} />
 
           {/* Asset-backed visual on top of the CSS body. Hides on error so the
               CSS structure underneath remains the working fallback. */}

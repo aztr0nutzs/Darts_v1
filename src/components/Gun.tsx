@@ -170,6 +170,7 @@ interface GunProps {
   recoilBuildup?: number;
   isADS?: boolean;
   muzzleRef?: React.RefObject<HTMLDivElement | null>;
+  weaponFeedback?: 'critical' | 'empty' | 'reload';
 }
 
 type Layer = 'back' | 'mid' | 'front';
@@ -687,11 +688,20 @@ export default function Gun({
   recoilBuildup = 0,
   isADS = false,
   muzzleRef,
+  weaponFeedback,
 }: GunProps) {
   const arch = gun.archetype;
   const muzzle = MUZZLE_POS[arch];
   const feel = ARCHETYPE_FEEL[arch];
   const flashOffset = WEAPON_MUZZLE_OVERRIDE[gun.id] ?? MUZZLE_FLASH_OFFSET[arch];
+  const heavyVisualMul = arch === 'heavy' || arch === 'shotgun' || arch === 'double' || arch === 'sniper' ? 1.08 : 1;
+  const feedbackKick = weaponFeedback === 'critical'
+    ? { x: -7, y: -11, z: 14, rz: -3.2, rx: -5.5, scale: 1.035, duration: 0.14 }
+    : weaponFeedback === 'empty'
+    ? { x: 3, y: -3, z: 2, rz: 1.4, rx: -1.2, scale: 1.008, duration: 0.09 }
+    : weaponFeedback === 'reload'
+    ? { x: -4, y: -7, z: 8, rz: -1.8, rx: -3.2, scale: 1.02, duration: 0.16 }
+    : { x: 0, y: 0, z: 0, rz: 0, rx: 0, scale: 1, duration: 0 };
 
   const swayX = mouseX * 28;
   const swayY = mouseY * 14;
@@ -699,13 +709,13 @@ export default function Gun({
   const swayRX = mouseY * -9;
 
   // Directional lateral kick — heavier guns kick left more, scaled by class weight.
-  const lateralKick = (gun.recoil * 0.18 + recoilBuildup * 0.5) * feel.recoilMul;
+  const lateralKick = (gun.recoil * 0.18 + recoilBuildup * 0.5) * feel.recoilMul * heavyVisualMul;
   // Vertical kick — weapons recoil UP/BACK toward the viewer (negative Y in
   // screen space) to read as a weighted impulse rather than a downward drop.
-  const verticalKick = (gun.recoil * 2.6 + recoilBuildup * 6.5) * feel.recoilMul;
+  const verticalKick = (gun.recoil * 2.6 + recoilBuildup * 6.5) * feel.recoilMul * heavyVisualMul;
   // Z-axis impulse — the entire stack pulses backward toward the camera, then
   // settles; gives the recoil weight without changing firing logic.
-  const depthKick = (gun.recoil * 0.18 + recoilBuildup * 0.4) * feel.recoilMul;
+  const depthKick = (gun.recoil * 0.18 + recoilBuildup * 0.4) * feel.recoilMul * heavyVisualMul;
 
   // 5–15% size boost for foreground dominance, varied per archetype.
   const idleScale = isADS ? 2.8 : (isReloading ? 0.8 : 1.35 * feel.baseScale);
@@ -722,37 +732,48 @@ export default function Gun({
       animate={{
         x:       isADS ? swayX * 0.12 - 120
                        : (isShooting
-                           ? [swayX, swayX - lateralKick, swayX + lateralKick * 0.25, swayX]
+                           ? [swayX, swayX - lateralKick + feedbackKick.x, swayX + lateralKick * 0.25, swayX]
+                           : weaponFeedback
+                           ? [swayX, swayX + feedbackKick.x, swayX]
                            : [swayX, swayX + 1.6, swayX - 0.8, swayX]),
         y:       isReloading ? 400
                 : isADS ? -120
                 : isFlinching ? [swayY, swayY + 62, swayY - 8, swayY]
                 : isShooting
                     // Negative Y = up/back toward viewer, with a soft overshoot before settling.
-                    ? [swayY, swayY - verticalKick, swayY + 4, swayY]
+                    ? [swayY, swayY - verticalKick + feedbackKick.y, swayY + 4, swayY]
+                    : weaponFeedback
+                    ? [swayY, swayY + feedbackKick.y, swayY]
                     : [swayY, swayY - 6, swayY - 1, swayY],
         rotateZ: isFlinching ? [0, -11, 5, 0]
                 : isShooting
-                    ? [swayRY, swayRY - gun.recoil * 0.85 * feel.recoilMul, swayRY + 1.6, swayRY]
+                    ? [swayRY, swayRY - gun.recoil * 0.85 * feel.recoilMul * heavyVisualMul + feedbackKick.rz, swayRY + 1.6, swayRY]
+                    : weaponFeedback
+                    ? [swayRY, swayRY + feedbackKick.rz, swayRY]
                     : [swayRY, swayRY - 0.55, swayRY + 0.2, swayRY],
         rotateX: isFlinching ? [0, -28, 0]
                 : isShooting
-                    ? [swayRX, swayRX - (gun.recoil * 1.4 + recoilBuildup * 1.8) * feel.recoilMul, swayRX + 2.4, swayRX]
+                    ? [swayRX, swayRX - (gun.recoil * 1.4 + recoilBuildup * 1.8) * feel.recoilMul * heavyVisualMul + feedbackKick.rx, swayRX + 2.4, swayRX]
+                    : weaponFeedback
+                    ? [swayRX, swayRX + feedbackKick.rx, swayRX]
                     : [swayRX, swayRX - 0.5, swayRX + 0.2, swayRX],
         rotateY: isADS ? swayRY * 0.08 : swayRY,
-        scale:   isShooting ? [idleScale, idleScale * 1.04, idleScale * 0.97, idleScale] : idleScale,
+        scale:   isShooting ? [idleScale, idleScale * 1.04 * feedbackKick.scale, idleScale * 0.97, idleScale] : weaponFeedback ? [idleScale, idleScale * feedbackKick.scale, idleScale] : idleScale,
       }}
       transition={{
         duration: isFlinching ? 0.24
                 : isShooting ? feel.recoilDuration
+                : weaponFeedback ? feedbackKick.duration
                 : 3.8,
         times:    isShooting ? recoilTimes
+                : weaponFeedback ? [0, 0.38, 1]
                 : (!isFlinching && !isADS && !isReloading) ? [0, 0.35, 0.7, 1]
                 : undefined,
         ease:     isFlinching ? 'easeInOut'
                 : isShooting ? recoilEase
+                : weaponFeedback ? 'easeOut'
                 : 'easeInOut',
-        repeat:   isFlinching || isShooting ? 0 : Infinity,
+        repeat:   isFlinching || isShooting || weaponFeedback ? 0 : Infinity,
       }}
     >
       {/* Muzzle flash — per-weapon (or per-archetype fallback) offset so the
@@ -820,15 +841,15 @@ export default function Gun({
             style={{ transformStyle: 'preserve-3d' }}
             animate={{
               rotateY: isADS ? -18 : -52 + mouseX * -4,
-              rotateX: isADS ? -4 : 6 + mouseY * 4 - (isShooting ? 6 : 0) - (isFlinching ? 14 : 0),
-              rotateZ: isADS ? 0 : -4 + mouseX * 4 + (isShooting ? 2.5 : 0),
-              x:       isADS ? -48 : (isShooting ? 14 : 0),
-              y:       isReloading ? 400 : (isADS ? -48 : (isShooting ? -10 : 0)),
+              rotateX: isADS ? -4 : 6 + mouseY * 4 - (isShooting ? 6 : 0) - (isFlinching ? 14 : 0) + feedbackKick.rx * 0.5,
+              rotateZ: isADS ? 0 : -4 + mouseX * 4 + (isShooting ? 2.5 : 0) + feedbackKick.rz * 0.45,
+              x:       isADS ? -48 : (isShooting ? 14 : 0) + feedbackKick.x * 0.45,
+              y:       isReloading ? 400 : (isADS ? -48 : (isShooting ? -10 : 0) + feedbackKick.y * 0.5),
               // Stack pulses backward (toward viewer ⇒ +Z) on shoot, settles to 0.
-              z:       isADS ? 140 : (isShooting ? depthKick + 12 : 0),
+              z:       isADS ? 140 : (isShooting ? depthKick + 12 : 0) + feedbackKick.z,
             }}
             transition={{
-              duration: isShooting ? feel.recoilDuration : (isADS ? 0.28 : 0.75),
+              duration: isShooting ? feel.recoilDuration : weaponFeedback ? feedbackKick.duration : (isADS ? 0.28 : 0.75),
               ease: isShooting ? recoilEase : 'easeOut',
             }}
           >

@@ -9,6 +9,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import type { BossState } from '../lib/BossEncounter';
+import { REACTION_PROFILES } from './TargetMounts';
 
 interface BossRendererProps {
   boss: BossState;
@@ -387,13 +388,39 @@ function SkylineSniperRig({ boss }: { boss: BossState }) {
 
 // ── Main BossRenderer ───────────────────────────────────────────────────────
 
-export default function BossRenderer({ boss }: BossRendererProps) {
-  if (boss.behaviorState === 'defeated') return null;
-
+export default function BossRenderer({ boss, cursorPos }: BossRendererProps) {
   const baseScale = boss.scale;
+  const profile = REACTION_PROFILES.boss;
+  const prevHp = React.useRef(boss.currentHp);
+  const rootRef = React.useRef<HTMLDivElement | null>(null);
+  const [hitPulse, setHitPulse] = React.useState(0);
+  const [recoilDir, setRecoilDir] = React.useState({ x: 0, y: 0.25 });
+
+  React.useEffect(() => {
+    if (boss.currentHp < prevHp.current) {
+      let dirX = 0;
+      let dirY = 0.25;
+      if (cursorPos && rootRef.current) {
+        const rect = rootRef.current.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const vx = cx - cursorPos.x;
+        const vy = cy - cursorPos.y;
+        const len = Math.max(1, Math.hypot(vx, vy));
+        dirX = vx / len;
+        dirY = vy / len;
+      }
+      setRecoilDir({ x: dirX, y: dirY });
+      setHitPulse(n => n + 1);
+    }
+    prevHp.current = boss.currentHp;
+  }, [boss.currentHp, cursorPos]);
+
+  if (boss.behaviorState === 'defeated') return null;
 
   return (
     <motion.div
+      ref={rootRef}
       className="absolute z-20 pointer-events-auto"
       style={{
         left: `${boss.x}%`,
@@ -401,9 +428,15 @@ export default function BossRenderer({ boss }: BossRendererProps) {
         transform: `translate(-50%, -50%) scale(${baseScale})`,
       }}
       initial={{ scale: 0, opacity: 0 }}
-      animate={{ scale: baseScale, opacity: 1 }}
+      animate={{
+        scale: hitPulse > 0 ? [baseScale, baseScale * 1.08, baseScale * 0.98, baseScale] : baseScale,
+        opacity: 1,
+        x: hitPulse > 0 ? [0, recoilDir.x * profile.recoilDistance, recoilDir.x * -3, 0] : 0,
+        y: hitPulse > 0 ? [0, recoilDir.y * profile.recoilDistance, recoilDir.y * -3, 0] : 0,
+        rotate: hitPulse > 0 ? [0, -profile.wobbleAmplitude, profile.wobbleAmplitude * 0.7, -profile.wobbleAmplitude * 0.25, 0] : 0,
+      }}
       exit={{ scale: 0, opacity: 0, filter: 'brightness(3) blur(8px)' }}
-      transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+      transition={{ type: 'spring', stiffness: profile.recoverySpeed, damping: 16, duration: profile.wobbleDuration }}
     >
       {/* Phase indicator ring */}
       <div className="absolute -top-8 left-1/2 -translate-x-1/2 flex gap-1 z-30">

@@ -12,6 +12,66 @@ export type MountType =
   | 'hinge'              // pivoting hinge or portal frame anchor
   | 'drone';             // hover stabilizer with floor shadow
 
+export type TargetWeightClass = 'light' | 'medium' | 'heavy' | 'boss';
+
+export type ReactionProfile = {
+  wobbleAmplitude: number;
+  wobbleDuration: number;
+  recoilDistance: number;
+  recoverySpeed: number;
+  rotationalSnap: number;
+  settleBounce: number;
+};
+
+export const REACTION_PROFILES: Record<TargetWeightClass, ReactionProfile> = {
+  light:  { wobbleAmplitude: 13, wobbleDuration: 0.34, recoilDistance: 19, recoverySpeed: 520, rotationalSnap: 1.25, settleBounce: 1.18 },
+  medium: { wobbleAmplitude: 9,  wobbleDuration: 0.48, recoilDistance: 13, recoverySpeed: 380, rotationalSnap: 1.0,  settleBounce: 1.0 },
+  heavy:  { wobbleAmplitude: 6,  wobbleDuration: 0.68, recoilDistance: 8,  recoverySpeed: 260, rotationalSnap: 0.72, settleBounce: 0.82 },
+  boss:   { wobbleAmplitude: 8,  wobbleDuration: 0.82, recoilDistance: 10, recoverySpeed: 220, rotationalSnap: 0.8,  settleBounce: 1.05 },
+};
+
+export function getTargetWeightClass(type: string): TargetWeightClass {
+  switch (type) {
+    case 'drone':
+    case 'bonus':
+    case 'erratic':
+    case 'phantom':
+    case 'powerup_damage':
+    case 'powerup_rapid':
+    case 'powerup_shield':
+    case 'kinetic_swarm':
+      return 'light';
+
+    case 'armored':
+    case 'heavy_armor':
+    case 'shielded':
+    case 'hostile':
+    case 'splitting':
+    case 'orbital_array':
+    case 'gravity_tower':
+    case 'aether_pylon':
+    case 'astro_hive':
+    case 'neural_grid':
+    case 'code_matrix':
+    case 'data_sphere':
+    case 'sentinel_bot':
+      return 'heavy';
+
+    case 'standard':
+    case 'moving':
+    case 'exploding':
+    case 'jammer':
+    case 'reflector':
+    case 'decoy':
+    case 'teleporting':
+    case 'warp_gate':
+    case 'phase_target':
+    case 'bot_sentry':
+    default:
+      return 'medium';
+  }
+}
+
 export function getMountType(type: string): MountType {
   switch (type) {
     case 'moving':
@@ -59,6 +119,8 @@ interface MountProps {
   hitTier: number;   // 0-3, last hit intensity
   flash: boolean;    // hit flash currently active
   settling: boolean; // post-flash settle wobble
+  weightClass?: TargetWeightClass;
+  reactionProfile?: ReactionProfile;
 }
 
 // Renders the mount visuals positioned below the existing target. Inherits
@@ -88,11 +150,13 @@ function StandMount({
   hitTier,
   flash,
   settling,
+  reactionProfile = REACTION_PROFILES.medium,
 }: MountProps & { variant: 'normal' | 'reinforced' | 'shielded' }) {
   const active = flash || settling;
   const reinforced = variant === 'reinforced';
   const shielded = variant === 'shielded';
-  const intensity = hitTier === 3 ? (reinforced ? 5 : 6) : hitTier === 2 ? (reinforced ? 2.5 : 3) : 1.4;
+  const baseIntensity = hitTier === 3 ? (reinforced ? 5 : 6) : hitTier === 2 ? (reinforced ? 2.5 : 3) : 1.4;
+  const intensity = baseIntensity * (reactionProfile.wobbleAmplitude / REACTION_PROFILES.medium.wobbleAmplitude);
 
   const plateW = reinforced ? 92 : 60;
   const plateH = reinforced ? 14 : 9;
@@ -130,12 +194,8 @@ function StandMount({
       {/* Connection bracket + base plate (wobbles under hit) */}
       <motion.div
         className="relative mx-auto"
-        animate={
-          active
-            ? { rotate: [0, -intensity * 0.18, intensity * 0.14, -intensity * 0.05, 0] }
-            : { rotate: 0 }
-        }
-        transition={{ duration: 0.45, ease: 'easeOut' }}
+        animate={active ? { rotate: [0, -intensity * 0.24, intensity * 0.18, -intensity * 0.08, 0], y: [0, 1.5 * reactionProfile.settleBounce, -0.5, 0] } : { rotate: 0, y: 0 }}
+        transition={{ duration: reactionProfile.wobbleDuration, ease: 'easeOut' }}
         style={{ transformOrigin: '50% 0%' }}
       >
         {/* Connection collar */}
@@ -181,9 +241,9 @@ function StandMount({
 }
 
 // ── RailMount ──────────────────────────────────────────────────────────────
-function RailMount({ hitTier, flash, settling }: MountProps) {
+function RailMount({ hitTier, flash, settling, reactionProfile = REACTION_PROFILES.medium }: MountProps) {
   const active = flash || settling;
-  const intensity = hitTier === 3 ? 6 : hitTier === 2 ? 3 : 1.5;
+  const intensity = (hitTier === 3 ? 6 : hitTier === 2 ? 3 : 1.5) * (reactionProfile.recoilDistance / REACTION_PROFILES.medium.recoilDistance);
   return (
     <div
       className="absolute left-1/2 -translate-x-1/2 pointer-events-none"
@@ -197,8 +257,8 @@ function RailMount({ hitTier, flash, settling }: MountProps) {
       />
       {/* Slider carriage + rail track (lateral vibration on hit) */}
       <motion.div
-        animate={active ? { x: [0, -intensity, intensity * 0.7, -intensity * 0.35, 0] } : { x: 0 }}
-        transition={{ duration: 0.45, ease: 'easeOut' }}
+        animate={active ? { x: [0, -intensity, intensity * 0.85, -intensity * 0.45, intensity * 0.18, 0] } : { x: 0 }}
+        transition={{ duration: reactionProfile.wobbleDuration, ease: 'easeOut' }}
         className="relative"
       >
         {/* Carriage block riding the rail */}
@@ -234,9 +294,9 @@ function RailMount({ hitTier, flash, settling }: MountProps) {
 }
 
 // ── HingeMount ─────────────────────────────────────────────────────────────
-function HingeMount({ hitTier, flash, settling }: MountProps) {
+function HingeMount({ hitTier, flash, settling, reactionProfile = REACTION_PROFILES.medium }: MountProps) {
   const active = flash || settling;
-  const intensity = hitTier === 3 ? 8 : hitTier === 2 ? 4 : 2;
+  const intensity = (hitTier === 3 ? 8 : hitTier === 2 ? 4 : 2) * reactionProfile.rotationalSnap;
   return (
     <div
       className="absolute left-1/2 -translate-x-1/2 pointer-events-none"
@@ -252,8 +312,8 @@ function HingeMount({ hitTier, flash, settling }: MountProps) {
         style={{ top: 0, width: 16, height: 4 }}
       />
       <motion.div
-        animate={active ? { rotate: [0, -intensity, intensity * 0.6, -intensity * 0.25, 0] } : { rotate: 0 }}
-        transition={{ duration: 0.5, ease: 'easeOut' }}
+        animate={active ? { rotate: [0, -intensity, intensity * 0.72, -intensity * 0.32, intensity * 0.12, 0] } : { rotate: 0 }}
+        transition={{ duration: reactionProfile.wobbleDuration + 0.08, ease: 'easeOut' }}
         style={{ transformOrigin: '50% 0%' }}
         className="relative"
       >
@@ -284,9 +344,9 @@ function HingeMount({ hitTier, flash, settling }: MountProps) {
 }
 
 // ── DroneAnchor ────────────────────────────────────────────────────────────
-function DroneAnchor({ hitTier, flash, settling }: MountProps) {
+function DroneAnchor({ hitTier, flash, settling, reactionProfile = REACTION_PROFILES.light }: MountProps) {
   const active = flash || settling;
-  const intensity = hitTier === 3 ? 6 : hitTier === 2 ? 3 : 1.5;
+  const intensity = (hitTier === 3 ? 7 : hitTier === 2 ? 4 : 2) * (reactionProfile.recoilDistance / REACTION_PROFILES.medium.recoilDistance);
   return (
     <div
       className="absolute left-1/2 -translate-x-1/2 pointer-events-none"
@@ -309,8 +369,8 @@ function DroneAnchor({ hitTier, flash, settling }: MountProps) {
       />
       {/* Hover shadow drifts under stabilization wobble on hit */}
       <motion.div
-        animate={active ? { x: [0, -intensity * 0.6, intensity * 0.4, -intensity * 0.2, 0] } : { x: 0 }}
-        transition={{ duration: 0.6, ease: 'easeOut' }}
+        animate={active ? { x: [0, -intensity * 0.8, intensity * 0.55, -intensity * 0.25, 0], y: [0, 2.5, -1.2, 0] } : { x: 0, y: 0 }}
+        transition={{ duration: reactionProfile.wobbleDuration + 0.12, ease: 'easeOut' }}
         className="absolute left-1/2 -translate-x-1/2"
         style={{ top: 26, width: 80, height: 12 }}
       >
