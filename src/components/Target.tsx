@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { Zap, Shield, Swords } from 'lucide-react';
 import { getTargetAsset } from '../lib/assetRegistry';
+import { MountFrame, getMountType } from './TargetMounts';
 
 export type TargetData = {
   id: string;
@@ -176,6 +177,7 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
 
   const baseScale = target.scale || 1;
   const hpPercentage = target.hp / target.maxHp;
+  const mountType = React.useMemo(() => getMountType(target.type), [target.type]);
 
   // Charging / Attack Logic
   const isReflecting = isReflector && target.nextFireTime && target.nextFireTime > Date.now();
@@ -930,20 +932,28 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
       data-hit-zone="body"
     >
       {isPowerup ? (
-        <div className={`relative flex items-center justify-center w-16 h-16 rounded-xl shadow-[0_0_30px_rgba(255,255,255,0.2)] border-2 backdrop-blur-sm animate-pulse overflow-hidden
-          ${isPowerupDamage ? 'bg-red-950/90 border-red-500 shadow-red-500/50 text-red-500' : ''}
-          ${isPowerupRapid ? 'bg-yellow-950/90 border-yellow-400 shadow-yellow-400/50 text-yellow-400' : ''}
-          ${isPowerupShield ? 'bg-blue-950/90 border-blue-400 shadow-blue-400/50 text-blue-400' : ''}
-        `}>
-          <PowerupCardBackdrop type={target.type} />
-          <div className="absolute inset-0 bg-current opacity-20 rounded-xl" />
-          {isPowerupDamage && <Swords className="w-8 h-8 relative z-10" />}
-          {isPowerupRapid && <Zap className="w-8 h-8 relative z-10" />}
-          {isPowerupShield && <Shield className="w-8 h-8 relative z-10" />}
+        <div className="relative">
+          <div className={`relative flex items-center justify-center w-16 h-16 rounded-xl shadow-[0_0_30px_rgba(255,255,255,0.2)] border-2 backdrop-blur-sm animate-pulse overflow-hidden
+            ${isPowerupDamage ? 'bg-red-950/90 border-red-500 shadow-red-500/50 text-red-500' : ''}
+            ${isPowerupRapid ? 'bg-yellow-950/90 border-yellow-400 shadow-yellow-400/50 text-yellow-400' : ''}
+            ${isPowerupShield ? 'bg-blue-950/90 border-blue-400 shadow-blue-400/50 text-blue-400' : ''}
+          `}>
+            <PowerupCardBackdrop type={target.type} />
+            <div className="absolute inset-0 bg-current opacity-20 rounded-xl" />
+            {isPowerupDamage && <Swords className="w-8 h-8 relative z-10" />}
+            {isPowerupRapid && <Zap className="w-8 h-8 relative z-10" />}
+            {isPowerupShield && <Shield className="w-8 h-8 relative z-10" />}
+          </div>
+          <MountFrame mountType={mountType} hitTier={hitTier} flash={flash} settling={settling} />
         </div>
       ) : (
         <div className="relative">
           {renderInner()}
+
+          {/* Physical mounting / grounding frame anchored below the target.
+              Adds base plate, rail, hinge, or hover anchor depending on type
+              along with a soft contact shadow and hit-driven physical reaction. */}
+          <MountFrame mountType={mountType} hitTier={hitTier} flash={flash} settling={settling} />
 
           {/* Asset-backed visual on top of the CSS body. Hides on error so the
               CSS structure underneath remains the working fallback. */}
