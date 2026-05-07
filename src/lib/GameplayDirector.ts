@@ -3,6 +3,11 @@ import { TargetData } from '../components/Target';
 export type WaveObjective = 'score' | 'survival' | 'accuracy' | 'hit_count' | 'timed_rush';
 export type WaveIntensity = 'rest' | 'build' | 'normal' | 'intense' | 'boss';
 
+// Signature wave classification.  'standard' = the default 12-wave library.
+// The other entries identify the three signature wave patterns added on top
+// of the existing system to create memorable gameplay moments.
+export type WaveType = 'standard' | 'swarm_rush' | 'sniper_lane' | 'armored_wall';
+
 export interface WaveConfig {
   id: number;
   name: string;
@@ -18,6 +23,7 @@ export interface WaveConfig {
   powerupChance: number;
   depthBias: 'close' | 'mid' | 'far' | 'any';
   lanePattern: 'center' | 'spread' | 'flanks' | 'any';
+  waveType?: WaveType;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -238,7 +244,52 @@ export const WAVES: WaveConfig[] = [
     intensity: 'boss', bossTypes: ['orbital_array', 'warp_gate', 'neural_grid'],
     powerupChance: 0.08, depthBias: 'any', lanePattern: 'any',
   },
+
+  // ─────────────────────────────────────────────────────────────────
+  // SIGNATURE WAVES — injected on top of the curated mode sequences
+  // by GameplayDirector via weighted chance.  They are intentionally
+  // excluded from MODE_SEQUENCES so the base 12-wave progression is
+  // never altered when these are absent.
+  // ─────────────────────────────────────────────────────────────────
+
+  // ── Wave 13: SWARM RUSH — short, frantic multi-lane burst ─────────
+  {
+    id: 13, name: 'SWARM RUSH',
+    waveType: 'swarm_rush',
+    objective: 'timed_rush', objectiveValue: 30, duration: 9,
+    targetPool: ['drone', 'drone', 'drone', 'moving', 'moving', 'bonus'],
+    spawnRateMs: 280, maxConcurrent: 10, swarmChance: 0.70,
+    intensity: 'intense', powerupChance: 0.05,
+    depthBias: 'any', lanePattern: 'any',
+  },
+  // ── Wave 14: SNIPER LANE — rewards accuracy on far small targets ──
+  {
+    id: 14, name: 'SNIPER LANE',
+    waveType: 'sniper_lane',
+    objective: 'accuracy', objectiveValue: 12,
+    targetPool: ['phase_target', 'teleporting', 'drone', 'erratic'],
+    spawnRateMs: 1700, maxConcurrent: 3, swarmChance: 0,
+    intensity: 'normal', powerupChance: 0.04,
+    depthBias: 'far', lanePattern: 'center',
+  },
+  // ── Wave 15: ARMORED WALL — sustained fire vs heavy targets ───────
+  {
+    id: 15, name: 'ARMORED WALL',
+    waveType: 'armored_wall',
+    objective: 'survival', objectiveValue: 0, duration: 32,
+    targetPool: ['heavy_armor', 'heavy_armor', 'shielded', 'armored'],
+    spawnRateMs: 1500, maxConcurrent: 4, swarmChance: 0.05,
+    intensity: 'normal', bossTypes: ['sentinel_bot'],
+    powerupChance: 0.05, depthBias: 'mid', lanePattern: 'spread',
+  },
 ];
+
+// Array indices of signature wave entries inside WAVES (0-based).
+const SIGNATURE_WAVE_INDEX = {
+  swarm_rush:   12,
+  sniper_lane:  13,
+  armored_wall: 14,
+} as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mode → wave sequence index arrays (0-based into WAVES)
@@ -314,6 +365,9 @@ export class GameplayDirector {
   private idCounter: number = 0;
   private mode: string = 'classic';
   private sequence: number[] = MODE_SEQUENCES.classic;
+  // Tracks the last sequence index that ran a signature wave so the same
+  // injection cannot fire on consecutive waves.
+  private lastSignatureSeqIndex: number = -2;
 
   constructor() {
     this.currentWave = WAVES[0];
@@ -323,6 +377,7 @@ export class GameplayDirector {
     this.mode = mode;
     this.sequence = MODE_SEQUENCES[mode] ?? MODE_SEQUENCES.classic;
     this.sequenceIndex = 0;
+    this.lastSignatureSeqIndex = -2;
     this._applySequenceIndex(0, 0);
   }
 
@@ -403,7 +458,9 @@ export class GameplayDirector {
     // ── Swarm burst ───────────────────────────────────────────────
     let spawnCount = 1;
     if (Math.random() < swarmChance) {
-      spawnCount = 3;
+      // SWARM RUSH bursts saturate multiple lanes simultaneously to sell
+      // the signature multi-lane feel; other waves keep the original 3.
+      spawnCount = config.waveType === 'swarm_rush' ? 4 : 3;
       typePool.push('moving', 'drone');
     }
 
@@ -430,9 +487,64 @@ export class GameplayDirector {
     const waveArrayIndex = this.sequence[clampedIndex] ?? this.sequence[this.sequence.length - 1];
     this.currentWave = { ...WAVES[waveArrayIndex] };
 
+    // Signature wave injection: replaces the resolved base wave with one of
+    // the three signature patterns when wave-number gating + weighted RNG
+    // succeed.  Base mode sequences are untouched, so progression is fully
+    // preserved when nothing is injected.
+    const injected = this._maybeInjectSignatureWave(clampedIndex);
+    if (injected) {
+      this.currentWave = injected;
+      this.lastSignatureSeqIndex = clampedIndex;
+    }
+
     this.waveStartTime = Date.now();
     this.waveTargetsHit = 0;
     this.waveScoreStart = currentScore;
+  }
+
+  /**
+   * Decide whether to override the current wave with a signature pattern.
+   * Returns the chosen WaveConfig, or null to keep the base wave.
+   *
+   * Triggers depend on:
+   *   • wave number  — earliest opt-in is wave 3, gating ramps up
+   *   • intensity    — never overrides 'rest' or 'boss' slots
+   *   • adjacency    — never back-to-back signature waves
+   *   • weighted RNG — base chance scaled by wave number / mode
+   */
+  private _maybeInjectSignatureWave(seqIndex: number): WaveConfig | null {
+    if (seqIndex < 2) return null;
+    if (this.lastSignatureSeqIndex === seqIndex - 1) return null;
+
+    const baseIntensity = this.currentWave.intensity;
+    if (baseIntensity === 'rest' || baseIntensity === 'boss') return null;
+
+    const waveNumber = seqIndex + 1;
+
+    let chance = 0;
+    if (waveNumber >= 3) chance = 0.22;
+    if (waveNumber >= 6) chance = 0.28;
+    if (waveNumber >= 9) chance = 0.33;
+    if (this.mode === 'hardcore') chance += 0.10;
+
+    if (Math.random() >= chance) return null;
+
+    // Weighted pick — biases keep the early game readable, push variety later:
+    //   swarm_rush:   strongest in waves 3–6 (intro burst moment)
+    //   armored_wall: peaks mid-arc (waves 4–9)
+    //   sniper_lane:  more likely from wave 6 onwards (mastery test)
+    const swarmW  = waveNumber <= 6 ? 3 : 1;
+    const armorW  = waveNumber >= 4 && waveNumber <= 9 ? 3 : 2;
+    const sniperW = waveNumber >= 6 ? 3 : 1;
+    const total = swarmW + armorW + sniperW;
+    const r = Math.random() * total;
+
+    let pickIdx: number;
+    if (r < swarmW) pickIdx = SIGNATURE_WAVE_INDEX.swarm_rush;
+    else if (r < swarmW + armorW) pickIdx = SIGNATURE_WAVE_INDEX.armored_wall;
+    else pickIdx = SIGNATURE_WAVE_INDEX.sniper_lane;
+
+    return { ...WAVES[pickIdx] };
   }
 
   private _effectiveConfig(): WaveConfig {
