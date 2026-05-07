@@ -75,6 +75,25 @@ type HitEffectData = {
   originY?: number;
 };
 
+type SurfaceType = 'floor' | 'wall' | 'rail' | 'prop' | 'target_mount' | 'boss_structure';
+type EnvironmentImpactKind = 'foam_puff' | 'spark' | 'dust_puff' | 'debris_burst' | 'weak_snap';
+
+type EnvironmentEffectData = {
+  id: string;
+  x: number;
+  y: number;
+  arena: ArenaId;
+  surface: SurfaceType;
+  kind: EnvironmentImpactKind;
+  color: string;
+};
+
+type ArenaLightPulseData = {
+  id: string;
+  arena: ArenaId;
+  kind: 'critical' | 'kill' | 'boss' | 'heavy';
+};
+
 type CombatTextData = {
   id: string;
   x: number;
@@ -109,6 +128,113 @@ function CombatText({ text, x, y, color, isCritical }: { key?: React.Key; text: 
         {text}
       </span>
     </motion.div>
+  );
+}
+
+function surfaceForImpact(arena: ArenaId, x: number, y: number, context: 'miss' | 'hit' | 'armor' | 'weak' | 'kill' | 'boss'): SurfaceType {
+  if (context === 'boss') return 'boss_structure';
+  if (context === 'armor' || context === 'weak' || context === 'hit' || context === 'kill') return 'target_mount';
+  if (arena === 'warehouse' && y >= 54 && y <= 63) return 'rail';
+  if (arena === 'rooftop' && (x < 18 || x > 82) && y > 58) return 'prop';
+  if (arena === 'training' && y > 70) return 'floor';
+  if (y > 76) return 'floor';
+  if (y < 38) return 'wall';
+  return arena === 'warehouse' ? 'rail' : arena === 'rooftop' ? 'prop' : 'wall';
+}
+
+function impactKindForSurface(surface: SurfaceType, arena: ArenaId, quality?: HitEffectData['quality'], isDestroy?: boolean): EnvironmentImpactKind {
+  if (quality === 'weak_point' || quality === 'center') return 'weak_snap';
+  if (quality === 'armor' || surface === 'rail' || surface === 'boss_structure') return 'spark';
+  if (isDestroy || surface === 'target_mount') return 'debris_burst';
+  if (arena === 'training') return 'foam_puff';
+  return 'dust_puff';
+}
+
+function EnvironmentImpactEffect({ effect }: { key?: React.Key; effect: EnvironmentEffectData }) {
+  const isSpark = effect.kind === 'spark';
+  const isSnap = effect.kind === 'weak_snap';
+  const isDebris = effect.kind === 'debris_burst';
+  const isFoam = effect.kind === 'foam_puff';
+  const palette = effect.arena === 'warehouse'
+    ? { dust: '#7dd3fc', spark: '#c084fc' }
+    : effect.arena === 'rooftop'
+    ? { dust: '#dbeafe', spark: '#93c5fd' }
+    : { dust: '#f5f5f4', spark: '#fde68a' };
+  const particleCount = isDebris ? 8 : isSpark ? 6 : isSnap ? 5 : 4;
+  const spread = isDebris ? 34 : isSpark ? 26 : isSnap ? 24 : 18;
+
+  return (
+    <div className="absolute pointer-events-none z-[35]" style={{ left: `${effect.x}%`, top: `${effect.y}%`, transform: 'translate(-50%, -50%)' }}>
+      <motion.div
+        initial={{ opacity: isSpark || isSnap ? 0.9 : 0.55, scale: 0.25 }}
+        animate={{ opacity: 0, scale: isDebris ? 2.0 : isSnap ? 1.8 : 1.45 }}
+        transition={{ duration: isSpark ? 0.22 : 0.36, ease: 'easeOut' }}
+        className="absolute left-1/2 top-1/2 rounded-full"
+        style={{
+          width: isDebris ? 28 : 22,
+          height: isDebris ? 28 : 22,
+          background: isSpark || isSnap
+            ? `radial-gradient(circle, rgba(255,255,255,0.9) 0%, ${palette.spark}aa 38%, transparent 70%)`
+            : `radial-gradient(circle, ${palette.dust}aa 0%, transparent 72%)`,
+          filter: isSpark ? 'blur(1px)' : 'blur(3px)',
+          mixBlendMode: 'screen',
+        }}
+      />
+      {Array.from({ length: particleCount }).map((_, i) => {
+        const angle = (i / particleCount) * Math.PI * 2 + (effect.x + effect.y) * 0.01;
+        const distance = spread + ((i * 7) % 11);
+        const width = isSpark || isSnap ? 2 : isFoam ? 4 : 3;
+        const height = isSpark || isSnap ? 10 : isFoam ? 4 : 5;
+        return (
+          <motion.div
+            key={i}
+            className="absolute rounded-full"
+            initial={{ x: 0, y: 0, opacity: 0.85, rotate: angle * 57.3, scale: 1 }}
+            animate={{
+              x: Math.cos(angle) * distance,
+              y: Math.sin(angle) * distance + (isSpark ? 0 : 8),
+              opacity: 0,
+              rotate: angle * 57.3 + 120,
+              scale: isSpark ? 0.6 : 0.35,
+            }}
+            transition={{ duration: isSpark ? 0.28 : 0.46, ease: 'easeOut' }}
+            style={{
+              width,
+              height,
+              backgroundColor: isSpark || isSnap ? palette.spark : isFoam ? '#f5f5f4' : palette.dust,
+              boxShadow: isSpark || isSnap ? `0 0 8px ${palette.spark}` : 'none',
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function ArenaLightPulse({ pulse }: { key?: React.Key; pulse: ArenaLightPulseData }) {
+  const color = pulse.arena === 'warehouse'
+    ? 'rgba(168,85,247,0.22)'
+    : pulse.arena === 'rooftop'
+    ? 'rgba(147,197,253,0.18)'
+    : 'rgba(255,255,255,0.16)';
+  const edge = pulse.kind === 'kill'
+    ? 'rgba(249,115,22,0.16)'
+    : pulse.kind === 'boss'
+    ? 'rgba(255,255,255,0.22)'
+    : pulse.kind === 'heavy'
+    ? 'rgba(203,213,225,0.12)'
+    : color;
+  return (
+    <motion.div
+      className="absolute inset-0 pointer-events-none z-[16]"
+      initial={{ opacity: pulse.kind === 'boss' ? 0.8 : 0.55 }}
+      animate={{ opacity: 0 }}
+      transition={{ duration: pulse.kind === 'boss' ? 0.42 : 0.22, ease: 'easeOut' }}
+      style={{
+        background: `radial-gradient(ellipse at center, ${color} 0%, transparent 52%), radial-gradient(ellipse at center, transparent 45%, ${edge} 100%)`,
+        mixBlendMode: pulse.arena === 'warehouse' ? 'color-dodge' : 'screen',
+      }}
+    />
   );
 }
 
@@ -941,6 +1067,8 @@ export default function App() {
   const targetsRef = useRef<TargetData[]>([]);
   const [darts, setDarts] = useState<DartData[]>([]);
   const [hitEffects, setHitEffects] = useState<HitEffectData[]>([]);
+  const [environmentEffects, setEnvironmentEffects] = useState<EnvironmentEffectData[]>([]);
+  const [arenaLightPulses, setArenaLightPulses] = useState<ArenaLightPulseData[]>([]);
   const [enemyDarts, setEnemyDarts] = useState<any[]>([]);
   const [combo, setCombo] = useState(0);
   const [lastHitTime, setLastHitTime] = useState(0);
@@ -1008,6 +1136,34 @@ export default function App() {
     }
     return { x: 50, y: 100 };
   }, []);
+
+  const triggerArenaLightPulse = useCallback((kind: ArenaLightPulseData['kind']) => {
+    const id = `light-${hitEffectIdCounter.current++}`;
+    setArenaLightPulses(prev => [...prev.slice(-3), { id, arena: currentArena.id, kind }]);
+    setTimeout(() => setArenaLightPulses(prev => prev.filter(p => p.id !== id)), kind === 'boss' ? 460 : 260);
+  }, [currentArena.id]);
+
+  const spawnEnvironmentImpact = useCallback((
+    x: number,
+    y: number,
+    quality: HitEffectData['quality'] | undefined,
+    isDestroy: boolean | undefined,
+    context: 'miss' | 'hit' | 'armor' | 'weak' | 'kill' | 'boss',
+  ) => {
+    const surface = surfaceForImpact(currentArena.id, x, y, context);
+    const kind = impactKindForSurface(surface, currentArena.id, quality, isDestroy);
+    const id = `env-${hitEffectIdCounter.current++}`;
+    setEnvironmentEffects(prev => [
+      ...prev.slice(-17),
+      { id, x, y, arena: currentArena.id, surface, kind, color: currentGun.dartType.color },
+    ]);
+    setTimeout(() => setEnvironmentEffects(prev => prev.filter(e => e.id !== id)), kind === 'spark' ? 360 : 560);
+
+    if (context === 'weak') triggerArenaLightPulse('critical');
+    else if (context === 'kill') triggerArenaLightPulse('kill');
+    else if (context === 'boss') triggerArenaLightPulse('boss');
+    else if (isDestroy || quality === 'armor') triggerArenaLightPulse('heavy');
+  }, [currentArena.id, currentGun.dartType.color, triggerArenaLightPulse]);
 
   const [uiSettings, setUiSettings] = useState(() => {
     try {
@@ -1452,11 +1608,14 @@ export default function App() {
       setActiveBoss(prev => {
         if (!prev || prev.behaviorState === 'defeated') return prev;
         // Count active boss support targets
-        const supportCount = targets.filter(t => t.id.startsWith('boss-support-')).length;
+        const supportCount = targetsRef.current.filter(t => t.id.startsWith('boss-support-')).length;
         const result = tickBoss({ ...prev }, supportCount);
         // Spawn support targets from boss behavior
         if (result.spawnTargets.length > 0) {
           setTargets(curr => [...curr, ...result.spawnTargets]);
+        }
+        if (result.phaseChanged) {
+          spawnEnvironmentImpact(result.boss.x, result.boss.y, 'weak_point', true, 'boss');
         }
         if (result.defeated) {
           // Boss defeated — award points, clear boss, resume normal waves
@@ -1470,7 +1629,7 @@ export default function App() {
       });
     }, 100);
     return () => clearInterval(interval);
-  }, [gameState, activeBoss?.id, activeBoss?.behaviorState, showCountdown]);
+  }, [gameState, activeBoss?.id, activeBoss?.behaviorState, showCountdown, spawnEnvironmentImpact]);
 
   // Game Loop for spawning and removing targets
   useEffect(() => {
@@ -1758,6 +1917,7 @@ export default function App() {
           const effectId = `miss-${hitEffectIdCounter.current++}`;
           const muzzle = getMuzzleOrigin();
           setHitEffects(curr => [...curr, { id: effectId, x: aimXPct, y: aimYPct, color: upgradedGun.dartType.color, isMiss: true, originX: muzzle.x, originY: muzzle.y }]);
+          spawnEnvironmentImpact(aimXPct, aimYPct, undefined, false, 'miss');
           setTimeout(() => setHitEffects(curr => curr.filter(h => h.id !== effectId)), 600);
           setCombo(0);
           return;
@@ -1778,6 +1938,13 @@ export default function App() {
 
         const effectId = `hit-${hitEffectIdCounter.current++}`;
         setHitEffects(curr => [...curr, { id: effectId, x: aimXPct, y: aimYPct, color: currentGun.dartType.color, isDestroy: isDestroyed, isExplosion, quality: serverQuality }]);
+        spawnEnvironmentImpact(
+          aimXPct,
+          aimYPct,
+          serverQuality,
+          isDestroyed,
+          isDestroyed ? 'kill' : serverQuality === 'armor' ? 'armor' : isCritHit ? 'weak' : 'hit',
+        );
         setHitMarkerTime(Date.now());
         if (isDestroyed && isCritHit) setHitMarkerType('critKill');
         else if (isDestroyed) setHitMarkerType('kill');
@@ -1962,6 +2129,7 @@ export default function App() {
               const effectId = `boss-hit-${hitEffectIdCounter.current++}`;
               const quality = bossResult.hitZone;
               setHitEffects(curr => [...curr, { id: effectId, x: aimXPctLocal, y: aimYPctLocal, color: currentGun.dartType.color, isDestroy: bossResult.destroyed, quality }]);
+              spawnEnvironmentImpact(aimXPctLocal, aimYPctLocal, quality, bossResult.destroyed, 'boss');
               setHitMarkerTime(Date.now());
               setHitMarkerType(bossResult.destroyed && bossResult.hitZone === 'weak_point' ? 'critKill' : bossResult.hitZone === 'weak_point' ? 'crit' : bossResult.hitZone === 'armor' ? 'armor' : 'normal');
               setTimeout(() => setHitEffects(curr => curr.filter(h => h.id !== effectId)), 500);
@@ -2018,6 +2186,7 @@ export default function App() {
               originX: muzzle.x,
               originY: muzzle.y,
             }]);
+            spawnEnvironmentImpact((endX / rect.width) * 100, (endY / rect.height) * 100, undefined, false, 'miss');
             setTimeout(() => {
                setHitEffects(curr => curr.filter(h => h.id !== effectId));
             }, 600);
@@ -2049,7 +2218,7 @@ export default function App() {
     } else if (upgradedGun.fireMode === 'auto') {
       fire(targetPos);
     }
-  }, [gameState, isReloading, ammo, reload, upgradedGun, isADS, gameMode, socket, roomId, currentGun, combo, lastHitTime, recoilBuildup, triggerWeaponFeedback]);
+  }, [gameState, isReloading, ammo, reload, upgradedGun, isADS, gameMode, socket, roomId, currentGun, combo, lastHitTime, recoilBuildup, triggerWeaponFeedback, spawnEnvironmentImpact]);
 
   // Support for fully automatic firing
   const autoFireInterval = useRef<number | null>(null);
@@ -2160,6 +2329,13 @@ export default function App() {
         ? quality
         : undefined;
       setHitEffects(curr => [...curr, { id: effectId, x: hitX, y: hitY, color: currentGun.dartType.color, isDestroy: isDestroyed, isExplosion, quality: effectQuality }]);
+      spawnEnvironmentImpact(
+        hitX,
+        hitY,
+        effectQuality,
+        isDestroyed,
+        isDestroyed ? 'kill' : quality === 'armor' ? 'armor' : isCrit ? 'weak' : 'hit',
+      );
       setHitMarkerTime(Date.now());
       if (isDestroyed && isCrit) setHitMarkerType('critKill');
       else if (isDestroyed) setHitMarkerType('kill');
@@ -2400,7 +2576,7 @@ export default function App() {
 
       return targetsToKeep;
     });
-  }, [gameState, isReloading, ammo, combo, lastHitTime, currentGun, gameMode, activeBuffs, triggerWeaponFeedback]);
+  }, [gameState, isReloading, ammo, combo, lastHitTime, currentGun, gameMode, activeBuffs, triggerWeaponFeedback, spawnEnvironmentImpact]);
 
   const removeDart = useCallback((id: string) => {
     setDarts(prev => prev.filter(d => d.id !== id));
@@ -2544,6 +2720,11 @@ export default function App() {
            }}
       >
         <ArenaScene arenaId={currentArena.id} parallaxX={mouseX} parallaxY={mouseY} />
+        <AnimatePresence>
+          {arenaLightPulses.map(pulse => (
+            <ArenaLightPulse key={pulse.id} pulse={pulse} />
+          ))}
+        </AnimatePresence>
         <motion.div className="absolute inset-0" style={{ x: tiltX, y: tiltY }}>
            <DustParticles />
         </motion.div>
@@ -2872,6 +3053,12 @@ export default function App() {
                     onHit={handleTargetHit}
                     cursorPos={{ x: cursorX.get(), y: cursorY.get() }}
                   />
+                ))}
+              </AnimatePresence>
+
+              <AnimatePresence>
+                {environmentEffects.map(effect => (
+                  <EnvironmentImpactEffect key={effect.id} effect={effect} />
                 ))}
               </AnimatePresence>
 
