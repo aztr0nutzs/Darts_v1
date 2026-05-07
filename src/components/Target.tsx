@@ -149,11 +149,14 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
   const isPowerup = isPowerupDamage || isPowerupRapid || isPowerupShield;
 
   const prevHp = React.useRef(target.hp);
+  const rootRef = React.useRef<HTMLDivElement | null>(null);
   const [flash, setFlash] = React.useState(false);
   // 0 = none, 1 = light, 2 = medium, 3 = heavy
   const [hitTier, setHitTier] = React.useState(0);
   // Secondary settle-wobble that plays after the flash clears
   const [settling, setSettling] = React.useState(false);
+  // Directional recoil unit vector (away from incoming shot) captured at hit time
+  const [recoilDir, setRecoilDir] = React.useState<{ x: number, y: number }>({ x: 0, y: 0 });
 
   React.useEffect(() => {
     const dmg = prevHp.current - target.hp;
@@ -162,6 +165,22 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
       const tier = ratio > 0.25 ? 3 : ratio > 0.10 ? 2 : 1;
       setHitTier(tier);
       setFlash(true);
+
+      // Capture directional recoil from cursor → target center (target gets pushed
+      // away from the incoming shot). Falls back to a slight downward push.
+      let dirX = 0, dirY = 0.4;
+      if (cursorPos && rootRef.current) {
+        const rect = rootRef.current.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const vx = cx - cursorPos.x;
+        const vy = cy - cursorPos.y;
+        const len = Math.max(1, Math.sqrt(vx * vx + vy * vy));
+        dirX = vx / len;
+        dirY = vy / len;
+      }
+      setRecoilDir({ x: dirX, y: dirY });
+
       const flashMs = tier === 3 ? 200 : tier === 2 ? 155 : 110;
       setTimeout(() => {
         setFlash(false);
@@ -919,8 +938,15 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
     }
   };
 
+  // Directional recoil offset (px) when flash is active — kicks the target away
+  // from the incoming shot, then springs back in transitionProps.
+  const recoilMag = flash ? (hitTier === 3 ? 18 : hitTier === 2 ? 12 : 7) : 0;
+  const recoilX = recoilDir.x * recoilMag;
+  const recoilY = recoilDir.y * recoilMag;
+
   return (
     <motion.div
+      ref={rootRef}
       className="absolute cursor-crosshair z-20 group"
       style={{ left: `${target.x}%`, top: `${target.y}%`, transform: 'translate(-50%, -50%)' }}
       initial={{ scale: 0, opacity: 0, x: "-50%", y: "-50%", rotate: -12 }}
@@ -932,7 +958,11 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
       data-hit-zone="body"
     >
       {isPowerup ? (
-        <div className="relative">
+        <motion.div
+          className="relative"
+          animate={{ x: recoilX, y: recoilY }}
+          transition={{ type: 'spring', stiffness: 600, damping: 14 }}
+        >
           <div className={`relative flex items-center justify-center w-16 h-16 rounded-xl shadow-[0_0_30px_rgba(255,255,255,0.2)] border-2 backdrop-blur-sm animate-pulse overflow-hidden
             ${isPowerupDamage ? 'bg-red-950/90 border-red-500 shadow-red-500/50 text-red-500' : ''}
             ${isPowerupRapid ? 'bg-yellow-950/90 border-yellow-400 shadow-yellow-400/50 text-yellow-400' : ''}
@@ -945,9 +975,13 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
             {isPowerupShield && <Shield className="w-8 h-8 relative z-10" />}
           </div>
           <MountFrame mountType={mountType} hitTier={hitTier} flash={flash} settling={settling} />
-        </div>
+        </motion.div>
       ) : (
-        <div className="relative">
+        <motion.div
+          className="relative"
+          animate={{ x: recoilX, y: recoilY }}
+          transition={{ type: 'spring', stiffness: 600, damping: 14 }}
+        >
           {renderInner()}
 
           {/* Physical mounting / grounding frame anchored below the target.
@@ -971,33 +1005,63 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
                 className="absolute inset-[-6px] rounded-full pointer-events-none z-40"
                 style={{
                   boxShadow: hitTier === 3
-                    ? '0 0 48px 18px rgba(255,255,255,0.75)'
+                    ? '0 0 56px 22px rgba(255,255,255,0.85)'
                     : hitTier === 2
-                    ? '0 0 32px 10px rgba(255,255,255,0.55)'
-                    : '0 0 18px 5px rgba(255,255,255,0.38)',
+                    ? '0 0 36px 12px rgba(255,255,255,0.6)'
+                    : '0 0 20px 6px rgba(255,255,255,0.42)',
                 }}
                 initial={{ opacity: 1, scale: 0.8 }}
                 animate={{ opacity: 0, scale: hitTier === 3 ? 2.2 : hitTier === 2 ? 1.7 : 1.25 }}
                 transition={{ duration: hitTier === 3 ? 0.35 : 0.22, ease: 'easeOut' }}
               />
+              {/* Bright highlight halo — overlays the silhouette in white/gold */}
+              <motion.div
+                className="absolute inset-[-2px] rounded-full pointer-events-none z-40"
+                style={{
+                  background: hitTier === 3
+                    ? 'radial-gradient(circle, rgba(255,235,150,0.55) 0%, rgba(255,255,255,0) 65%)'
+                    : 'radial-gradient(circle, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0) 65%)',
+                  mixBlendMode: 'screen',
+                }}
+                initial={{ opacity: 1 }}
+                animate={{ opacity: 0 }}
+                transition={{ duration: hitTier === 3 ? 0.3 : 0.18, ease: 'easeOut' }}
+              />
               <motion.div
                 className="absolute rounded-full border-2 pointer-events-none z-40"
                 style={{
                   inset: hitTier === 3 ? '-16px' : '-10px',
-                  borderColor: hitTier === 3 ? 'rgba(255,220,80,0.9)' : 'rgba(255,255,255,0.75)',
+                  borderColor: hitTier === 3 ? 'rgba(255,220,80,0.95)' : 'rgba(255,255,255,0.8)',
                 }}
-                initial={{ opacity: 0.9, scale: 0.5 }}
+                initial={{ opacity: 0.95, scale: 0.5 }}
                 animate={{ opacity: 0, scale: hitTier === 3 ? 2.4 : 1.8 }}
                 transition={{ duration: hitTier === 3 ? 0.45 : 0.32, ease: 'easeOut' }}
               />
-              {/* Heavy hit: extra shockwave ring */}
+              {/* Heavy hit: extra shockwave ring + a directional impact streak */}
               {hitTier === 3 && (
-                <motion.div
-                  className="absolute inset-[-24px] rounded-full border border-white/40 pointer-events-none z-40"
-                  initial={{ opacity: 0.6, scale: 0.4 }}
-                  animate={{ opacity: 0, scale: 3.0 }}
-                  transition={{ duration: 0.55, ease: 'easeOut' }}
-                />
+                <>
+                  <motion.div
+                    className="absolute inset-[-24px] rounded-full border border-white/40 pointer-events-none z-40"
+                    initial={{ opacity: 0.65, scale: 0.4 }}
+                    animate={{ opacity: 0, scale: 3.0 }}
+                    transition={{ duration: 0.55, ease: 'easeOut' }}
+                  />
+                  <motion.div
+                    className="absolute left-1/2 top-1/2 pointer-events-none z-40"
+                    style={{
+                      width: 90,
+                      height: 4,
+                      marginLeft: -45,
+                      marginTop: -2,
+                      background: 'linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,235,150,0.9) 50%, rgba(255,255,255,0) 100%)',
+                      transform: `rotate(${Math.atan2(-recoilDir.y, -recoilDir.x) * 180 / Math.PI}deg)`,
+                      transformOrigin: 'center',
+                    }}
+                    initial={{ opacity: 0.9, scaleX: 0.3 }}
+                    animate={{ opacity: 0, scaleX: 1.4 }}
+                    transition={{ duration: 0.28, ease: 'easeOut' }}
+                  />
+                </>
               )}
             </>
           )}
@@ -1029,7 +1093,7 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
                 />
              </svg>
           )}
-        </div>
+        </motion.div>
       )}
     </motion.div>
   );
