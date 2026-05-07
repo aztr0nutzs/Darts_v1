@@ -557,6 +557,10 @@ const ARENAS: { id: ArenaId; name: string; level: number; targetScore: number }[
   { id: 'rooftop',   name: "SKYLINE ROOFTOP",  level: 3, targetScore: 45000 },
 ];
 
+function arenaById(id: unknown) {
+  return ARENAS.find(arena => arena.id === id) ?? ARENAS[0];
+}
+
 function CustomCrosshair({ x, y, isShooting, hitMarkerTime, hitMarkerType, ammo, maxAmmo, isReloading, scale, gun, buffs, settings }: { x: any, y: any, isShooting: boolean, hitMarkerTime: number, hitMarkerType: HitMarkerType, ammo: number, maxAmmo: number, isReloading: boolean, scale: any, gun: GunType, buffs: { damage: number, rapidFire: number, shield: number }, settings: any }) {
   // Extended flash window — 220ms for normal, 300ms for crit/kill so they read clearly
   const elapsed = Date.now() - hitMarkerTime;
@@ -1333,6 +1337,19 @@ export default function App() {
         startGame('multiplayer');
         setIsMultiplayerWaiting(false);
       }
+      if (state?.arenaId) {
+        const arena = arenaById(state.arenaId);
+        setCurrentArena(arena);
+        directorRef.current.setArena(arena.id);
+      }
+      if (state?.activeBoss) {
+        setActiveBoss(state.activeBoss);
+        setBossDefeated(false);
+      } else if (state?.bossDefeated) {
+        setActiveBoss(null);
+        setBossDefeated(true);
+        setTimeout(() => setBossDefeated(false), 3500);
+      }
       // Mirror server's authoritative target list whenever room-state arrives in MP.
       if (gameModeRef.current === 'multiplayer' && Array.isArray(state.targets)) {
         setTargets(state.targets.map((t: any) => ({
@@ -1387,6 +1404,31 @@ export default function App() {
       setWave(waveIndex + 1);
     });
 
+    newSocket.on("boss-spawned", ({ boss }: { boss: BossState }) => {
+      setActiveBoss(boss);
+      setBossDefeated(false);
+      setTargets(prev => prev.filter(t => !t.id.startsWith('boss-support-')));
+      const arena = arenaById(boss.arenaId);
+      setCurrentArena(arena);
+      directorRef.current.setArena(arena.id);
+    });
+
+    newSocket.on("boss-updated", ({ boss }: { boss: BossState }) => {
+      setActiveBoss(boss);
+    });
+
+    newSocket.on("boss-phase-changed", ({ boss }: { boss: BossState; phase: number }) => {
+      setActiveBoss({ ...boss, phaseTransitionAlert: true });
+      spawnEnvironmentImpact(boss.x, boss.y, 'weak_point', true, 'boss');
+    });
+
+    newSocket.on("boss-defeated", ({ boss }: { boss: BossState }) => {
+      setActiveBoss(null);
+      setBossDefeated(true);
+      spawnEnvironmentImpact(boss?.x ?? 50, boss?.y ?? 42, 'weak_point', true, 'boss');
+      setTimeout(() => setBossDefeated(false), 3500);
+    });
+
     newSocket.on("game-over", () => {
       // Server has ended the match; client's local timer will also reach 0.
       // The existing game-over effect will pick this up via timeLeft.
@@ -1405,6 +1447,10 @@ export default function App() {
       newSocket.off("target-destroyed");
       newSocket.off("fire-result");
       newSocket.off("wave-update");
+      newSocket.off("boss-spawned");
+      newSocket.off("boss-updated");
+      newSocket.off("boss-phase-changed");
+      newSocket.off("boss-defeated");
       newSocket.off("game-over");
       newSocket.disconnect();
     };
@@ -1601,6 +1647,7 @@ export default function App() {
 
   // ── Boss encounter tick loop ──────────────────────────────────────────
   useEffect(() => {
+    if (gameMode === 'multiplayer') return;
     if (gameState !== 'playing' || !activeBoss || showCountdown) return;
     if (activeBoss.behaviorState === 'defeated') return;
 
@@ -1629,7 +1676,7 @@ export default function App() {
       });
     }, 100);
     return () => clearInterval(interval);
-  }, [gameState, activeBoss?.id, activeBoss?.behaviorState, showCountdown, spawnEnvironmentImpact]);
+  }, [gameMode, gameState, activeBoss?.id, activeBoss?.behaviorState, showCountdown, spawnEnvironmentImpact]);
 
   // Game Loop for spawning and removing targets
   useEffect(() => {
@@ -1979,6 +2026,7 @@ export default function App() {
           setTimeout(() => setKillFlash(false), 130);
           setTimeout(() => setShakeIntensity(0), 240);
           triggerHitPause('kill');
+          sounds.playTargetBreak();
         } else if (isCritHit) {
           setShakeIntensity(14);
           setCritFlash(true);
@@ -1996,6 +2044,7 @@ export default function App() {
         } else {
           setShakeIntensity(5);
           setTimeout(() => setShakeIntensity(0), 100);
+          sounds.playHit(serverQuality ?? 'body');
         }
 
         if (damage > 0) {

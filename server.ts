@@ -3,6 +3,15 @@ import { createServer as createViteServer } from "vite";
 import { createServer } from "http";
 import { Server, Socket } from "socket.io";
 import path from "path";
+import {
+  createBossState,
+  damageBoss,
+  shouldTriggerBoss,
+  tickBoss,
+  type ArenaIdForDirector,
+  type BossState,
+  type BossSupportTarget,
+} from "./src/shared/BossModel";
 
 // ============================================================
 // Authoritative Game Constants
@@ -209,6 +218,7 @@ const MATCH_DURATION_MS = 60_000;
 const MIN_FIRE_INTERVAL_MS = 50;          // hard floor independent of weapon
 const FIRE_RATE_TOLERANCE = 0.7;          // accept fires at 70% of nominal interval to allow client jitter
 const MAX_DROPPED_FIRES_PER_MATCH = 200;  // sanity log threshold
+const ARENA_IDS: ArenaIdForDirector[] = ['training', 'warehouse', 'rooftop'];
 
 // ============================================================
 // Types
@@ -260,10 +270,15 @@ interface Room {
   players: Record<string, PlayerState>;
   targets: ServerTarget[];
   gameState: 'waiting' | 'playing' | 'gameover';
+  arenaId: ArenaIdForDirector;
   waveIndex: number;
   waveStartMs: number;
   matchStartMs: number;
   totalDestroyedThisWave: number;
+  activeBoss: BossState | null;
+  bossDefeated: boolean;
+  bossEncounterWaveIndex: number | null;
+  bossPhaseTransition: { phase: number; startedAt: number } | null;
   spawnTimer: NodeJS.Timeout | null;
   tickTimer: NodeJS.Timeout | null;
   matchEndTimer: NodeJS.Timeout | null;
@@ -310,9 +325,12 @@ function publicRoom(room: Room) {
   return {
     players,
     gameState: room.gameState,
+    arenaId: room.arenaId,
     waveIndex: room.waveIndex,
     waveName: WAVES[room.waveIndex]?.name ?? '',
     targets: room.targets.map(publicTarget),
+    activeBoss: room.activeBoss,
+    bossDefeated: room.bossDefeated,
     score: 0, // legacy field used by old client
   };
 }
@@ -335,7 +353,35 @@ function buildTarget(room: Room, type: TargetType): ServerTarget {
   };
 }
 
+function buildBossSupportTarget(room: Room, target: BossSupportTarget): ServerTarget {
+  const spec = TARGET_SPECS[target.type];
+  room.targetIdCounter++;
+  return {
+    id: target.id || `srv-${room.id}-${room.targetIdCounter}`,
+    type: target.type,
+    x: target.x,
+    y: target.y,
+    createdAt: target.createdAt,
+    lifespan: target.lifespan,
+    hp: target.hp,
+    maxHp: target.maxHp,
+    points: target.points,
+    scale: target.scale ?? spec.scale,
+    radius: spec.radius,
+  };
+}
+
+function isBossWaveIndex(waveIndex: number): boolean {
+  const waveNumber = waveIndex + 1;
+  return shouldTriggerBoss(waveNumber, 'training') || waveIndex === WAVES.length - 1;
+}
+
+function isBossWaveLocked(room: Room): boolean {
+  return room.bossEncounterWaveIndex === room.waveIndex;
+}
+
 function generateSpawn(room: Room): ServerTarget[] {
+  if (room.activeBoss || isBossWaveLocked(room)) return [];
   const wave = WAVES[room.waveIndex];
   if (room.targets.length >= wave.maxConcurrent) return [];
 
@@ -392,11 +438,46 @@ async function startServer() {
     }
   }
 
+  function spawnBossEncounter(roomId: string, room: Room) {
+    room.targets = [];
+    room.activeBoss = createBossState(room.arenaId);
+    room.bossDefeated = false;
+    room.bossEncounterWaveIndex = room.waveIndex;
+    room.bossPhaseTransition = null;
+    io.to(roomId).emit('boss-spawned', { boss: room.activeBoss });
+    io.to(roomId).emit('room-state', publicRoom(room));
+  }
+
+  function enterWave(roomId: string, room: Room, waveIndex: number, now: number) {
+    room.waveIndex = waveIndex;
+    room.waveStartMs = now;
+    room.totalDestroyedThisWave = 0;
+    room.activeBoss = null;
+    room.bossDefeated = false;
+    room.bossEncounterWaveIndex = null;
+    room.bossPhaseTransition = null;
+    room.targets = [];
+
+    io.to(roomId).emit('wave-update', {
+      waveIndex: room.waveIndex,
+      name: WAVES[room.waveIndex].name,
+    });
+
+    if (isBossWaveIndex(room.waveIndex)) {
+      spawnBossEncounter(roomId, room);
+      scheduleWaveSpawn(roomId, room);
+      return;
+    }
+
+    scheduleWaveSpawn(roomId, room);
+  }
+
   function scheduleWaveSpawn(roomId: string, room: Room) {
     if (room.spawnTimer) clearInterval(room.spawnTimer);
     const wave = WAVES[room.waveIndex];
     room.spawnTimer = setInterval(() => {
       if (room.gameState !== 'playing') return;
+      if (room.activeBoss || isBossWaveLocked(room)) return;
       const spawns = generateSpawn(room);
       for (const t of spawns) {
         room.targets.push(t);
@@ -406,6 +487,9 @@ async function startServer() {
   }
 
   function checkWaveProgression(room: Room): boolean {
+    if (isBossWaveLocked(room)) {
+      return room.bossDefeated && !room.activeBoss;
+    }
     const wave = WAVES[room.waveIndex];
     const elapsed = (Date.now() - room.waveStartMs) / 1000;
     const totalScore = Object.values(room.players).reduce((s, p) => s + p.score, 0);
@@ -445,16 +529,36 @@ async function startServer() {
         for (const id of expiredIds) io.to(roomId).emit('target-expired', { id });
       }
 
+      if (room.activeBoss) {
+        const supportCount = room.targets.filter(t => t.id.startsWith('boss-support-')).length;
+        const result = tickBoss(room.activeBoss, supportCount);
+        room.activeBoss = result.boss;
+
+        for (const support of result.spawnTargets) {
+          const target = buildBossSupportTarget(room, support);
+          room.targets.push(target);
+          io.to(roomId).emit('new-target', publicTarget(target));
+        }
+
+        if (result.phaseChanged) {
+          room.bossPhaseTransition = { phase: result.boss.phase, startedAt: now };
+          io.to(roomId).emit('boss-phase-changed', { boss: result.boss, phase: result.boss.phase });
+        }
+
+        if (result.defeated) {
+          room.activeBoss = null;
+          room.bossDefeated = true;
+          room.bossPhaseTransition = null;
+          io.to(roomId).emit('boss-defeated', { boss: result.boss });
+          io.to(roomId).emit('room-state', publicRoom(room));
+        } else {
+          io.to(roomId).emit('boss-updated', { boss: result.boss });
+        }
+      }
+
       // Wave progression
       if (checkWaveProgression(room) && room.waveIndex < WAVES.length - 1) {
-        room.waveIndex += 1;
-        room.waveStartMs = now;
-        room.totalDestroyedThisWave = 0;
-        io.to(roomId).emit('wave-update', {
-          waveIndex: room.waveIndex,
-          name: WAVES[room.waveIndex].name,
-        });
-        scheduleWaveSpawn(roomId, room);
+        enterWave(roomId, room, room.waveIndex + 1, now);
       }
     }, 250);
   }
@@ -475,10 +579,15 @@ async function startServer() {
     clearRoomTimers(room);
     room.gameState = 'playing';
     room.targets = [];
+    room.arenaId = ARENA_IDS[Math.floor(Math.random() * ARENA_IDS.length)];
     room.waveIndex = 0;
     room.waveStartMs = Date.now();
     room.matchStartMs = Date.now();
     room.totalDestroyedThisWave = 0;
+    room.activeBoss = null;
+    room.bossDefeated = false;
+    room.bossEncounterWaveIndex = null;
+    room.bossPhaseTransition = null;
     room.targetIdCounter = 0;
 
     for (const p of Object.values(room.players)) {
@@ -493,12 +602,11 @@ async function startServer() {
       if (p.reloadTimer) { clearTimeout(p.reloadTimer); p.reloadTimer = null; }
     }
 
-    scheduleWaveSpawn(roomId, room);
     scheduleTick(roomId, room);
     room.matchEndTimer = setTimeout(() => endMatch(roomId, room), MATCH_DURATION_MS);
 
     io.to(roomId).emit('game-start');
-    io.to(roomId).emit('wave-update', { waveIndex: 0, name: WAVES[0].name });
+    enterWave(roomId, room, 0, room.waveStartMs);
     io.to(roomId).emit('room-state', publicRoom(room));
   }
 
@@ -540,10 +648,15 @@ async function startServer() {
           players: {},
           targets: [],
           gameState: 'waiting',
+          arenaId: 'training',
           waveIndex: 0,
           waveStartMs: 0,
           matchStartMs: 0,
           totalDestroyedThisWave: 0,
+          activeBoss: null,
+          bossDefeated: false,
+          bossEncounterWaveIndex: null,
+          bossPhaseTransition: null,
           spawnTimer: null,
           tickTimer: null,
           matchEndTimer: null,
@@ -598,6 +711,10 @@ async function startServer() {
       room.targets = [];
       room.waveIndex = 0;
       room.totalDestroyedThisWave = 0;
+      room.activeBoss = null;
+      room.bossDefeated = false;
+      room.bossEncounterWaveIndex = null;
+      room.bossPhaseTransition = null;
       for (const p of Object.values(room.players)) {
         p.ready = false;
         p.score = 0;
@@ -695,6 +812,68 @@ async function startServer() {
       p.lastFireTs = now;
       p.ammo -= 1;
       p.fireCount += 1;
+
+      if (room.activeBoss) {
+        const bossResult = damageBoss(room.activeBoss, aimX, aimY, spec.damage);
+        if (bossResult.damageDealt > 0) {
+          const isCrit = bossResult.hitZone === 'weak_point';
+          p.hits += 1;
+
+          if (bossResult.destroyed) {
+            const defeatedBoss = { ...room.activeBoss, behaviorState: 'defeated' as const, currentHp: 0 };
+            const points = defeatedBoss.points;
+            p.score += points;
+            room.totalDestroyedThisWave += 1;
+            room.activeBoss = null;
+            room.bossDefeated = true;
+            room.bossPhaseTransition = null;
+
+            socket.emit('fire-result', {
+              clientFireId,
+              accepted: true,
+              hit: true,
+              targetId: defeatedBoss.id,
+              targetType: 'boss',
+              bossHit: true,
+              damage: bossResult.damageDealt,
+              destroyed: true,
+              isCrit,
+              quality: bossResult.hitZone,
+              points,
+              hitX: aimX,
+              hitY: aimY,
+            });
+            io.to(roomId).emit('boss-defeated', { boss: defeatedBoss, playerId: socket.id, points });
+            io.to(roomId).emit('room-state', publicRoom(room));
+            return;
+          }
+
+          const ticked = tickBoss(room.activeBoss, room.targets.filter(t => t.id.startsWith('boss-support-')).length);
+          room.activeBoss = ticked.boss;
+          if (ticked.phaseChanged) {
+            room.bossPhaseTransition = { phase: ticked.boss.phase, startedAt: now };
+            io.to(roomId).emit('boss-phase-changed', { boss: ticked.boss, phase: ticked.boss.phase });
+          }
+
+          io.to(roomId).emit('boss-updated', { boss: room.activeBoss });
+          socket.emit('fire-result', {
+            clientFireId,
+            accepted: true,
+            hit: true,
+            targetId: room.activeBoss.id,
+            targetType: 'boss',
+            bossHit: true,
+            damage: bossResult.damageDealt,
+            destroyed: false,
+            isCrit,
+            quality: bossResult.hitZone,
+            hitX: aimX,
+            hitY: aimY,
+          });
+          io.to(roomId).emit('room-state', publicRoom(room));
+          return;
+        }
+      }
 
       // Zone-based hit-test (mirrors src/lib/ShotResolver.ts).  Pick the
       // closest target whose graze radius covers the shot.
