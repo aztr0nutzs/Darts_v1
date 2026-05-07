@@ -1,5 +1,9 @@
 import { TargetData } from '../components/Target';
 
+// Arena identifier mirrors ArenaScene's ArenaId without creating a circular
+// component import.  Kept in sync manually since both sets are tiny.
+export type ArenaIdForDirector = 'training' | 'warehouse' | 'rooftop';
+
 export type WaveObjective = 'score' | 'survival' | 'accuracy' | 'hit_count' | 'timed_rush';
 export type WaveIntensity = 'rest' | 'build' | 'normal' | 'intense' | 'boss';
 
@@ -129,6 +133,31 @@ const WEAPON_PROFILES: Record<string, WeaponProfile> = {
   urban_carbine: 'auto',
   aether_core:  'auto',
   early_blaster: 'auto',
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Arena spawn bias — extra target types appended to the wave's pool when the
+// match is staged in a given arena.  Each arena gets a distinct gameplay flavor
+// without overriding the curated wave progression: bias entries are *added*
+// alongside existing pool entries, so wave structure stays intact.
+//
+//   training  → "standard + moving" — readable, clean shooting-bay feel.
+//   warehouse → "drones + erratic + splitting" — cluttered close-quarters.
+//   rooftop   → "sniper + shielded + teleporting" — long-range precision.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ARENA_TYPE_BIAS: Record<ArenaIdForDirector, TargetData['type'][]> = {
+  training:  ['standard', 'standard', 'moving'],
+  warehouse: ['drone', 'drone', 'erratic', 'splitting'],
+  rooftop:   ['phase_target', 'shielded', 'teleporting'],
+};
+
+// Per-arena depth + swarm tweaks.  Mild adjustments only — never overriding a
+// wave's intent, just nudging the feel.
+const ARENA_TUNING: Record<ArenaIdForDirector, { depthShift?: 'close' | 'mid' | 'far'; swarmDelta?: number }> = {
+  training:  { swarmDelta: -0.05 },
+  warehouse: { swarmDelta:  0.10 },
+  rooftop:   { depthShift: 'far', swarmDelta: -0.10 },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -368,17 +397,25 @@ export class GameplayDirector {
   // Tracks the last sequence index that ran a signature wave so the same
   // injection cannot fire on consecutive waves.
   private lastSignatureSeqIndex: number = -2;
+  // Active arena, used to bias spawn selection toward the arena's signature
+  // target mix.  Defaults to training when not set.
+  private arenaId: ArenaIdForDirector = 'training';
 
   constructor() {
     this.currentWave = WAVES[0];
   }
 
-  startMatch(mode: string = 'classic') {
+  startMatch(mode: string = 'classic', arenaId?: ArenaIdForDirector) {
     this.mode = mode;
+    if (arenaId) this.arenaId = arenaId;
     this.sequence = MODE_SEQUENCES[mode] ?? MODE_SEQUENCES.classic;
     this.sequenceIndex = 0;
     this.lastSignatureSeqIndex = -2;
     this._applySequenceIndex(0, 0);
+  }
+
+  setArena(arenaId: ArenaIdForDirector) {
+    this.arenaId = arenaId;
   }
 
   startWave(seqIndex: number, currentScore: number = 0) {
@@ -440,6 +477,20 @@ export class GameplayDirector {
     } else if (profile === 'auto') {
       // Auto-blasters excel in swarms
       swarmChance = Math.min(0.9, swarmChance + 0.15);
+    }
+
+    // ── Arena bias: append the arena's signature targets to the pool and
+    //    nudge depth / swarm to match the arena's feel.  Bias never replaces
+    //    wave content — it stacks alongside it so curated progression stays
+    //    intact even with arena flavour applied.
+    const arenaBias = ARENA_TYPE_BIAS[this.arenaId];
+    if (arenaBias?.length) {
+      typePool = typePool.concat(arenaBias);
+    }
+    const arenaTune = ARENA_TUNING[this.arenaId];
+    if (arenaTune?.depthShift && depthBias === 'any') depthBias = arenaTune.depthShift;
+    if (typeof arenaTune?.swarmDelta === 'number') {
+      swarmChance = Math.max(0, Math.min(0.9, swarmChance + arenaTune.swarmDelta));
     }
 
     // ── Boss spawn: when the arena clears, give the boss a stage ───

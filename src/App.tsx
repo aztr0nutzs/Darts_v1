@@ -1209,7 +1209,10 @@ export default function App() {
   };
 
   const startGame = (mode: GameMode = gameMode) => {
-    directorRef.current.startMatch(mode);
+    // Pick the arena first so the director can bias spawns to match the
+    // arena's signature target mix from wave 1.
+    const pickedArena = ARENAS[Math.floor(Math.random() * ARENAS.length)];
+    directorRef.current.startMatch(mode, pickedArena.id);
     setGameMode(mode);
     setGameState('playing');
     setShowCountdown(true);
@@ -1229,7 +1232,7 @@ export default function App() {
     setActiveBuffs({ damage: 0, rapidFire: 0, shield: 0 });
     setWave(1);
     setMaxWave(directorRef.current.getMaxWaves());
-    setCurrentArena(ARENAS[Math.floor(Math.random() * ARENAS.length)]);
+    setCurrentArena(pickedArena);
   };
 
   const [isADS, setIsADS] = useState(false);
