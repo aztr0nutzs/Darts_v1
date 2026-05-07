@@ -24,6 +24,9 @@ import ResultsOverlay from './components/ResultsOverlay';
 import { GameplayDirector } from './lib/GameplayDirector';
 import { resolveShotHit } from './lib/ShotResolver';
 import ArenaScene, { ArenaId } from './components/ArenaScene';
+import { createBossState, tickBoss, damageBoss, BOSS_DEFINITIONS, type BossState } from './lib/BossEncounter';
+import BossRenderer from './components/BossRenderer';
+import BossHUD from './components/BossHUD';
 
 export type DartType = {
   id: string;
@@ -877,6 +880,11 @@ export default function App() {
   const [maxWave, setMaxWave] = useState(3);
   const [targetScoreGoal, setTargetScoreGoal] = useState(25000);
 
+  // ── Boss encounter state ──────────────────────────────────────────────
+  const [activeBoss, setActiveBoss] = useState<BossState | null>(null);
+  const [bossDefeated, setBossDefeated] = useState(false);
+  const activeBossRef = useRef<BossState | null>(null);
+
   const [flash, setFlash] = useState(false);
   // Brief orange/white pulse on target kill — separate from damage flash
   const [killFlash, setKillFlash] = useState(false);
@@ -1230,6 +1238,8 @@ export default function App() {
     setShotsFiredPerWeapon({});
     setEarnedCredits(0);
     setActiveBuffs({ damage: 0, rapidFire: 0, shield: 0 });
+    setActiveBoss(null);
+    setBossDefeated(false);
     setWave(1);
     setMaxWave(directorRef.current.getMaxWaves());
     setCurrentArena(pickedArena);
@@ -1329,6 +1339,40 @@ export default function App() {
   }, [gameState, unlockedGuns, currentGun.id]);
 
   const directorRef = useRef(new GameplayDirector());
+
+  // Keep activeBossRef in sync for use in setTimeout closures.
+  useEffect(() => {
+    activeBossRef.current = activeBoss;
+  }, [activeBoss]);
+
+  // ── Boss encounter tick loop ──────────────────────────────────────────
+  useEffect(() => {
+    if (gameState !== 'playing' || !activeBoss || showCountdown) return;
+    if (activeBoss.behaviorState === 'defeated') return;
+
+    const interval = setInterval(() => {
+      setActiveBoss(prev => {
+        if (!prev || prev.behaviorState === 'defeated') return prev;
+        // Count active boss support targets
+        const supportCount = targets.filter(t => t.id.startsWith('boss-support-')).length;
+        const result = tickBoss({ ...prev }, supportCount);
+        // Spawn support targets from boss behavior
+        if (result.spawnTargets.length > 0) {
+          setTargets(curr => [...curr, ...result.spawnTargets]);
+        }
+        if (result.defeated) {
+          // Boss defeated — award points, clear boss, resume normal waves
+          directorRef.current.setBossActive(false);
+          setBossDefeated(true);
+          setScore(s => s + (BOSS_DEFINITIONS[prev.arenaId]?.points ?? 2000));
+          setTimeout(() => setBossDefeated(false), 3500);
+          return { ...result.boss, behaviorState: 'defeated' as const };
+        }
+        return result.boss;
+      });
+    }, 100);
+    return () => clearInterval(interval);
+  }, [gameState, activeBoss?.id, activeBoss?.behaviorState, showCountdown]);
 
   // Game Loop for spawning and removing targets
   useEffect(() => {
@@ -1458,10 +1502,20 @@ export default function App() {
           setTargetsHit(hits => {
             setTotalShots(shots => {
                const accuracy = shots > 0 ? Math.round((hits / shots) * 100) : 0;
-               if (director.checkWaveCompletion(currentScore, accuracy)) {
+               // Don't advance waves while a boss is active
+               if (!director.isBossActive() && director.checkWaveCompletion(currentScore, accuracy)) {
                   const nextId = director.getWaveIndex() + 1;
+                  const nextWaveNum = nextId + 1;
                   director.startWave(nextId, currentScore);
-                  setWave(nextId + 1);
+                  setWave(nextWaveNum);
+
+                  // Boss encounter trigger: check if this new wave should spawn a boss
+                  if (director.shouldSpawnBoss(nextWaveNum)) {
+                    const arenaId = director.getArenaId();
+                    const newBoss = createBossState(arenaId);
+                    setActiveBoss(newBoss);
+                    director.setBossActive(true);
+                  }
                }
                return shots;
             });
@@ -1771,6 +1825,35 @@ export default function App() {
         // Hit Resolver
         const travelMs = upgradedGun.dartType.speed;
         setTimeout(() => {
+          // Check boss hit first (boss is a separate entity from normal targets)
+          const boss = activeBossRef.current;
+          const aimXPctLocal = (endX / rect.width) * 100;
+          const aimYPctLocal = (endY / rect.height) * 100;
+          if (boss && boss.behaviorState !== 'defeated') {
+            const bossResult = damageBoss(boss, aimXPctLocal, aimYPctLocal, upgradedGun.dartType.damage);
+            if (bossResult.damageDealt > 0) {
+              setActiveBoss({ ...boss });
+              // Hit feedback
+              const effectId = `boss-hit-${hitEffectIdCounter.current++}`;
+              const quality = bossResult.hitZone;
+              setHitEffects(curr => [...curr, { id: effectId, x: aimXPctLocal, y: aimYPctLocal, color: currentGun.dartType.color, isDestroy: bossResult.destroyed, quality }]);
+              setHitMarkerTime(Date.now());
+              setHitMarkerType(bossResult.hitZone === 'weak_point' ? 'crit' : bossResult.hitZone === 'armor' ? 'armor' : 'normal');
+              setTimeout(() => setHitEffects(curr => curr.filter(h => h.id !== effectId)), 500);
+              // Combat text
+              const textId = `btxt-${hitEffectIdCounter.current++}`;
+              const isCrit = bossResult.hitZone === 'weak_point';
+              setCombatTexts(curr => [...curr, { id: textId, x: aimXPctLocal + (Math.random() * 4 - 2), y: aimYPctLocal - 5, text: isCrit ? `CRIT! -${bossResult.damageDealt}` : `-${bossResult.damageDealt}`, color: isCrit ? '#facc15' : '#ffffff', isCritical: isCrit }]);
+              setTimeout(() => setCombatTexts(curr => curr.filter(t => t.id !== textId)), 1000);
+              sounds.playHit(quality);
+              vibrate(bossResult.hitZone === 'weak_point' ? [30, 50, 30] : 20);
+              if (isCrit) triggerHitPause('crit');
+              setShakeIntensity(bossResult.hitZone === 'weak_point' ? 12 : bossResult.hitZone === 'armor' ? 3 : 6);
+              setTimeout(() => setShakeIntensity(0), 150);
+              return;
+            }
+          }
+
           const hitResult = resolveShotHit(endX, endY, rect.width, rect.height, targetsRef.current);
 
           if (hitResult) {
@@ -2589,6 +2672,19 @@ export default function App() {
                   />
                 ))}
               </AnimatePresence>
+
+              {/* Boss Renderer */}
+              <AnimatePresence>
+                {activeBoss && activeBoss.behaviorState !== 'defeated' && (
+                  <BossRenderer
+                    boss={activeBoss}
+                    cursorPos={{ x: cursorX.get(), y: cursorY.get() }}
+                  />
+                )}
+              </AnimatePresence>
+
+              {/* Boss HUD */}
+              <BossHUD boss={activeBoss} bossDefeated={bossDefeated} />
 
               {hitEffects.map(effect => (
                 <HitEffect key={effect.id} x={effect.x} y={effect.y} color={effect.color} isDestroy={effect.isDestroy} isMiss={effect.isMiss} isExplosion={effect.isExplosion} quality={effect.quality} originX={effect.originX} originY={effect.originY} />

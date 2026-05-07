@@ -1,4 +1,5 @@
 import { TargetData } from '../components/Target';
+import { shouldTriggerBoss } from './BossEncounter';
 
 // Arena identifier mirrors ArenaScene's ArenaId without creating a circular
 // component import.  Kept in sync manually since both sets are tiny.
@@ -401,6 +402,14 @@ export class GameplayDirector {
   // target mix.  Defaults to training when not set.
   private arenaId: ArenaIdForDirector = 'training';
 
+  // ── Boss encounter integration ──────────────────────────────────────────
+  // Tracks whether a boss encounter is currently active.  When active the
+  // director pauses normal wave progression and target spawning to let the
+  // boss own the stage.  The App layer manages the boss lifecycle; the
+  // director only gates spawns and wave advancement.
+  private bossActive: boolean = false;
+  private bossDefeatedThisMatch: boolean = false;
+
   constructor() {
     this.currentWave = WAVES[0];
   }
@@ -411,11 +420,44 @@ export class GameplayDirector {
     this.sequence = MODE_SEQUENCES[mode] ?? MODE_SEQUENCES.classic;
     this.sequenceIndex = 0;
     this.lastSignatureSeqIndex = -2;
+    this.bossActive = false;
+    this.bossDefeatedThisMatch = false;
     this._applySequenceIndex(0, 0);
   }
 
   setArena(arenaId: ArenaIdForDirector) {
     this.arenaId = arenaId;
+  }
+
+  // ── Boss encounter helpers ──────────────────────────────────────────────
+
+  /** Returns the active arena id. */
+  getArenaId(): ArenaIdForDirector {
+    return this.arenaId;
+  }
+
+  /**
+   * Check if the current wave number should trigger a boss encounter.
+   * Uses deterministic rules: every 5th wave (1-indexed) spawns the boss.
+   * Boss is not triggered in multiplayer (server would need full boss state).
+   */
+  shouldSpawnBoss(waveNumber: number): boolean {
+    if (this.bossActive) return false;
+    if (this.mode === 'multiplayer') return false;
+    return shouldTriggerBoss(waveNumber, this.arenaId);
+  }
+
+  /** Called by App when a boss encounter starts.  Pauses normal spawning. */
+  setBossActive(active: boolean) {
+    this.bossActive = active;
+    if (!active) {
+      this.bossDefeatedThisMatch = true;
+    }
+  }
+
+  /** Whether a boss encounter is currently running. */
+  isBossActive(): boolean {
+    return this.bossActive;
   }
 
   startWave(seqIndex: number, currentScore: number = 0) {
@@ -457,6 +499,10 @@ export class GameplayDirector {
   }
 
   generateSpawn(activeTargetCount: number, weaponId: string): TargetData[] {
+    // When a boss encounter is active the director yields all spawning to the
+    // boss behavior system.  Normal wave targets are suppressed.
+    if (this.bossActive) return [];
+
     const config = this._effectiveConfig();
     if (activeTargetCount >= config.maxConcurrent) return [];
 
