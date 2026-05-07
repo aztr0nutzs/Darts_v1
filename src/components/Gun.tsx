@@ -199,6 +199,46 @@ const MUZZLE_FLASH_OFFSET: Record<Archetype, { left: number; top: number }> = {
   heavy:    { left: -50, top: 30 },
 };
 
+// Per-weapon overrides for muzzle flash position. Empty when archetype default
+// already lines up; values nudge the bloom onto the exact visible barrel tip
+// for guns whose body silhouette deviates (long sniper barrels, double-stack,
+// drum-fed carbines). Falls back to MUZZLE_FLASH_OFFSET when not present.
+const WEAPON_MUZZLE_OVERRIDE: Partial<Record<string, { left: number; top: number }>> = {
+  scout_rifle:  { left: -58, top: 36 },
+  protoscope:   { left: -54, top: 30 },
+  boomer:       { left: -48, top: 30 },  // top barrel of double-barrel
+  triple_threat:{ left: -54, top: 26 },
+  aether_core:  { left: -52, top: 28 },
+  early_blaster:{ left: -50, top: 32 },
+  tactical_shotty: { left: -48, top: 30 },
+  heavy_dart_p: { left: -48, top: 34 },
+  urban_carbine:{ left: -48, top: 34 },
+};
+
+// Per-archetype "feel" profile — how each weapon class presents itself in the
+// foreground. Drives skew, base size (foreground dominance), recoil weight and
+// timing, and muzzle bloom scale. STATS ARE NOT TOUCHED — these only affect
+// rendering, transform, and animation.
+const ARCHETYPE_FEEL: Record<Archetype, {
+  skewX: number;          // deg, perspective shear of the whole stack
+  skewY: number;          // deg
+  barrelBoost: number;    // front-layer scale > 1 → barrel reads larger than rear
+  baseScale: number;      // 5–15% size bump for foreground dominance
+  recoilMul: number;      // class-specific kick weight
+  recoilDuration: number; // total recoil cycle (s) — heavies feel weightier
+  flashScale: number;     // muzzle flash bloom multiplier
+  depthPx: number;        // translateZ separation between back/front layers
+}> = {
+  pistol:   { skewX: -1.6, skewY:  0.7, barrelBoost: 1.05, baseScale: 1.06, recoilMul: 0.85, recoilDuration: 0.12, flashScale: 1.00, depthPx: 18 },
+  revolver: { skewX: -2.0, skewY:  1.0, barrelBoost: 1.06, baseScale: 1.08, recoilMul: 1.05, recoilDuration: 0.15, flashScale: 1.10, depthPx: 20 },
+  smg:      { skewX: -1.4, skewY:  0.5, barrelBoost: 1.04, baseScale: 1.07, recoilMul: 0.70, recoilDuration: 0.09, flashScale: 0.90, depthPx: 18 },
+  double:   { skewX: -2.6, skewY:  1.4, barrelBoost: 1.09, baseScale: 1.10, recoilMul: 1.30, recoilDuration: 0.18, flashScale: 1.40, depthPx: 22 },
+  shotgun:  { skewX: -2.8, skewY:  1.5, barrelBoost: 1.10, baseScale: 1.12, recoilMul: 1.35, recoilDuration: 0.18, flashScale: 1.50, depthPx: 24 },
+  carbine:  { skewX: -2.2, skewY:  1.1, barrelBoost: 1.07, baseScale: 1.09, recoilMul: 0.92, recoilDuration: 0.12, flashScale: 1.05, depthPx: 22 },
+  sniper:   { skewX: -2.4, skewY:  1.3, barrelBoost: 1.09, baseScale: 1.10, recoilMul: 1.20, recoilDuration: 0.20, flashScale: 1.20, depthPx: 24 },
+  heavy:    { skewX: -3.0, skewY:  1.7, barrelBoost: 1.11, baseScale: 1.13, recoilMul: 1.55, recoilDuration: 0.22, flashScale: 1.60, depthPx: 26 },
+};
+
 // Adjust hex color brightness (factor > 1 = lighter, < 1 = darker)
 function adj(hex: string, f: number): string {
   const n = parseInt(hex.replace('#', ''), 16);
@@ -243,8 +283,9 @@ function GunDefs({ u, p, a, isBack }: { u: string; p: string; a: string; isBack:
         <stop offset="100%" stopColor={B ? '#050912' : '#651f0a'} />
       </linearGradient>
       <linearGradient id={`gloss_${u}`} x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%"   stopColor="#ffffff" stopOpacity="0.30" />
-        <stop offset="38%"  stopColor="#ffffff" stopOpacity="0.06" />
+        <stop offset="0%"   stopColor="#ffffff" stopOpacity="0.44" />
+        <stop offset="22%"  stopColor="#ffffff" stopOpacity="0.18" />
+        <stop offset="55%"  stopColor="#ffffff" stopOpacity="0.04" />
         <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
       </linearGradient>
     </defs>
@@ -649,43 +690,79 @@ export default function Gun({
 }: GunProps) {
   const arch = gun.archetype;
   const muzzle = MUZZLE_POS[arch];
-  const flashOffset = MUZZLE_FLASH_OFFSET[arch];
+  const feel = ARCHETYPE_FEEL[arch];
+  const flashOffset = WEAPON_MUZZLE_OVERRIDE[gun.id] ?? MUZZLE_FLASH_OFFSET[arch];
 
   const swayX = mouseX * 28;
   const swayY = mouseY * 14;
   const swayRY = mouseX * 14;
   const swayRX = mouseY * -9;
 
-  // Directional lateral kick — heavier guns kick left more (visual realism)
-  const lateralKick = gun.recoil * 0.18 + recoilBuildup * 0.5;
-  // Idle depth variation — subtle forward/back perspective pulse during breathing
-  const idleScale = isADS ? 2.8 : (isReloading ? 0.8 : 1.35);
+  // Directional lateral kick — heavier guns kick left more, scaled by class weight.
+  const lateralKick = (gun.recoil * 0.18 + recoilBuildup * 0.5) * feel.recoilMul;
+  // Vertical kick — weapons recoil UP/BACK toward the viewer (negative Y in
+  // screen space) to read as a weighted impulse rather than a downward drop.
+  const verticalKick = (gun.recoil * 2.6 + recoilBuildup * 6.5) * feel.recoilMul;
+  // Z-axis impulse — the entire stack pulses backward toward the camera, then
+  // settles; gives the recoil weight without changing firing logic.
+  const depthKick = (gun.recoil * 0.18 + recoilBuildup * 0.4) * feel.recoilMul;
+
+  // 5–15% size boost for foreground dominance, varied per archetype.
+  const idleScale = isADS ? 2.8 : (isReloading ? 0.8 : 1.35 * feel.baseScale);
+
+  // Easing split: a sharp impulse followed by a slower elastic-feeling return.
+  // The keyframe times keep the impulse at ~10% of the cycle, with the long
+  // tail dedicated to settling. Tuned independently of fireRate (purely visual).
+  const recoilTimes: [number, number, number, number] = [0, 0.10, 0.55, 1];
+  const recoilEase: [number, number, number, number] = [0.08, 0.0, 0.55, 1.0];
 
   return (
     <motion.div
-      className="absolute bottom-[-5vh] right-[-2vw] z-50 pointer-events-none origin-bottom-right"
+      className="absolute bottom-[-3vh] right-[-1.5vw] z-[55] pointer-events-none origin-bottom-right"
       animate={{
-        x:       isADS ? swayX * 0.12 - 120 : (isShooting ? [swayX, swayX - lateralKick, swayX + lateralKick * 0.3, swayX] : swayX),
-        y:       isReloading ? 400 : (isADS ? -120 : (isFlinching ? [swayY, swayY + 62, swayY - 8, swayY] : (isShooting ? [swayY, swayY + gun.recoil * 2.8 + recoilBuildup * 7, swayY - 4, swayY] : [swayY, swayY - 6, swayY - 1, swayY]))),
-        rotateZ: isFlinching ? [0, -11, 5, 0] : (isShooting ? [swayRY, swayRY - gun.recoil * 0.85, swayRY + 1.5, swayRY] : [swayRY, swayRY - 0.4, swayRY + 0.1, swayRY]),
-        rotateX: isFlinching ? [0, -28, 0] : (isShooting ? [swayRX, swayRX - (gun.recoil * 1.4 + recoilBuildup * 1.8), swayRX + 2, swayRX] : swayRX),
+        x:       isADS ? swayX * 0.12 - 120
+                       : (isShooting
+                           ? [swayX, swayX - lateralKick, swayX + lateralKick * 0.25, swayX]
+                           : [swayX, swayX + 1.6, swayX - 0.8, swayX]),
+        y:       isReloading ? 400
+                : isADS ? -120
+                : isFlinching ? [swayY, swayY + 62, swayY - 8, swayY]
+                : isShooting
+                    // Negative Y = up/back toward viewer, with a soft overshoot before settling.
+                    ? [swayY, swayY - verticalKick, swayY + 4, swayY]
+                    : [swayY, swayY - 6, swayY - 1, swayY],
+        rotateZ: isFlinching ? [0, -11, 5, 0]
+                : isShooting
+                    ? [swayRY, swayRY - gun.recoil * 0.85 * feel.recoilMul, swayRY + 1.6, swayRY]
+                    : [swayRY, swayRY - 0.55, swayRY + 0.2, swayRY],
+        rotateX: isFlinching ? [0, -28, 0]
+                : isShooting
+                    ? [swayRX, swayRX - (gun.recoil * 1.4 + recoilBuildup * 1.8) * feel.recoilMul, swayRX + 2.4, swayRX]
+                    : [swayRX, swayRX - 0.5, swayRX + 0.2, swayRX],
         rotateY: isADS ? swayRY * 0.08 : swayRY,
-        scale:   isShooting ? [idleScale, idleScale * 0.96, idleScale] : idleScale,
+        scale:   isShooting ? [idleScale, idleScale * 1.04, idleScale * 0.97, idleScale] : idleScale,
       }}
       transition={{
-        duration: isFlinching ? 0.24 : (isShooting ? 0.10 : 3.8),
-        times:    isShooting ? [0, 0.12, 0.55, 1] : undefined,
-        ease:     isFlinching ? 'easeInOut' : (isShooting ? [0.08, 0, 0.6, 1] : 'easeInOut'),
+        duration: isFlinching ? 0.24
+                : isShooting ? feel.recoilDuration
+                : 3.8,
+        times:    isShooting ? recoilTimes
+                : (!isFlinching && !isADS && !isReloading) ? [0, 0.35, 0.7, 1]
+                : undefined,
+        ease:     isFlinching ? 'easeInOut'
+                : isShooting ? recoilEase
+                : 'easeInOut',
         repeat:   isFlinching || isShooting ? 0 : Infinity,
       }}
     >
-      {/* Muzzle flash — per-archetype offset so it tracks the barrel tip */}
+      {/* Muzzle flash — per-weapon (or per-archetype fallback) offset so the
+          bloom originates exactly at the visible barrel tip. */}
       <AnimatePresence>
         {isShooting && (
           <motion.div
             key="flash"
             initial={{ opacity: 1, scale: 0.35 }}
-            animate={{ opacity: 0, scale: 4.2 }}
+            animate={{ opacity: 0, scale: 4.2 * feel.flashScale }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.11, ease: 'easeOut' }}
             className="absolute z-[100] pointer-events-none mix-blend-screen"
@@ -702,7 +779,7 @@ export default function Gun({
             {/* Secondary wider glow ring */}
             <motion.div
               initial={{ opacity: 0.7, scale: 0.5 }}
-              animate={{ opacity: 0, scale: 2.0 }}
+              animate={{ opacity: 0, scale: 2.0 * feel.flashScale }}
               transition={{ duration: 0.14, ease: 'easeOut' }}
               className="absolute inset-0 rounded-full"
               style={{
@@ -729,10 +806,13 @@ export default function Gun({
         )}
       </AnimatePresence>
 
-      {/* 3-layer pseudo-3D weapon stack */}
+      {/* 3-layer pseudo-3D weapon stack with a per-archetype perspective shear.
+          The skew gives each weapon class a distinct lean toward the viewer. */}
       <div
         className="relative w-[300px] h-[300px] pointer-events-none origin-bottom-right"
-        style={{ transform: 'translateX(20%) translateY(20%) scale(1.5)' }}
+        style={{
+          transform: `translateX(20%) translateY(20%) scale(1.5) skewX(${feel.skewX}deg) skewY(${feel.skewY}deg)`,
+        }}
       >
         <div className="absolute inset-0" style={{ perspective: '1500px', transformStyle: 'preserve-3d' }}>
           <motion.div
@@ -742,27 +822,38 @@ export default function Gun({
               rotateY: isADS ? -18 : -52 + mouseX * -4,
               rotateX: isADS ? -4 : 6 + mouseY * 4 - (isShooting ? 6 : 0) - (isFlinching ? 14 : 0),
               rotateZ: isADS ? 0 : -4 + mouseX * 4 + (isShooting ? 2.5 : 0),
-              x:       isADS ? -48 : (isShooting ? 12 : 0),
-              y:       isReloading ? 400 : (isADS ? -48 : (isShooting ? 12 : 0)),
-              z:       isADS ? 140 : (isShooting ? -18 : 0),
+              x:       isADS ? -48 : (isShooting ? 14 : 0),
+              y:       isReloading ? 400 : (isADS ? -48 : (isShooting ? -10 : 0)),
+              // Stack pulses backward (toward viewer ⇒ +Z) on shoot, settles to 0.
+              z:       isADS ? 140 : (isShooting ? depthKick + 12 : 0),
             }}
             transition={{
-              duration: isShooting ? 0.10 : (isADS ? 0.28 : 0.75),
-              ease: 'easeOut',
+              duration: isShooting ? feel.recoilDuration : (isADS ? 0.28 : 0.75),
+              ease: isShooting ? recoilEase : 'easeOut',
             }}
           >
-            {/* Back shadow layer */}
-            <div className="absolute inset-0" style={{ transform: 'translateZ(-14px)' }}>
+            {/* Back shadow layer — pushed deeper into Z for stronger parallax. */}
+            <div className="absolute inset-0" style={{ transform: `translateZ(${-feel.depthPx}px)` }}>
               <WeaponSVG gun={gun} layer="back" arch={arch} />
             </div>
 
-            {/* Mid — main body */}
+            {/* Mid — main body, anchor plane. */}
             <div className="absolute inset-0" style={{ transform: 'translateZ(0px)' }}>
               <WeaponSVG gun={gun} layer="mid" arch={arch} />
             </div>
 
-            {/* Front — SVG fallback (rendered first), image overlay on top */}
-            <div className="absolute inset-0" style={{ transform: 'translateZ(14px)' }}>
+            {/* Front layer — pushed forward in Z and scaled larger so the barrel
+                end reads bigger than the rear (foreground dominance + barrel-
+                forward perspective illusion). Drop-shadow gives the underside
+                contact shadow that pairs with the SVG's top-light gloss. */}
+            <div
+              className="absolute inset-0"
+              style={{
+                transform: `translateZ(${feel.depthPx}px) scale(${feel.barrelBoost})`,
+                transformOrigin: '20% 50%',
+                filter: 'drop-shadow(0 12px 10px rgba(0,0,0,0.55)) drop-shadow(0 2px 2px rgba(0,0,0,0.7))',
+              }}
+            >
               <WeaponSVG gun={gun} layer="front" arch={arch} />
               {/* Image asset layered above the SVG so transparent PNGs read
                   cleanly. If the image errors, the SVG underneath stays. */}
