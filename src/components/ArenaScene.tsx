@@ -1,7 +1,76 @@
 import React from 'react';
 import { motion, MotionValue, useMotionValue, useTransform } from 'motion/react';
+import { getArenaSceneAssets } from '../lib/assetRegistry';
 
 export type ArenaId = 'training' | 'warehouse' | 'rooftop';
+
+// Optional concept-art plate behind the layered CSS scene. Errors silently to
+// keep the original CSS arena visible if the image isn't reachable.
+function ArenaArtPlate({ arenaId }: { arenaId: ArenaId }) {
+  const [primaryFailed, setPrimaryFailed] = React.useState(false);
+  const [detailFailed, setDetailFailed] = React.useState(false);
+  const { primary, detail } = React.useMemo(() => getArenaSceneAssets(arenaId), [arenaId]);
+
+  // Per-arena tone — masks blend the photographic concept into the CSS scene
+  // rather than pasting one full-screen still that swallows everything.
+  const tint =
+    arenaId === 'warehouse'
+      ? 'sepia(0.25) saturate(0.9) brightness(0.85)'
+      : arenaId === 'rooftop'
+      ? 'hue-rotate(-12deg) saturate(1.15) brightness(0.9)'
+      : 'saturate(1.05) brightness(0.95)';
+
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+      {!primaryFailed && (
+        <img
+          src={primary.src}
+          alt=""
+          aria-hidden
+          draggable={false}
+          loading="eager"
+          decoding="async"
+          onError={() => setPrimaryFailed(true)}
+          className="absolute inset-0 w-full h-full"
+          style={{
+            objectFit: 'cover',
+            objectPosition: 'center 35%',
+            opacity: 0.32,
+            filter: tint,
+            mixBlendMode: 'screen',
+          }}
+        />
+      )}
+      {detail && !detailFailed && (
+        <img
+          src={detail.src}
+          alt=""
+          aria-hidden
+          draggable={false}
+          loading="lazy"
+          decoding="async"
+          onError={() => setDetailFailed(true)}
+          className="absolute inset-x-0 top-0 w-full h-2/3"
+          style={{
+            objectFit: 'cover',
+            objectPosition: 'center top',
+            opacity: 0.18,
+            filter: `${tint} blur(2px)`,
+            mixBlendMode: 'lighten',
+          }}
+        />
+      )}
+      {/* Vignette to fade the art into the CSS midground */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,0.55) 75%, rgba(0,0,0,0.85) 100%)',
+        }}
+      />
+    </div>
+  );
+}
 
 interface ArenaSceneProps {
   arenaId: ArenaId;
@@ -38,6 +107,8 @@ export default function ArenaScene({ arenaId, parallaxX, parallaxY }: ArenaScene
   if (arenaId === 'warehouse') {
     return (
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {/* Concept-art plate (warehouse rush) */}
+        <ArenaArtPlate arenaId="warehouse" />
         {/* Background: dim warehouse wall */}
         <motion.div className="absolute inset-0" style={{ x: bgX, y: bgY }}>
           <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a0a] via-[#171615] to-[#0c0a08]" />
@@ -112,6 +183,8 @@ export default function ArenaScene({ arenaId, parallaxX, parallaxY }: ArenaScene
   if (arenaId === 'rooftop') {
     return (
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {/* Concept-art plate (skyline rooftop) */}
+        <ArenaArtPlate arenaId="rooftop" />
         {/* Background: dusk sky + distant skyline */}
         <motion.div className="absolute inset-0" style={{ x: bgX, y: bgY }}>
           <div className="absolute inset-0 bg-gradient-to-b from-[#1a0d2e] via-[#3a1b3d] to-[#0a0a14]" />
@@ -193,6 +266,8 @@ export default function ArenaScene({ arenaId, parallaxX, parallaxY }: ArenaScene
   // Default: training bay
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {/* Concept-art plate (training bay) */}
+      <ArenaArtPlate arenaId="training" />
       {/* Background: training-bay wall with safety stripes */}
       <motion.div className="absolute inset-0" style={{ x: bgX, y: bgY }}>
         <div className="absolute inset-0 bg-gradient-to-b from-[#101418] via-[#1a1f24] to-[#0a0d11]" />
