@@ -369,33 +369,36 @@ const ARENAS: { id: ArenaId; name: string; level: number; targetScore: number }[
 ];
 
 function CustomCrosshair({ x, y, isShooting, hitMarkerTime, hitMarkerType, ammo, maxAmmo, isReloading, scale, gun, buffs, settings }: { x: any, y: any, isShooting: boolean, hitMarkerTime: number, hitMarkerType: 'normal'|'crit'|'kill'|'armor', ammo: number, maxAmmo: number, isReloading: boolean, scale: any, gun: GunType, buffs: { damage: number, rapidFire: number, shield: number }, settings: any }) {
-  const showHit = settings.hitMarkers && (Date.now() - hitMarkerTime < 150);
+  // Extended flash window — 220ms for normal, 300ms for crit/kill so they read clearly
+  const elapsed = Date.now() - hitMarkerTime;
+  const flashWindow = (hitMarkerType === 'kill' || hitMarkerType === 'crit') ? 300 : 220;
+  const showHit = settings.hitMarkers && elapsed < flashWindow;
   const hasDamageBuff = Date.now() < buffs.damage;
   const hasShieldBuff = Date.now() < buffs.shield;
-  
+
   let hmColor = 'white';
   let hmShadow = 'rgba(255,255,255,0.8)';
-  if (hitMarkerType === 'kill') { hmColor = '#ef4444'; hmShadow = 'red'; }
-  else if (hitMarkerType === 'crit') { hmColor = '#eab308'; hmShadow = '#facc15'; }
-  else if (hitMarkerType === 'armor') { hmColor = '#e2e8f0'; hmShadow = '#94a3b8'; }
+  if (hitMarkerType === 'kill') { hmColor = '#ef4444'; hmShadow = 'rgba(239,68,68,0.9)'; }
+  else if (hitMarkerType === 'crit') { hmColor = '#fde047'; hmShadow = 'rgba(253,224,71,0.9)'; }
+  else if (hitMarkerType === 'armor') { hmColor = '#cbd5e1'; hmShadow = 'rgba(203,213,225,0.7)'; }
 
   return (
-    <motion.div 
+    <motion.div
       className="fixed top-0 left-0 pointer-events-none z-[100]"
       style={{ x, y, translateX: '-50%', translateY: '-50%', scale }}
     >
-      <motion.div 
-        animate={{ 
-          scale: isShooting ? 1.5 : (showHit && hitMarkerType === 'crit' ? 1.8 : showHit ? 1.3 : 1),
+      <motion.div
+        animate={{
+          scale: isShooting ? 1.6 : (showHit && hitMarkerType === 'kill' ? 2.2 : showHit && hitMarkerType === 'crit' ? 1.9 : showHit ? 1.4 : 1),
         }}
-        transition={{ duration: 0.12 }}
+        transition={{ duration: 0.10, ease: 'easeOut' }}
         className="relative flex items-center justify-center w-16 h-16"
       >
         {/* Shield Aura Effect */}
         {hasShieldBuff && (
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ 
+            animate={{
               scale: [1, 1.2, 1],
               opacity: [0.3, 0.6, 0.3],
             }}
@@ -407,7 +410,7 @@ function CustomCrosshair({ x, y, isShooting, hitMarkerTime, hitMarkerType, ammo,
         {/* Damage Glow Effect */}
         {hasDamageBuff && (
           <motion.div
-            animate={{ 
+            animate={{
               scale: [1, 1.1, 1],
               boxShadow: [
                 "0 0 20px rgba(239, 68, 68, 0.2)",
@@ -420,12 +423,42 @@ function CustomCrosshair({ x, y, isShooting, hitMarkerTime, hitMarkerType, ammo,
           />
         )}
 
+        {/* Kill confirmation pulse ring */}
+        <AnimatePresence>
+          {showHit && hitMarkerType === 'kill' && (
+            <motion.div
+              key="kill-ring"
+              initial={{ scale: 0.6, opacity: 1 }}
+              animate={{ scale: 3.5, opacity: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.38, ease: 'easeOut' }}
+              className="absolute w-16 h-16 rounded-full border-2 border-red-500 pointer-events-none"
+              style={{ boxShadow: '0 0 20px rgba(239,68,68,0.6)' }}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Weak-point / crit golden ring */}
+        <AnimatePresence>
+          {showHit && hitMarkerType === 'crit' && (
+            <motion.div
+              key="crit-ring"
+              initial={{ scale: 0.5, opacity: 0.95 }}
+              animate={{ scale: 2.8, opacity: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.30, ease: 'easeOut' }}
+              className="absolute w-16 h-16 rounded-full border-2 border-yellow-300 pointer-events-none"
+              style={{ boxShadow: '0 0 14px rgba(253,224,71,0.7)' }}
+            />
+          )}
+        </AnimatePresence>
+
         {/* Clean Center Dot & Outline */}
-        <div className={`absolute w-1.5 h-1.5 rounded-full z-30 ${showHit ? '' : 'bg-orange-500 shadow-[0_0_8px_#f97316]'}`} 
-             style={showHit ? { backgroundColor: hmColor, boxShadow: `0 0 10px ${hmShadow}` } : {}}
+        <div className={`absolute w-1.5 h-1.5 rounded-full z-30 ${showHit ? '' : 'bg-orange-500 shadow-[0_0_8px_#f97316]'}`}
+             style={showHit ? { backgroundColor: hmColor, boxShadow: `0 0 14px ${hmShadow}` } : {}}
         />
         <div className={`absolute w-3 h-3 rounded-full border border-cyan-400 opacity-60 ${!isShooting && !showHit ? 'animate-pulse' : ''} z-20`} />
-        
+
         {settings.crosshairStyle === 'tactical' && (
           <>
             {/* 4 Brackets */}
@@ -434,19 +467,19 @@ function CustomCrosshair({ x, y, isShooting, hitMarkerTime, hitMarkerType, ammo,
             <div className={`absolute bottom-0 left-0 w-3 h-3 border-b-[1.5px] border-l-[1.5px] transition-all duration-100 ${isReloading ? 'border-red-500' : 'border-cyan-400 opacity-90'} shadow-[0_0_8px_rgba(34,211,238,0.4)] ${isShooting ? '-translate-x-1 translate-y-1' : ''}`} />
             <div className={`absolute bottom-0 right-0 w-3 h-3 border-b-[1.5px] border-r-[1.5px] transition-all duration-100 ${isReloading ? 'border-red-500' : 'border-cyan-400 opacity-90'} shadow-[0_0_8px_rgba(34,211,238,0.4)] ${isShooting ? 'translate-x-1 translate-y-1' : ''}`} />
 
-            {/* Hit Marker Lines */}
+            {/* Hit Marker Lines — thicker and more vivid */}
             <AnimatePresence>
               {showHit && (
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.5 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0 }}
+                  initial={{ opacity: 0, scale: 0.4 }}
+                  animate={{ opacity: 1, scale: hitMarkerType === 'kill' ? 1.4 : hitMarkerType === 'crit' ? 1.2 : 1.0 }}
+                  exit={{ opacity: 0, scale: 1.8, transition: { duration: 0.12 } }}
                   className="absolute inset-0 flex items-center justify-center -rotate-45 pointer-events-none z-50"
                 >
-                  <div className="absolute top-1 left-1/2 w-[2px] h-3 -translate-x-1/2" style={{ backgroundColor: hmColor, boxShadow: `0 0 5px ${hmShadow}` }} />
-                  <div className="absolute bottom-1 left-1/2 w-[2px] h-3 -translate-x-1/2" style={{ backgroundColor: hmColor, boxShadow: `0 0 5px ${hmShadow}` }} />
-                  <div className="absolute left-1 top-1/2 h-[2px] w-3 -translate-y-1/2" style={{ backgroundColor: hmColor, boxShadow: `0 0 5px ${hmShadow}` }} />
-                  <div className="absolute right-1 top-1/2 h-[2px] w-3 -translate-y-1/2" style={{ backgroundColor: hmColor, boxShadow: `0 0 5px ${hmShadow}` }} />
+                  <div className="absolute top-0 left-1/2 w-[2.5px] h-4 -translate-x-1/2" style={{ backgroundColor: hmColor, boxShadow: `0 0 8px ${hmShadow}` }} />
+                  <div className="absolute bottom-0 left-1/2 w-[2.5px] h-4 -translate-x-1/2" style={{ backgroundColor: hmColor, boxShadow: `0 0 8px ${hmShadow}` }} />
+                  <div className="absolute left-0 top-1/2 h-[2.5px] w-4 -translate-y-1/2" style={{ backgroundColor: hmColor, boxShadow: `0 0 8px ${hmShadow}` }} />
+                  <div className="absolute right-0 top-1/2 h-[2.5px] w-4 -translate-y-1/2" style={{ backgroundColor: hmColor, boxShadow: `0 0 8px ${hmShadow}` }} />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -455,7 +488,7 @@ function CustomCrosshair({ x, y, isShooting, hitMarkerTime, hitMarkerType, ammo,
             <div className="absolute top-8 text-[8px] font-black tracking-[0.2em] text-cyan-400 opacity-50 uppercase whitespace-nowrap">
               {gun.fireMode} // {ammo}
             </div>
-            
+
             {/* Reloading Ring */}
             {isReloading && (
               <svg className="absolute inset-0 w-full h-full -rotate-90 animate-[spin_1s_linear_infinite] pointer-events-none" viewBox="0 0 100 100">
@@ -468,18 +501,24 @@ function CustomCrosshair({ x, y, isShooting, hitMarkerTime, hitMarkerType, ammo,
         {settings.crosshairStyle === 'dot' && (
            <div className={`absolute w-8 h-8 rounded-full border border-orange-500/30 ${isShooting ? 'scale-150 opacity-0' : 'scale-100 opacity-100'} transition-all duration-150`} />
         )}
-        
-        {/* Clean Hit Marker */}
+
+        {/* Hit Marker X — scales with hit type */}
         <AnimatePresence>
           {showHit && (
-            <motion.div 
-              initial={{ scale: 0.5, opacity: 0, rotate: 45 }}
-              animate={{ scale: 1.5, opacity: 1, rotate: 45 }}
-              exit={{ scale: 2.5, opacity: 0, transition: { duration: 0.1 } }}
+            <motion.div
+              initial={{ scale: 0.4, opacity: 0, rotate: 45 }}
+              animate={{ scale: hitMarkerType === 'kill' ? 2.0 : hitMarkerType === 'crit' ? 1.7 : 1.3, opacity: 1, rotate: 45 }}
+              exit={{ scale: 3.0, opacity: 0, transition: { duration: 0.14 } }}
               className="absolute pointer-events-none flex items-center justify-center transform -translate-x-1/2 -translate-y-1/2"
             >
-              <div className="w-8 h-[2px] rounded-full absolute origin-center left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" style={{ backgroundColor: hmColor, boxShadow: `0 0 10px ${hmShadow}` }} />
-              <div className="h-8 w-[2px] rounded-full absolute origin-center left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" style={{ backgroundColor: hmColor, boxShadow: `0 0 10px ${hmShadow}` }} />
+              <div
+                className="w-10 h-[2.5px] rounded-full absolute origin-center left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+                style={{ backgroundColor: hmColor, boxShadow: `0 0 12px ${hmShadow}, 0 0 24px ${hmShadow}` }}
+              />
+              <div
+                className="h-10 w-[2.5px] rounded-full absolute origin-center left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+                style={{ backgroundColor: hmColor, boxShadow: `0 0 12px ${hmShadow}, 0 0 24px ${hmShadow}` }}
+              />
             </motion.div>
           )}
         </AnimatePresence>
@@ -744,6 +783,8 @@ export default function App() {
   const [targetScoreGoal, setTargetScoreGoal] = useState(25000);
 
   const [flash, setFlash] = useState(false);
+  // Brief orange/white pulse on target kill — separate from damage flash
+  const [killFlash, setKillFlash] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
   const [uiSettings, setUiSettings] = useState(() => {
@@ -1734,16 +1775,25 @@ export default function App() {
       else if (quality === 'armor') setHitMarkerType('armor');
       else setHitMarkerType('normal');
       
-      // Hit feedback
+      // Hit feedback — screen impulse scales with hit quality
       if (isExplosion) {
-        // Enhance screen shake for explosion
         setShakeIntensity(35);
         setFlash(true);
         setTimeout(() => setFlash(false), 100);
         setTimeout(() => setShakeIntensity(0), 500);
+      } else if (isDestroyed) {
+        // Kill confirmation: brief screen impulse + orange kill flash
+        setShakeIntensity(12);
+        setKillFlash(true);
+        setTimeout(() => setKillFlash(false), 80);
+        setTimeout(() => setShakeIntensity(0), 200);
+      } else if (quality === 'weak_point' || quality === 'center') {
+        // Strong hit on weak point: small impulse
+        setShakeIntensity(6);
+        setTimeout(() => setShakeIntensity(0), 110);
       } else {
-        setShakeIntensity(8);
-        setTimeout(() => setShakeIntensity(0), 120);
+        setShakeIntensity(4);
+        setTimeout(() => setShakeIntensity(0), 100);
       }
       
       setTimeout(() => {
@@ -1950,16 +2000,33 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Screen Flash */}
+      {/* Screen Flash — damage/explosion */}
       <AnimatePresence>
         {flash && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 1 }}
             animate={{ opacity: 0 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.1, ease: 'easeOut' }}
             className="absolute inset-0 z-[200] bg-white mix-blend-overlay pointer-events-none"
             style={{ filter: "blur(20px)" }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Kill confirmation flash — brief orange vignette pulse on the screen edges */}
+      <AnimatePresence>
+        {killFlash && (
+          <motion.div
+            initial={{ opacity: 0.55 }}
+            animate={{ opacity: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.14, ease: 'easeOut' }}
+            className="absolute inset-0 z-[199] pointer-events-none"
+            style={{
+              background: 'radial-gradient(ellipse at center, transparent 30%, rgba(249,115,22,0.45) 100%)',
+              mixBlendMode: 'screen',
+            }}
           />
         )}
       </AnimatePresence>

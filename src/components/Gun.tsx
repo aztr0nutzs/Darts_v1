@@ -186,6 +186,19 @@ const MUZZLE_POS: Record<Archetype, { x: number; y: number }> = {
   heavy:    { x: 28,  y: 190 },
 };
 
+// Approximate flash offset (px) in the outer motion.div space for each archetype.
+// Tuned so the flash sits near the visual barrel tip after 3D perspective rotation.
+const MUZZLE_FLASH_OFFSET: Record<Archetype, { left: number; top: number }> = {
+  pistol:   { left: -32, top: 38 },
+  revolver: { left: -36, top: 38 },
+  smg:      { left: -38, top: 40 },
+  double:   { left: -46, top: 36 },
+  shotgun:  { left: -46, top: 32 },
+  carbine:  { left: -46, top: 36 },
+  sniper:   { left: -52, top: 36 },
+  heavy:    { left: -50, top: 30 },
+};
+
 // Adjust hex color brightness (factor > 1 = lighter, < 1 = darker)
 function adj(hex: string, f: number): string {
   const n = parseInt(hex.replace('#', ''), 16);
@@ -636,47 +649,65 @@ export default function Gun({
 }: GunProps) {
   const arch = gun.archetype;
   const muzzle = MUZZLE_POS[arch];
+  const flashOffset = MUZZLE_FLASH_OFFSET[arch];
 
   const swayX = mouseX * 28;
   const swayY = mouseY * 14;
   const swayRY = mouseX * 14;
   const swayRX = mouseY * -9;
 
+  // Directional lateral kick — heavier guns kick left more (visual realism)
+  const lateralKick = gun.recoil * 0.18 + recoilBuildup * 0.5;
+  // Idle depth variation — subtle forward/back perspective pulse during breathing
+  const idleScale = isADS ? 2.8 : (isReloading ? 0.8 : 1.35);
+
   return (
     <motion.div
       className="absolute bottom-[-5vh] right-[-2vw] z-50 pointer-events-none origin-bottom-right"
       animate={{
-        x:       isADS ? swayX * 0.12 - 120 : swayX,
-        y:       isReloading ? 400 : (isADS ? -120 : (isFlinching ? [swayY, swayY + 62, swayY - 8, swayY] : (isShooting ? [swayY, swayY + gun.recoil * 2.8 + recoilBuildup * 7, swayY] : [swayY, swayY - 5, swayY]))),
-        rotateZ: isFlinching ? [0, -11, 5, 0] : (isShooting ? [swayRY, swayRY - gun.recoil * 0.85, swayRY] : [swayRY, swayRY - 0.35, swayRY]),
-        rotateX: isFlinching ? [0, -28, 0] : (isShooting ? [swayRX, swayRX - (gun.recoil * 1.4 + recoilBuildup * 1.8), swayRX] : swayRX),
+        x:       isADS ? swayX * 0.12 - 120 : (isShooting ? [swayX, swayX - lateralKick, swayX + lateralKick * 0.3, swayX] : swayX),
+        y:       isReloading ? 400 : (isADS ? -120 : (isFlinching ? [swayY, swayY + 62, swayY - 8, swayY] : (isShooting ? [swayY, swayY + gun.recoil * 2.8 + recoilBuildup * 7, swayY - 4, swayY] : [swayY, swayY - 6, swayY - 1, swayY]))),
+        rotateZ: isFlinching ? [0, -11, 5, 0] : (isShooting ? [swayRY, swayRY - gun.recoil * 0.85, swayRY + 1.5, swayRY] : [swayRY, swayRY - 0.4, swayRY + 0.1, swayRY]),
+        rotateX: isFlinching ? [0, -28, 0] : (isShooting ? [swayRX, swayRX - (gun.recoil * 1.4 + recoilBuildup * 1.8), swayRX + 2, swayRX] : swayRX),
         rotateY: isADS ? swayRY * 0.08 : swayRY,
-        scale:   isADS ? 2.8 : (isReloading ? 0.8 : 1.35),
+        scale:   isShooting ? [idleScale, idleScale * 0.96, idleScale] : idleScale,
       }}
       transition={{
-        duration: isFlinching ? 0.24 : (isShooting ? 0.07 : 3.4),
-        times:    isShooting ? [0, 0.14, 1] : undefined,
-        ease:     isFlinching ? 'easeInOut' : (isShooting ? 'easeOut' : 'easeInOut'),
+        duration: isFlinching ? 0.24 : (isShooting ? 0.10 : 3.8),
+        times:    isShooting ? [0, 0.12, 0.55, 1] : undefined,
+        ease:     isFlinching ? 'easeInOut' : (isShooting ? [0.08, 0, 0.6, 1] : 'easeInOut'),
         repeat:   isFlinching || isShooting ? 0 : Infinity,
       }}
     >
-      {/* Muzzle flash — at actual barrel tip position */}
+      {/* Muzzle flash — per-archetype offset so it tracks the barrel tip */}
       <AnimatePresence>
         {isShooting && (
           <motion.div
             key="flash"
-            initial={{ opacity: 1, scale: 0.4 }}
-            animate={{ opacity: 0, scale: 3.5 }}
+            initial={{ opacity: 1, scale: 0.35 }}
+            animate={{ opacity: 0, scale: 4.2 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.09, ease: 'easeOut' }}
+            transition={{ duration: 0.11, ease: 'easeOut' }}
             className="absolute z-[100] pointer-events-none mix-blend-screen"
-            style={{ left: -28, top: 44 }}
+            style={{ left: flashOffset.left, top: flashOffset.top }}
           >
+            {/* Core white-hot bloom */}
             <div
               className="w-16 h-16 rounded-full"
               style={{
-                background: `radial-gradient(circle, rgba(255,255,255,1) 0%, ${gun.accent}ee 35%, transparent 75%)`,
-                filter: 'blur(4px)',
+                background: `radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(255,255,255,0.9) 18%, ${gun.accent}ee 42%, transparent 72%)`,
+                filter: 'blur(3px)',
+              }}
+            />
+            {/* Secondary wider glow ring */}
+            <motion.div
+              initial={{ opacity: 0.7, scale: 0.5 }}
+              animate={{ opacity: 0, scale: 2.0 }}
+              transition={{ duration: 0.14, ease: 'easeOut' }}
+              className="absolute inset-0 rounded-full"
+              style={{
+                background: `radial-gradient(circle, ${gun.accent}88 0%, transparent 70%)`,
+                filter: 'blur(8px)',
               }}
             />
           </motion.div>

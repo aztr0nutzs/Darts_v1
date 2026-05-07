@@ -149,14 +149,30 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
 
   const prevHp = React.useRef(target.hp);
   const [flash, setFlash] = React.useState(false);
+  // 0 = none, 1 = light, 2 = medium, 3 = heavy
+  const [hitTier, setHitTier] = React.useState(0);
+  // Secondary settle-wobble that plays after the flash clears
+  const [settling, setSettling] = React.useState(false);
 
   React.useEffect(() => {
-    if (target.hp < prevHp.current) {
-       setFlash(true);
-       setTimeout(() => setFlash(false), 120);
+    const dmg = prevHp.current - target.hp;
+    if (dmg > 0) {
+      const ratio = dmg / target.maxHp;
+      const tier = ratio > 0.25 ? 3 : ratio > 0.10 ? 2 : 1;
+      setHitTier(tier);
+      setFlash(true);
+      const flashMs = tier === 3 ? 200 : tier === 2 ? 155 : 110;
+      setTimeout(() => {
+        setFlash(false);
+        // After flash ends, run a short settle wobble for medium/heavy
+        if (tier >= 2) {
+          setSettling(true);
+          setTimeout(() => setSettling(false), tier === 3 ? 700 : 500);
+        }
+      }, flashMs);
     }
     prevHp.current = target.hp;
-  }, [target.hp]);
+  }, [target.hp, target.maxHp]);
 
   const baseScale = target.scale || 1;
   const hpPercentage = target.hp / target.maxHp;
@@ -174,21 +190,48 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
   ) : 100;
   const isRevealed = dist < 15;
 
+  // Scaled hit reactions by damage magnitude
+  const hitScaleBoost = hitTier === 3 ? 1.48 : hitTier === 2 ? 1.30 : 1.18;
+  const hitRotate = hitTier === 3
+    ? [0, -14, 14, -8, 7, -3, 2, 0]
+    : hitTier === 2
+    ? [0, -8, 8, -4, 3, 0]
+    : [0, -4, 4, -2, 0];
+  const hitFilter = hitTier === 3
+    ? 'brightness(2.2) drop-shadow(0 0 22px rgba(255,255,255,0.95))'
+    : hitTier === 2
+    ? 'brightness(1.8) drop-shadow(0 0 14px white)'
+    : 'brightness(1.5) drop-shadow(0 0 8px white)';
+  // Post-flash settling rotation
+  const settleRotate = hitTier === 3 ? [0, -5, 4, -2, 1, 0] : [0, -3, 2, -1, 0];
+
   let animateProps: any = {
-    scale: flash ? baseScale * 1.35 : baseScale,
+    scale: flash ? baseScale * hitScaleBoost : baseScale,
     opacity: 1,
-    rotate: flash ? [0, -8, 8, -4, 4, 0] : 0,
-    filter: flash ? 'brightness(1.6) drop-shadow(0 0 12px white)' : 'none',
+    rotate: flash ? hitRotate : (settling ? settleRotate : 0),
+    filter: flash ? hitFilter : 'none',
   };
-  let transitionProps: any = { type: 'spring', stiffness: 260, damping: 9 };
+  // Spring stiffness increases with hit strength for a snappier reaction
+  const hitStiffness = hitTier === 3 ? 420 : hitTier === 2 ? 320 : 260;
+  let transitionProps: any = {
+    type: 'spring',
+    stiffness: flash ? hitStiffness : 260,
+    damping: flash ? (hitTier === 3 ? 6 : 8) : 9,
+  };
 
   if (isMoving || target.type === 'bot_sentry') {
     animateProps.x = ["-50%", "50%", "-50%"];
-    transitionProps = { ...transitionProps, x: { repeat: Infinity, duration: 4, ease: "linear" } };
+    // easeInOut gives inertia: slow at ends, fast in middle (weight simulation)
+    transitionProps = { ...transitionProps, x: { repeat: Infinity, duration: 4, ease: "easeInOut" } };
   } else if (isErratic || target.type === 'sentinel_bot') {
     animateProps.x = ["-30%", "30%", "-20%", "40%", "-30%"];
     animateProps.y = ["-20%", "40%", "-40%", "20%", "-20%"];
-    transitionProps = { ...transitionProps, x: { repeat: Infinity, duration: 2 }, y: { repeat: Infinity, duration: 1.8 } };
+    // Offset y timing so motion feels unpredictable but still physically believable
+    transitionProps = {
+      ...transitionProps,
+      x: { repeat: Infinity, duration: 2.3, ease: "easeInOut" },
+      y: { repeat: Infinity, duration: 1.7, ease: "easeInOut" },
+    };
   } else if (isDrone || target.type === 'kinetic_swarm') {
     animateProps.scale = [baseScale, baseScale * 1.05, baseScale];
     animateProps.rotate = [0, 2, -2, 0];
@@ -878,9 +921,9 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
     <motion.div
       className="absolute cursor-crosshair z-20 group"
       style={{ left: `${target.x}%`, top: `${target.y}%`, transform: 'translate(-50%, -50%)' }}
-      initial={{ scale: 0, opacity: 0, x: "-50%", y: "-50%", rotate: -90 }}
+      initial={{ scale: 0, opacity: 0, x: "-50%", y: "-50%", rotate: -12 }}
       animate={animateProps}
-      exit={{ scale: 0, opacity: 0, rotate: 90 }}
+      exit={{ scale: 0, opacity: 0, rotate: 15, transition: { duration: 0.18, ease: 'easeIn' } }}
       transition={transitionProps}
       data-target="true"
       data-target-id={target.id}
@@ -911,22 +954,41 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
             shielded={target.type === 'shielded'}
           />
 
-          {/* Impact flash + recoil ring on hit */}
+          {/* Impact flash + recoil ring on hit — intensity scales with hit tier */}
           {flash && (
             <>
               <motion.div
                 className="absolute inset-[-6px] rounded-full pointer-events-none z-40"
-                style={{ boxShadow: '0 0 22px 6px rgba(255,255,255,0.45)' }}
-                initial={{ opacity: 0.95, scale: 0.85 }}
-                animate={{ opacity: 0, scale: 1.25 }}
-                transition={{ duration: 0.18, ease: 'easeOut' }}
+                style={{
+                  boxShadow: hitTier === 3
+                    ? '0 0 48px 18px rgba(255,255,255,0.75)'
+                    : hitTier === 2
+                    ? '0 0 32px 10px rgba(255,255,255,0.55)'
+                    : '0 0 18px 5px rgba(255,255,255,0.38)',
+                }}
+                initial={{ opacity: 1, scale: 0.8 }}
+                animate={{ opacity: 0, scale: hitTier === 3 ? 2.2 : hitTier === 2 ? 1.7 : 1.25 }}
+                transition={{ duration: hitTier === 3 ? 0.35 : 0.22, ease: 'easeOut' }}
               />
               <motion.div
-                className="absolute inset-[-10px] rounded-full border-2 border-white/80 pointer-events-none z-40"
-                initial={{ opacity: 0.85, scale: 0.6 }}
-                animate={{ opacity: 0, scale: 1.6 }}
-                transition={{ duration: 0.28, ease: 'easeOut' }}
+                className="absolute rounded-full border-2 pointer-events-none z-40"
+                style={{
+                  inset: hitTier === 3 ? '-16px' : '-10px',
+                  borderColor: hitTier === 3 ? 'rgba(255,220,80,0.9)' : 'rgba(255,255,255,0.75)',
+                }}
+                initial={{ opacity: 0.9, scale: 0.5 }}
+                animate={{ opacity: 0, scale: hitTier === 3 ? 2.4 : 1.8 }}
+                transition={{ duration: hitTier === 3 ? 0.45 : 0.32, ease: 'easeOut' }}
               />
+              {/* Heavy hit: extra shockwave ring */}
+              {hitTier === 3 && (
+                <motion.div
+                  className="absolute inset-[-24px] rounded-full border border-white/40 pointer-events-none z-40"
+                  initial={{ opacity: 0.6, scale: 0.4 }}
+                  animate={{ opacity: 0, scale: 3.0 }}
+                  transition={{ duration: 0.55, ease: 'easeOut' }}
+                />
+              )}
             </>
           )}
 
