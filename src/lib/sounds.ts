@@ -41,6 +41,9 @@ export const HAPTIC = {
   RELOAD_START:   [40, 100, 60]  as number[],
   RELOAD_FINISH:  [80]           as number[],
   HIT:            [20]           as number[],
+  CRIT_HIT:       [12, 18, 34]   as number[],
+  CRIT_KILL:      [18, 12, 52, 18, 38] as number[],
+  ARMOR_DEFLECT:  [8, 8, 12, 10, 8] as number[],
   DESTROY:        [30, 50, 30]   as number[],
   EXPLOSION:      [100, 50, 100] as number[],
   LOW_AMMO:       [100, 50, 100] as number[],
@@ -320,6 +323,69 @@ class SoundEngine {
     this.oscTone(t,           0.13,  350,  80,   0.32, 'triangle', 0.002);
     // Debris scatter crinkle
     this.oscTone(t + 0.06,   0.12,  800,  200,  0.14, 'sine',     0.006);
+  }
+
+  // ── Critical hit / kill — layered sharp+bright for instant recognition ──
+
+  /**
+   * Critical hit sound — sharp click + punchy pop + bright confirmation tone.
+   * Must be audibly distinct from normal body hit.
+   */
+  playCritHit() {
+    if (!this.init() || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    // Layer 1: sharp metallic click transient
+    this.noiseBurst(t,        0.012, 0.78, 6500, 'bandpass', 10);
+    // Layer 2: punchy low-mid pop — meaty impact
+    this.noiseBurst(t + 0.008, 0.055, 0.62, 900,  'bandpass', 3);
+    // Layer 3: bright confirmation rising tone — "sweet spot" ring
+    this.oscTone(t + 0.008,  0.20,  950,  1650, 0.42, 'sine',     0.003);
+    // Layer 4: harmonic shimmer overtone
+    this.oscTone(t + 0.018,  0.15,  1900, 2600, 0.18, 'sine',     0.004);
+    // Needle-like confirmation tick at the front of the sound.
+    this.oscTone(t,          0.045, 3200, 2400, 0.12, 'triangle', 0.001);
+  }
+
+  /**
+   * Critical kill sound — everything from critHit plus a satisfying
+   * destruction crunch and descending confirmation fanfare.
+   */
+  playCritKill() {
+    if (!this.init() || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    // Sharp initial crack — sharper than normal break
+    this.noiseBurst(t,        0.012, 0.92, 6200, 'bandpass', 8);
+    // Destruction crunch — wider band
+    this.noiseBurst(t + 0.01, 0.12,  0.62, 1400, 'bandpass', 2);
+    // Deep body thud — weight of the kill
+    this.noiseBurst(t + 0.02, 0.10,  0.48, 220,  'lowpass');
+    // Bright rising confirmation tone
+    this.oscTone(t + 0.01,   0.24,  1050, 2200, 0.5, 'sine',     0.002);
+    // Harmonic overtone shimmer
+    this.oscTone(t + 0.03,   0.20,  1800, 2800, 0.18, 'sine',     0.005);
+    // Descending satisfaction sweep — resolves the hit
+    this.oscTone(t + 0.12,   0.30,  1500, 520,  0.25, 'triangle', 0.006);
+    // Extra glassy success ping so crit kills do not collapse into normal kills.
+    this.oscTone(t + 0.045,  0.12,  2600, 3600, 0.16, 'sine',     0.003);
+    // Debris scatter crinkle
+    this.oscTone(t + 0.08,   0.14,  900,  250,  0.12, 'sine',     0.006);
+  }
+
+  /**
+   * Armor deflect — dry metallic clang with spark-like high overtones.
+   * Reads as "shot absorbed, try harder".
+   */
+  playArmorDeflect() {
+    if (!this.init() || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    // Hard metallic clank
+    this.noiseBurst(t,        0.032, 0.62, 420,  'bandpass', 5);
+    // Spark fizz — high-pass sizzle
+    this.noiseBurst(t + 0.015, 0.075, 0.3, 5200, 'highpass', 2);
+    // Dull resonance — armor vibrating
+    this.oscTone(t,           0.10,  200,  80,   0.32, 'square',   0.002);
+    // Bright spark ping
+    this.oscTone(t + 0.018,  0.055, 3600, 1900, 0.16, 'sine',     0.001);
   }
 
   playPlasticBounce() {

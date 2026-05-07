@@ -84,6 +84,8 @@ type CombatTextData = {
   isCritical?: boolean;
 };
 
+type HitMarkerType = 'normal' | 'crit' | 'critKill' | 'kill' | 'armor';
+
 function CombatText({ text, x, y, color, isCritical }: { key?: React.Key; text: string; x: number; y: number; color: string; isCritical?: boolean }) {
   return (
     <motion.div
@@ -238,8 +240,8 @@ function HitEffect({ x, y, color, isDestroy, isMiss, isExplosion, quality, origi
 
   // Weak-point hit — golden burst + crit indicator
   if (!isExplosion && quality === 'weak_point') {
-    const particleCount = isDestroy ? 18 : 12;
-    const spread = isDestroy ? 110 : 70;
+    const particleCount = isDestroy ? 26 : 12;
+    const spread = isDestroy ? 135 : 70;
     return (
       <div className="absolute pointer-events-none z-40" style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)' }}>
         {/* Bright core */}
@@ -256,6 +258,23 @@ function HitEffect({ x, y, color, isDestroy, isMiss, isExplosion, quality, origi
           transition={{ duration: 0.55, ease: 'easeOut' }}
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 rounded-full border-2 border-yellow-300"
         />
+        {isDestroy && (
+          <>
+            <motion.div
+              initial={{ scale: 0.35, opacity: 1, rotate: 45 }}
+              animate={{ scale: 3.1, opacity: 0, rotate: 45 }}
+              transition={{ duration: 0.38, ease: 'easeOut' }}
+              className="absolute top-1/2 left-1/2 w-16 h-16 -translate-x-1/2 -translate-y-1/2 border-[3px] border-red-400"
+              style={{ boxShadow: '0 0 24px rgba(248,113,113,0.85), 0 0 42px rgba(253,224,71,0.55)' }}
+            />
+            <motion.div
+              initial={{ scale: 0.5, opacity: 0.9 }}
+              animate={{ scale: 4.6, opacity: 0 }}
+              transition={{ duration: 0.5, ease: 'easeOut' }}
+              className="absolute top-1/2 left-1/2 w-20 h-20 -translate-x-1/2 -translate-y-1/2 rounded-full border border-yellow-100/80"
+            />
+          </>
+        )}
         {/* Radial spark spikes */}
         {[...Array(8)].map((_, i) => (
           <motion.div
@@ -402,17 +421,20 @@ const ARENAS: { id: ArenaId; name: string; level: number; targetScore: number }[
   { id: 'rooftop',   name: "SKYLINE ROOFTOP",  level: 3, targetScore: 45000 },
 ];
 
-function CustomCrosshair({ x, y, isShooting, hitMarkerTime, hitMarkerType, ammo, maxAmmo, isReloading, scale, gun, buffs, settings }: { x: any, y: any, isShooting: boolean, hitMarkerTime: number, hitMarkerType: 'normal'|'crit'|'kill'|'armor', ammo: number, maxAmmo: number, isReloading: boolean, scale: any, gun: GunType, buffs: { damage: number, rapidFire: number, shield: number }, settings: any }) {
+function CustomCrosshair({ x, y, isShooting, hitMarkerTime, hitMarkerType, ammo, maxAmmo, isReloading, scale, gun, buffs, settings }: { x: any, y: any, isShooting: boolean, hitMarkerTime: number, hitMarkerType: HitMarkerType, ammo: number, maxAmmo: number, isReloading: boolean, scale: any, gun: GunType, buffs: { damage: number, rapidFire: number, shield: number }, settings: any }) {
   // Extended flash window — 220ms for normal, 300ms for crit/kill so they read clearly
   const elapsed = Date.now() - hitMarkerTime;
-  const flashWindow = (hitMarkerType === 'kill' || hitMarkerType === 'crit') ? 300 : 220;
+  const isCriticalMarker = hitMarkerType === 'crit' || hitMarkerType === 'critKill';
+  const isKillMarker = hitMarkerType === 'kill' || hitMarkerType === 'critKill';
+  const flashWindow = hitMarkerType === 'critKill' ? 340 : (hitMarkerType === 'kill' || hitMarkerType === 'crit') ? 300 : 220;
   const showHit = settings.hitMarkers && elapsed < flashWindow;
   const hasDamageBuff = Date.now() < buffs.damage;
   const hasShieldBuff = Date.now() < buffs.shield;
 
   let hmColor = 'white';
   let hmShadow = 'rgba(255,255,255,0.8)';
-  if (hitMarkerType === 'kill') { hmColor = '#ef4444'; hmShadow = 'rgba(239,68,68,0.9)'; }
+  if (hitMarkerType === 'critKill') { hmColor = '#fff7ad'; hmShadow = 'rgba(253,224,71,1)'; }
+  else if (hitMarkerType === 'kill') { hmColor = '#ef4444'; hmShadow = 'rgba(239,68,68,0.9)'; }
   else if (hitMarkerType === 'crit') { hmColor = '#fde047'; hmShadow = 'rgba(253,224,71,0.9)'; }
   else if (hitMarkerType === 'armor') { hmColor = '#cbd5e1'; hmShadow = 'rgba(203,213,225,0.7)'; }
 
@@ -423,7 +445,7 @@ function CustomCrosshair({ x, y, isShooting, hitMarkerTime, hitMarkerType, ammo,
     >
       <motion.div
         animate={{
-          scale: isShooting ? 1.6 : (showHit && hitMarkerType === 'kill' ? 2.2 : showHit && hitMarkerType === 'crit' ? 1.9 : showHit ? 1.4 : 1),
+          scale: isShooting ? 1.6 : (showHit && hitMarkerType === 'critKill' ? 2.45 : showHit && hitMarkerType === 'kill' ? 2.2 : showHit && hitMarkerType === 'crit' ? 1.9 : showHit ? 1.4 : 1),
         }}
         transition={{ duration: 0.10, ease: 'easeOut' }}
         className="relative flex items-center justify-center w-16 h-16"
@@ -459,16 +481,21 @@ function CustomCrosshair({ x, y, isShooting, hitMarkerTime, hitMarkerType, ammo,
 
         {/* Kill confirmation: thick inner ring + outer halo + brief scale snap */}
         <AnimatePresence>
-          {showHit && hitMarkerType === 'kill' && (
+          {showHit && isKillMarker && (
             <>
               <motion.div
                 key="kill-ring"
                 initial={{ scale: 0.55, opacity: 1 }}
                 animate={{ scale: 3.6, opacity: 0 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.42, ease: 'easeOut' }}
-                className="absolute w-16 h-16 rounded-full border-[3px] border-red-500 pointer-events-none"
-                style={{ boxShadow: '0 0 26px rgba(239,68,68,0.8), inset 0 0 14px rgba(239,68,68,0.4)' }}
+                transition={{ duration: hitMarkerType === 'critKill' ? 0.48 : 0.42, ease: 'easeOut' }}
+                className="absolute w-16 h-16 rounded-full border-[3px] pointer-events-none"
+                style={{
+                  borderColor: hitMarkerType === 'critKill' ? '#fef08a' : '#ef4444',
+                  boxShadow: hitMarkerType === 'critKill'
+                    ? '0 0 34px rgba(253,224,71,1), 0 0 54px rgba(239,68,68,0.55), inset 0 0 16px rgba(255,255,255,0.5)'
+                    : '0 0 26px rgba(239,68,68,0.8), inset 0 0 14px rgba(239,68,68,0.4)',
+                }}
               />
               <motion.div
                 key="kill-halo"
@@ -482,34 +509,84 @@ function CustomCrosshair({ x, y, isShooting, hitMarkerTime, hitMarkerType, ammo,
           )}
         </AnimatePresence>
 
-        {/* Weak-point / crit golden ring + radial spike accents */}
+        {/* Weak-point / crit golden ring + radial spike accents + crossburst */}
         <AnimatePresence>
-          {showHit && hitMarkerType === 'crit' && (
+          {showHit && isCriticalMarker && (
             <>
               <motion.div
                 key="crit-ring"
                 initial={{ scale: 0.5, opacity: 1 }}
-                animate={{ scale: 3.0, opacity: 0 }}
+                animate={{ scale: 3.2, opacity: 0 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.32, ease: 'easeOut' }}
-                className="absolute w-16 h-16 rounded-full border-[2.5px] border-yellow-300 pointer-events-none"
-                style={{ boxShadow: '0 0 18px rgba(253,224,71,0.85)' }}
+                transition={{ duration: 0.34, ease: 'easeOut' }}
+                className="absolute w-16 h-16 rounded-full border-[3px] border-yellow-300 pointer-events-none"
+                style={{ boxShadow: '0 0 22px rgba(253,224,71,0.9), 0 0 44px rgba(253,224,71,0.4)' }}
               />
-              {/* Four radial spikes for crits — read as "sweet spot" */}
-              {[0, 90, 180, 270].map(angle => (
+              {/* Secondary ring — reads as shockwave doubling */}
+              <motion.div
+                key="crit-ring2"
+                initial={{ scale: 0.8, opacity: 0.7 }}
+                animate={{ scale: 4.0, opacity: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.44, ease: 'easeOut', delay: 0.04 }}
+                className="absolute w-16 h-16 rounded-full border-[1.5px] border-amber-200/70 pointer-events-none"
+              />
+              {/* Eight radial spikes for crits — crossburst pattern */}
+              {[0, 45, 90, 135, 180, 225, 270, 315].map(angle => (
                 <motion.div
                   key={`crit-spike-${angle}`}
-                  initial={{ opacity: 1, scale: 0.6 }}
-                  animate={{ opacity: 0, scale: 1.6 }}
+                  initial={{ opacity: 1, scaleY: 0.4 }}
+                  animate={{ opacity: 0, scaleY: 1.8 }}
                   exit={{ opacity: 0 }}
-                  transition={{ duration: 0.26, ease: 'easeOut' }}
-                  className="absolute w-[2px] h-5 bg-yellow-200 pointer-events-none"
+                  transition={{ duration: 0.30, ease: 'easeOut' }}
+                  className="absolute w-[2px] h-6 bg-yellow-200 pointer-events-none origin-bottom"
                   style={{
-                    transform: `rotate(${angle}deg) translateY(-26px)`,
-                    boxShadow: '0 0 6px #fde047',
+                    transform: `rotate(${angle}deg) translateY(-22px)`,
+                    boxShadow: '0 0 8px #fde047, 0 0 16px rgba(253,224,71,0.3)',
                   }}
                 />
               ))}
+              {/* Center flash pip — sharp "sweet" confirmation */}
+              <motion.div
+                key="crit-pip"
+                initial={{ scale: 0.3, opacity: 1 }}
+                animate={{ scale: 2.0, opacity: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.20, ease: 'easeOut' }}
+                className="absolute w-4 h-4 rounded-full bg-yellow-100 pointer-events-none"
+                style={{ boxShadow: '0 0 12px rgba(255,255,240,0.9)' }}
+              />
+            </>
+          )}
+        </AnimatePresence>
+
+        {/* Critical kill: adds a second, red-hot snap burst over the crit marker. */}
+        <AnimatePresence>
+          {showHit && hitMarkerType === 'critKill' && (
+            <>
+              {[22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5, 337.5].map(angle => (
+                <motion.div
+                  key={`crit-kill-spark-${angle}`}
+                  initial={{ opacity: 1, scaleY: 0.25 }}
+                  animate={{ opacity: 0, scaleY: 2.2 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.34, ease: 'easeOut' }}
+                  className="absolute w-[3px] h-9 bg-red-400 pointer-events-none origin-bottom"
+                  style={{
+                    transform: `rotate(${angle}deg) translateY(-28px)`,
+                    boxShadow: '0 0 10px #f87171, 0 0 18px rgba(253,224,71,0.75)',
+                  }}
+                />
+              ))}
+              <motion.div
+                key="crit-kill-diamond"
+                initial={{ opacity: 1, scale: 0.35, rotate: 45 }}
+                animate={{ opacity: 0, scale: 2.6, rotate: 45 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.32, ease: 'easeOut' }}
+                className="absolute w-10 h-10 border-[3px] border-yellow-100 pointer-events-none"
+                style={{ boxShadow: '0 0 18px rgba(255,255,255,0.95), 0 0 34px rgba(253,224,71,0.9)' }}
+              />
             </>
           )}
         </AnimatePresence>
@@ -551,7 +628,7 @@ function CustomCrosshair({ x, y, isShooting, hitMarkerTime, hitMarkerType, ammo,
               {showHit && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.4 }}
-                  animate={{ opacity: 1, scale: hitMarkerType === 'kill' ? 1.4 : hitMarkerType === 'crit' ? 1.2 : 1.0 }}
+                  animate={{ opacity: 1, scale: hitMarkerType === 'critKill' ? 1.55 : hitMarkerType === 'kill' ? 1.4 : hitMarkerType === 'crit' ? 1.2 : 1.0 }}
                   exit={{ opacity: 0, scale: 1.8, transition: { duration: 0.12 } }}
                   className="absolute inset-0 flex items-center justify-center -rotate-45 pointer-events-none z-50"
                 >
@@ -587,7 +664,7 @@ function CustomCrosshair({ x, y, isShooting, hitMarkerTime, hitMarkerType, ammo,
             <motion.div
               initial={{ scale: 0.25, opacity: 0, rotate: 45 }}
               animate={{
-                scale: hitMarkerType === 'kill' ? 2.2 : hitMarkerType === 'crit' ? 1.85 : hitMarkerType === 'armor' ? 1.1 : 1.4,
+                scale: hitMarkerType === 'critKill' ? 2.45 : hitMarkerType === 'kill' ? 2.2 : hitMarkerType === 'crit' ? 1.85 : hitMarkerType === 'armor' ? 1.1 : 1.4,
                 opacity: 1,
                 rotate: 45,
               }}
@@ -597,15 +674,15 @@ function CustomCrosshair({ x, y, isShooting, hitMarkerTime, hitMarkerType, ammo,
             >
               {/* Thicker stroke + double-glow on kill/crit so they pop. */}
               <div
-                className={`${hitMarkerType === 'kill' ? 'w-12 h-[3.5px]' : hitMarkerType === 'crit' ? 'w-11 h-[3px]' : 'w-10 h-[2.5px]'} rounded-full absolute origin-center left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2`}
+                className={`${hitMarkerType === 'critKill' ? 'w-14 h-1' : hitMarkerType === 'kill' ? 'w-12 h-[3.5px]' : hitMarkerType === 'crit' ? 'w-11 h-[3px]' : 'w-10 h-[2.5px]'} rounded-full absolute origin-center left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2`}
                 style={{ backgroundColor: hmColor, boxShadow: `0 0 14px ${hmShadow}, 0 0 28px ${hmShadow}` }}
               />
               <div
-                className={`${hitMarkerType === 'kill' ? 'h-12 w-[3.5px]' : hitMarkerType === 'crit' ? 'h-11 w-[3px]' : 'h-10 w-[2.5px]'} rounded-full absolute origin-center left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2`}
+                className={`${hitMarkerType === 'critKill' ? 'h-14 w-1' : hitMarkerType === 'kill' ? 'h-12 w-[3.5px]' : hitMarkerType === 'crit' ? 'h-11 w-[3px]' : 'h-10 w-[2.5px]'} rounded-full absolute origin-center left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2`}
                 style={{ backgroundColor: hmColor, boxShadow: `0 0 14px ${hmShadow}, 0 0 28px ${hmShadow}` }}
               />
               {/* Kill gets an extra diagonal cross under the X to read as a double-snap */}
-              {hitMarkerType === 'kill' && (
+              {isKillMarker && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.5, rotate: 0 }}
                   animate={{ opacity: 0.85, scale: 1, rotate: 0 }}
@@ -860,7 +937,7 @@ export default function App() {
   const [jammingIntensity, setJammingIntensity] = useState(0);
   const [activeBuffs, setActiveBuffs] = useState({ damage: 0, rapidFire: 0, shield: 0 });
   const [hitMarkerTime, setHitMarkerTime] = useState(0);
-  const [hitMarkerType, setHitMarkerType] = useState<'normal' | 'crit' | 'kill' | 'armor'>('normal');
+  const [hitMarkerType, setHitMarkerType] = useState<HitMarkerType>('normal');
   const [damageDirection, setDamageDirection] = useState<'left' | 'right' | 'top' | 'bottom' | null>(null);
   const muzzleRef = useRef<HTMLDivElement>(null);
   const [isFlinching, setIsFlinching] = useState(false);
@@ -888,7 +965,10 @@ export default function App() {
   const [flash, setFlash] = useState(false);
   // Brief orange/white pulse on target kill — separate from damage flash
   const [killFlash, setKillFlash] = useState(false);
-  // Hit-pause / micro time dilation: 'crit' = 50ms pulse, 'kill' = 80ms pulse.
+  // Critical hit flash — golden/yellow pulse, distinct from white damage flash
+  // and orange kill flash. Short (100–140ms) so it reads as a sharp snap.
+  const [critFlash, setCritFlash] = useState(false);
+  // Hit-pause / micro time dilation: 'crit' = 85ms pulse, 'kill' = 120ms pulse.
   // Used to drive a brief punch-zoom + saturate overlay that simulates the
   // freeze-frame impact moment without halting the game loop.
   const [hitPause, setHitPause] = useState<null | 'crit' | 'kill'>(null);
@@ -896,9 +976,10 @@ export default function App() {
 
   // Briefly punch the screen with a saturate/contrast pulse to simulate the
   // freeze-frame "hit feel" used in critical & kill hits.
+  // Crit slowdown feel: ~0.8x for 85ms. Kill/crit-kill: ~0.7x for 120ms.
   const triggerHitPause = useCallback((kind: 'crit' | 'kill') => {
     setHitPause(kind);
-    const ms = kind === 'kill' ? 80 : 50;
+    const ms = kind === 'kill' ? 120 : 85;
     setTimeout(() => setHitPause(null), ms);
   }, []);
 
@@ -1669,11 +1750,20 @@ export default function App() {
         const isExplosion = isDestroyed && upgradedGun.dartType.shape === 'rocket';
         const damage = Number(result.damage ?? 0);
         const serverQuality: 'weak_point' | 'center' | 'body' | 'armor' | 'graze' | undefined = result.quality;
+        const isCritHit = isCrit || serverQuality === 'weak_point' || serverQuality === 'center';
+        if (result.targetId || result.id) {
+          const hitTargetId = result.targetId ?? result.id;
+          const feedbackKind = isDestroyed && isCritHit ? 'critical_kill' : isCritHit ? 'critical_hit' : serverQuality === 'armor' ? 'armor_deflect' : undefined;
+          if (feedbackKind) {
+            setTargets(prev => prev.map(t => t.id === hitTargetId ? { ...t, feedbackKind, feedbackNonce: Date.now() } : t));
+          }
+        }
 
         const effectId = `hit-${hitEffectIdCounter.current++}`;
         setHitEffects(curr => [...curr, { id: effectId, x: aimXPct, y: aimYPct, color: currentGun.dartType.color, isDestroy: isDestroyed, isExplosion, quality: serverQuality }]);
         setHitMarkerTime(Date.now());
-        if (isDestroyed) setHitMarkerType('kill');
+        if (isDestroyed && isCritHit) setHitMarkerType('critKill');
+        else if (isDestroyed) setHitMarkerType('kill');
         else if (serverQuality === 'armor') setHitMarkerType('armor');
         else if (isCrit || serverQuality === 'weak_point' || serverQuality === 'center') setHitMarkerType('crit');
         else setHitMarkerType('normal');
@@ -1681,13 +1771,23 @@ export default function App() {
 
         // Screen impact feedback — mirrors the singleplayer path so multiplayer
         // hits feel equally weighty.
-        const isCritHit = isCrit || serverQuality === 'weak_point' || serverQuality === 'center';
         if (isExplosion) {
           setShakeIntensity(38);
           setFlash(true);
           setTimeout(() => setFlash(false), 100);
           setTimeout(() => setShakeIntensity(0), 500);
           triggerHitPause('kill');
+        } else if (isDestroyed && isCritHit) {
+          // Critical kill — strongest non-explosion tier
+          setShakeIntensity(24);
+          setCritFlash(true);
+          setKillFlash(true);
+          setTimeout(() => setCritFlash(false), 130);
+          setTimeout(() => setKillFlash(false), 150);
+          setTimeout(() => setShakeIntensity(0), 280);
+          triggerHitPause('kill');
+          sounds.playCritKill();
+          vibrate(HAPTIC.CRIT_KILL);
         } else if (isDestroyed) {
           setShakeIntensity(18);
           setKillFlash(true);
@@ -1695,12 +1795,18 @@ export default function App() {
           setTimeout(() => setShakeIntensity(0), 240);
           triggerHitPause('kill');
         } else if (isCritHit) {
-          setShakeIntensity(10);
-          setTimeout(() => setShakeIntensity(0), 130);
+          setShakeIntensity(14);
+          setCritFlash(true);
+          setTimeout(() => setCritFlash(false), 100);
+          setTimeout(() => setShakeIntensity(0), 160);
           triggerHitPause('crit');
+          sounds.playCritHit();
+          vibrate(HAPTIC.CRIT_HIT);
         } else if (serverQuality === 'armor') {
           setShakeIntensity(3);
           setTimeout(() => setShakeIntensity(0), 80);
+          sounds.playArmorDeflect();
+          vibrate(HAPTIC.ARMOR_DEFLECT);
         } else {
           setShakeIntensity(5);
           setTimeout(() => setShakeIntensity(0), 100);
@@ -1720,7 +1826,7 @@ export default function App() {
         }
 
         if (isDestroyed) {
-          vibrate([30, 50, 30]);
+          if (!isCritHit) vibrate([30, 50, 30]);
           setTargetsHit(th => th + 1);
           const points = Number(result.points ?? 0);
           if (points > 0) {
@@ -1743,7 +1849,7 @@ export default function App() {
             }]);
             setTimeout(() => setCombatTexts(curr => curr.filter(t => t.id !== cTextId)), 1000);
           }
-        } else {
+        } else if (!isCritHit && serverQuality !== 'armor') {
           vibrate(20);
         }
       }, travelMs);
@@ -1838,18 +1944,36 @@ export default function App() {
               const quality = bossResult.hitZone;
               setHitEffects(curr => [...curr, { id: effectId, x: aimXPctLocal, y: aimYPctLocal, color: currentGun.dartType.color, isDestroy: bossResult.destroyed, quality }]);
               setHitMarkerTime(Date.now());
-              setHitMarkerType(bossResult.hitZone === 'weak_point' ? 'crit' : bossResult.hitZone === 'armor' ? 'armor' : 'normal');
+              setHitMarkerType(bossResult.destroyed && bossResult.hitZone === 'weak_point' ? 'critKill' : bossResult.hitZone === 'weak_point' ? 'crit' : bossResult.hitZone === 'armor' ? 'armor' : 'normal');
               setTimeout(() => setHitEffects(curr => curr.filter(h => h.id !== effectId)), 500);
               // Combat text
               const textId = `btxt-${hitEffectIdCounter.current++}`;
               const isCrit = bossResult.hitZone === 'weak_point';
               setCombatTexts(curr => [...curr, { id: textId, x: aimXPctLocal + (Math.random() * 4 - 2), y: aimYPctLocal - 5, text: isCrit ? `CRIT! -${bossResult.damageDealt}` : `-${bossResult.damageDealt}`, color: isCrit ? '#facc15' : '#ffffff', isCritical: isCrit }]);
               setTimeout(() => setCombatTexts(curr => curr.filter(t => t.id !== textId)), 1000);
-              sounds.playHit(quality);
-              vibrate(bossResult.hitZone === 'weak_point' ? [30, 50, 30] : 20);
-              if (isCrit) triggerHitPause('crit');
-              setShakeIntensity(bossResult.hitZone === 'weak_point' ? 12 : bossResult.hitZone === 'armor' ? 3 : 6);
-              setTimeout(() => setShakeIntensity(0), 150);
+              if (bossResult.destroyed && isCrit) {
+                setCritFlash(true);
+                setKillFlash(true);
+                setTimeout(() => setCritFlash(false), 130);
+                setTimeout(() => setKillFlash(false), 150);
+                triggerHitPause('kill');
+                sounds.playCritKill();
+                vibrate(HAPTIC.CRIT_KILL);
+              } else if (isCrit) {
+                setCritFlash(true);
+                setTimeout(() => setCritFlash(false), 100);
+                triggerHitPause('crit');
+                sounds.playCritHit();
+                vibrate(HAPTIC.CRIT_HIT);
+              } else if (bossResult.hitZone === 'armor') {
+                sounds.playArmorDeflect();
+                vibrate(HAPTIC.ARMOR_DEFLECT);
+              } else {
+                sounds.playHit(quality);
+                vibrate(20);
+              }
+              setShakeIntensity(bossResult.destroyed && isCrit ? 24 : bossResult.hitZone === 'weak_point' ? 14 : bossResult.hitZone === 'armor' ? 3 : 6);
+              setTimeout(() => setShakeIntensity(0), bossResult.destroyed && isCrit ? 280 : isCrit ? 160 : 150);
               return;
             }
           }
@@ -2016,7 +2140,8 @@ export default function App() {
         : undefined;
       setHitEffects(curr => [...curr, { id: effectId, x: hitX, y: hitY, color: currentGun.dartType.color, isDestroy: isDestroyed, isExplosion, quality: effectQuality }]);
       setHitMarkerTime(Date.now());
-      if (isDestroyed) setHitMarkerType('kill');
+      if (isDestroyed && isCrit) setHitMarkerType('critKill');
+      else if (isDestroyed) setHitMarkerType('kill');
       else if (isCrit) setHitMarkerType('crit');
       else if (quality === 'armor') setHitMarkerType('armor');
       else setHitMarkerType('normal');
@@ -2029,6 +2154,17 @@ export default function App() {
         setTimeout(() => setFlash(false), 100);
         setTimeout(() => setShakeIntensity(0), 500);
         triggerHitPause('kill');
+      } else if (isDestroyed && isCrit) {
+        // Critical kill — strongest non-explosion feedback tier
+        setShakeIntensity(24);
+        setCritFlash(true);
+        setKillFlash(true);
+        setTimeout(() => setCritFlash(false), 130);
+        setTimeout(() => setKillFlash(false), 150);
+        setTimeout(() => setShakeIntensity(0), 280);
+        triggerHitPause('kill');
+        sounds.playCritKill();
+        vibrate(HAPTIC.CRIT_KILL);
       } else if (isDestroyed) {
         // Kill confirmation: sharp pulse + orange kill flash + hit pause
         setShakeIntensity(18);
@@ -2037,14 +2173,20 @@ export default function App() {
         setTimeout(() => setShakeIntensity(0), 240);
         triggerHitPause('kill');
       } else if (quality === 'weak_point' || quality === 'center' || isCrit) {
-        // Critical / weak-point hit: moderate shake + brief crit hit pause
-        setShakeIntensity(10);
-        setTimeout(() => setShakeIntensity(0), 130);
+        // Critical / weak-point hit: sharper shake + crit flash + hit pause
+        setShakeIntensity(14);
+        setCritFlash(true);
+        setTimeout(() => setCritFlash(false), 100);
+        setTimeout(() => setShakeIntensity(0), 160);
         triggerHitPause('crit');
+        sounds.playCritHit();
+        vibrate(HAPTIC.CRIT_HIT);
       } else if (quality === 'armor') {
         // Armor block: tight, dry impulse — feels like a deflection
         setShakeIntensity(3);
         setTimeout(() => setShakeIntensity(0), 80);
+        sounds.playArmorDeflect();
+        vibrate(HAPTIC.ARMOR_DEFLECT);
       } else {
         // Normal body hit: minimal kick
         setShakeIntensity(5);
@@ -2058,7 +2200,12 @@ export default function App() {
       if (newHp > 0) {
         // Target survives
         const newTargets = [...prev];
-        let updatedTarget = { ...target, hp: newHp };
+        let updatedTarget: TargetData = {
+          ...target,
+          hp: newHp,
+          feedbackKind: isCrit ? 'critical_hit' : quality === 'armor' ? 'armor_deflect' : undefined,
+          feedbackNonce: Date.now(),
+        };
         
         if (target.type === 'teleporting') {
           updatedTarget.x = 15 + Math.random() * 70;
@@ -2067,13 +2214,13 @@ export default function App() {
         
         newTargets[targetIndex] = updatedTarget;
         sounds.playHit(quality);
-        vibrate(HAPTIC.HIT);
+        if (!isCrit && quality !== 'armor') vibrate(HAPTIC.HIT);
         return newTargets;
       }
 
       // Target destroyed
       sounds.playTargetBreak();
-      vibrate(HAPTIC.DESTROY);
+      if (!isCrit) vibrate(HAPTIC.DESTROY);
       
       // Heavy shake on destruction ONLY for big entities
       if (target.type === 'heavy_armor' || target.type === 'exploding') {
@@ -2266,6 +2413,38 @@ export default function App() {
             className="absolute inset-0 z-[200] bg-white mix-blend-overlay pointer-events-none"
             style={{ filter: "blur(20px)" }}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Critical flash — short gold-white snap, separate from damage and kill. */}
+      <AnimatePresence>
+        {critFlash && (
+          <>
+            <motion.div
+              key="crit-flash-wash"
+              initial={{ opacity: 0.5 }}
+              animate={{ opacity: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.12, ease: 'easeOut' }}
+              className="absolute inset-0 z-[201] pointer-events-none"
+              style={{
+                background: 'radial-gradient(ellipse at center, rgba(255,255,210,0.22) 0%, rgba(253,224,71,0.16) 34%, rgba(255,255,255,0) 68%)',
+                mixBlendMode: 'screen',
+              }}
+            />
+            <motion.div
+              key="crit-flash-slash"
+              initial={{ opacity: 0.75, scaleX: 0.25 }}
+              animate={{ opacity: 0, scaleX: 1.25 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.10, ease: 'easeOut' }}
+              className="absolute left-1/2 top-1/2 z-[202] pointer-events-none h-[3px] w-[84vmin] -translate-x-1/2 -translate-y-1/2 rotate-[-12deg]"
+              style={{
+                background: 'linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,230,0.95) 50%, rgba(255,255,255,0) 100%)',
+                boxShadow: '0 0 18px rgba(253,224,71,0.95)',
+              }}
+            />
+          </>
         )}
       </AnimatePresence>
 

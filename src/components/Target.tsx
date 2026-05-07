@@ -19,6 +19,8 @@ export type TargetData = {
   maxHp: number;
   scale?: number;
   nextFireTime?: number;
+  feedbackKind?: 'critical_hit' | 'critical_kill' | 'armor_deflect';
+  feedbackNonce?: number;
 };
 
 interface TargetProps {
@@ -160,9 +162,14 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
 
   React.useEffect(() => {
     const dmg = prevHp.current - target.hp;
-    if (dmg > 0) {
+    const isCriticalFeedback = target.feedbackKind === 'critical_hit' || target.feedbackKind === 'critical_kill';
+    if (dmg > 0 || isCriticalFeedback) {
       const ratio = dmg / target.maxHp;
-      const tier = ratio > 0.25 ? 3 : ratio > 0.10 ? 2 : 1;
+      const tier = target.feedbackKind === 'critical_kill'
+        ? 3
+        : isCriticalFeedback
+        ? Math.max(2, ratio > 0.25 ? 3 : 2)
+        : ratio > 0.25 ? 3 : ratio > 0.10 ? 2 : 1;
       setHitTier(tier);
       setFlash(true);
 
@@ -181,18 +188,18 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
       }
       setRecoilDir({ x: dirX, y: dirY });
 
-      const flashMs = tier === 3 ? 200 : tier === 2 ? 155 : 110;
+      const flashMs = target.feedbackKind === 'critical_kill' ? 220 : target.feedbackKind === 'critical_hit' ? 145 : tier === 3 ? 200 : tier === 2 ? 155 : 110;
       setTimeout(() => {
         setFlash(false);
         // After flash ends, run a short settle wobble for medium/heavy
         if (tier >= 2) {
           setSettling(true);
-          setTimeout(() => setSettling(false), tier === 3 ? 700 : 500);
+          setTimeout(() => setSettling(false), target.feedbackKind === 'critical_kill' ? 820 : tier === 3 ? 700 : 500);
         }
       }, flashMs);
     }
     prevHp.current = target.hp;
-  }, [target.hp, target.maxHp]);
+  }, [target.hp, target.maxHp, target.feedbackKind, target.feedbackNonce]);
 
   const baseScale = target.scale || 1;
   const hpPercentage = target.hp / target.maxHp;
@@ -212,11 +219,13 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
   const isRevealed = dist < 15;
 
   // Scaled hit reactions by damage magnitude
-  const hitScaleBoost = hitTier === 3 ? 1.48 : hitTier === 2 ? 1.30 : 1.18;
+  const hitScaleBoost = target.feedbackKind === 'critical_kill' ? 1.62 : target.feedbackKind === 'critical_hit' ? 1.38 : hitTier === 3 ? 1.48 : hitTier === 2 ? 1.30 : 1.18;
   const hitRotate = hitTier === 3
-    ? [0, -14, 14, -8, 7, -3, 2, 0]
+    ? target.feedbackKind === 'critical_kill'
+      ? [0, -18, 17, -13, 10, -6, 3, 0]
+      : [0, -14, 14, -8, 7, -3, 2, 0]
     : hitTier === 2
-    ? [0, -8, 8, -4, 3, 0]
+    ? target.feedbackKind === 'critical_hit' ? [0, -11, 10, -6, 4, 0] : [0, -8, 8, -4, 3, 0]
     : [0, -4, 4, -2, 0];
   const hitFilter = hitTier === 3
     ? 'brightness(2.2) drop-shadow(0 0 22px rgba(255,255,255,0.95))'
@@ -233,7 +242,7 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
     filter: flash ? hitFilter : 'none',
   };
   // Spring stiffness increases with hit strength for a snappier reaction
-  const hitStiffness = hitTier === 3 ? 420 : hitTier === 2 ? 320 : 260;
+  const hitStiffness = target.feedbackKind === 'critical_kill' ? 540 : target.feedbackKind === 'critical_hit' ? 460 : hitTier === 3 ? 420 : hitTier === 2 ? 320 : 260;
   let transitionProps: any = {
     type: 'spring',
     stiffness: flash ? hitStiffness : 260,
@@ -940,7 +949,7 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
 
   // Directional recoil offset (px) when flash is active — kicks the target away
   // from the incoming shot, then springs back in transitionProps.
-  const recoilMag = flash ? (hitTier === 3 ? 18 : hitTier === 2 ? 12 : 7) : 0;
+  const recoilMag = flash ? (target.feedbackKind === 'critical_kill' ? 24 : target.feedbackKind === 'critical_hit' ? 16 : hitTier === 3 ? 18 : hitTier === 2 ? 12 : 7) : 0;
   const recoilX = recoilDir.x * recoilMag;
   const recoilY = recoilDir.y * recoilMag;
 
@@ -1062,6 +1071,15 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
                     transition={{ duration: 0.28, ease: 'easeOut' }}
                   />
                 </>
+              )}
+              {(target.feedbackKind === 'critical_hit' || target.feedbackKind === 'critical_kill') && (
+                <motion.div
+                  className="absolute inset-[-20px] rounded-full border-[3px] border-yellow-200 pointer-events-none z-40"
+                  style={{ boxShadow: '0 0 24px rgba(253,224,71,0.9), inset 0 0 18px rgba(255,255,255,0.5)' }}
+                  initial={{ opacity: 1, scale: 0.35 }}
+                  animate={{ opacity: 0, scale: target.feedbackKind === 'critical_kill' ? 2.8 : 2.1 }}
+                  transition={{ duration: target.feedbackKind === 'critical_kill' ? 0.42 : 0.28, ease: 'easeOut' }}
+                />
               )}
             </>
           )}
