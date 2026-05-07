@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { Zap, Shield, Swords } from 'lucide-react';
+import { getTargetAsset } from '../lib/assetRegistry';
 
 export type TargetData = {
   id: string;
@@ -24,6 +25,101 @@ interface TargetProps {
   target: TargetData;
   onHit: (id: string, x: number, y: number) => void;
   cursorPos?: { x: number, y: number };
+}
+
+// ─── ASSET-BACKED TARGET RENDERER ────────────────────────────────────────────
+// Layers the provided target image on top of the existing CSS body without
+// disturbing hit zones (data-hit-zone is set on inner CSS nodes). If the image
+// fails to load we hide it; the CSS body underneath still renders.
+function TargetImageOverlay({
+  type,
+  hpPercentage,
+  flash,
+  shielded,
+}: {
+  type: string;
+  hpPercentage: number;
+  flash: boolean;
+  shielded: boolean;
+}) {
+  const [failed, setFailed] = React.useState(false);
+  const asset = React.useMemo(() => getTargetAsset(type), [type]);
+  if (failed) return null;
+
+  const damaged = hpPercentage < 0.5;
+  return (
+    <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+      {/* Drop shadow / contact pad */}
+      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-3/4 h-3 bg-black/60 blur-md rounded-full" />
+      {/* Mount/stand sliver behind the image so floating targets still feel grounded */}
+      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1/2 h-1.5 bg-zinc-900/70 border border-zinc-700 rounded-full" />
+      <img
+        src={asset.src}
+        alt={asset.label}
+        draggable={false}
+        loading="lazy"
+        decoding="async"
+        onError={() => setFailed(true)}
+        className="relative max-w-[140%] max-h-[140%] w-[140%] h-[140%] select-none"
+        style={{
+          objectFit: 'contain',
+          objectPosition: 'center',
+          filter: `drop-shadow(0 6px 8px rgba(0,0,0,0.55)) ${damaged ? 'saturate(0.85) brightness(0.92)' : ''}`.trim(),
+          mixBlendMode: 'normal',
+        }}
+      />
+      {/* Hit flash overlay */}
+      {flash && (
+        <div
+          className="absolute inset-0 rounded-full"
+          style={{
+            background: 'radial-gradient(circle, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0) 70%)',
+            mixBlendMode: 'screen',
+          }}
+        />
+      )}
+      {/* Damaged overlay */}
+      {damaged && (
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              'repeating-linear-gradient(45deg, rgba(0,0,0,0.18) 0 2px, transparent 2px 6px)',
+            mixBlendMode: 'multiply',
+            opacity: 0.7,
+          }}
+        />
+      )}
+      {/* Optional shield ring for shielded types */}
+      {shielded && (
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
+          className="absolute inset-[-12%] rounded-full border-2 border-cyan-300/60 shadow-[0_0_22px_rgba(34,211,238,0.45)]"
+          style={{ mixBlendMode: 'screen' }}
+        />
+      )}
+    </div>
+  );
+}
+
+function PowerupCardBackdrop({ type }: { type: string }) {
+  const [failed, setFailed] = React.useState(false);
+  const asset = React.useMemo(() => getTargetAsset(type), [type]);
+  if (failed) return null;
+  return (
+    <img
+      src={asset.src}
+      alt=""
+      aria-hidden
+      draggable={false}
+      loading="lazy"
+      decoding="async"
+      onError={() => setFailed(true)}
+      className="absolute inset-0 w-full h-full pointer-events-none opacity-40"
+      style={{ objectFit: 'cover', objectPosition: 'center', mixBlendMode: 'screen' }}
+    />
+  );
 }
 
 function HexNode({ color, score, active }: { color: string, score: number, active?: boolean, key?: React.Key }) {
@@ -791,19 +887,29 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
       data-hit-zone="body"
     >
       {isPowerup ? (
-        <div className={`relative flex items-center justify-center w-16 h-16 rounded-xl shadow-[0_0_30px_rgba(255,255,255,0.2)] border-2 backdrop-blur-sm animate-pulse
+        <div className={`relative flex items-center justify-center w-16 h-16 rounded-xl shadow-[0_0_30px_rgba(255,255,255,0.2)] border-2 backdrop-blur-sm animate-pulse overflow-hidden
           ${isPowerupDamage ? 'bg-red-950/90 border-red-500 shadow-red-500/50 text-red-500' : ''}
           ${isPowerupRapid ? 'bg-yellow-950/90 border-yellow-400 shadow-yellow-400/50 text-yellow-400' : ''}
           ${isPowerupShield ? 'bg-blue-950/90 border-blue-400 shadow-blue-400/50 text-blue-400' : ''}
         `}>
+          <PowerupCardBackdrop type={target.type} />
           <div className="absolute inset-0 bg-current opacity-20 rounded-xl" />
-          {isPowerupDamage && <Swords className="w-8 h-8" />}
-          {isPowerupRapid && <Zap className="w-8 h-8" />}
-          {isPowerupShield && <Shield className="w-8 h-8" />}
+          {isPowerupDamage && <Swords className="w-8 h-8 relative z-10" />}
+          {isPowerupRapid && <Zap className="w-8 h-8 relative z-10" />}
+          {isPowerupShield && <Shield className="w-8 h-8 relative z-10" />}
         </div>
       ) : (
         <div className="relative">
           {renderInner()}
+
+          {/* Asset-backed visual on top of the CSS body. Hides on error so the
+              CSS structure underneath remains the working fallback. */}
+          <TargetImageOverlay
+            type={target.type}
+            hpPercentage={hpPercentage}
+            flash={flash}
+            shielded={target.type === 'shielded'}
+          />
 
           {/* Impact flash + recoil ring on hit */}
           {flash && (

@@ -1,6 +1,34 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'motion/react';
 import { AmmoType } from './Gun';
+import { getDartAsset } from '../lib/assetRegistry';
+
+// Soft texture sourced from the provided dart sheet. Used as a subtle accent
+// on the CSS projectile so projectile colors match the asset palette without
+// breaking the existing animation system.
+function DartSpriteAccent({ shape }: { shape: AmmoType['shape'] }) {
+  const [failed, setFailed] = React.useState(false);
+  const asset = React.useMemo(() => {
+    // Map shape -> dart asset id ("dart_<shape>")
+    return getDartAsset(`dart_${shape}`);
+  }, [shape]);
+  if (failed) return null;
+  const offset = asset.spriteOffset;
+  return (
+    <div
+      className="absolute inset-0 pointer-events-none rounded-full opacity-70"
+      style={{
+        backgroundImage: `url('${asset.src}')`,
+        backgroundSize: offset?.size ?? 'cover',
+        backgroundPosition: offset ? `${offset.x} ${offset.y}` : 'center',
+        backgroundRepeat: 'no-repeat',
+        mixBlendMode: 'screen',
+        filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.6))',
+      }}
+      onError={() => setFailed(true)}
+    />
+  );
+}
 
 interface DartProps {
   key?: React.Key;
@@ -95,17 +123,20 @@ export default function Dart({ id, startX, startY, endX, endY, dartType, onCompl
         )}
         
         {dartType.shape === 'rival' && (
-          <div className="w-8 h-8 rounded-full" style={{ backgroundColor: dartType.color, backgroundImage: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.4), transparent)' }} />
+          <div className="relative w-8 h-8 rounded-full" style={{ backgroundColor: dartType.color, backgroundImage: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.4), transparent)' }}>
+            <DartSpriteAccent shape="rival" />
+          </div>
         )}
-        
+
         {dartType.shape === 'vortex' && (
-          <div className="w-12 h-12 rounded-full border-[6px]" style={{ borderColor: dartType.color, backgroundColor: '#fff', boxShadow: 'inset 0 0 10px rgba(0,0,0,0.2)' }}>
+          <div className="relative w-12 h-12 rounded-full border-[6px]" style={{ borderColor: dartType.color, backgroundColor: '#fff', boxShadow: 'inset 0 0 10px rgba(0,0,0,0.2)' }}>
             <div className="absolute inset-0 flex items-center justify-center">
                <div className="w-2 h-2 rounded-full bg-black/20" />
             </div>
             {/* Spinning blades/markings */}
             <div className="absolute top-0 bottom-0 left-1/2 w-1 bg-black/10 -translate-x-1/2" />
             <div className="absolute left-0 right-0 top-1/2 h-1 bg-black/10 -translate-y-1/2" />
+            <DartSpriteAccent shape="vortex" />
           </div>
         )}
         

@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { getBlasterAsset } from '../lib/assetRegistry';
 
 // ─── AMMO & GUN TYPE DEFINITIONS (exported for App.tsx) ─────────────────────
 
@@ -558,6 +559,68 @@ function WeaponSVG({ gun, layer, arch }: { gun: GunType; layer: Layer; arch: Arc
   );
 }
 
+// ─── BLASTER IMAGE OVERLAY ───────────────────────────────────────────────────
+// Renders the provided blaster PNG on top of the SVG body. If the asset fails
+// to load (404, CDN error, etc.) we hide the image and the SVG underneath
+// remains as the visual fallback. This preserves all existing rigging and
+// animations — recoil, sway, ADS, reload, muzzle flash positions — because we
+// only paint a sprite on the same transform stack.
+function BlasterImage({ gunId, archetype }: { gunId: string; archetype: Archetype }) {
+  const [failed, setFailed] = React.useState(false);
+  const asset = React.useMemo(() => getBlasterAsset(gunId), [gunId]);
+
+  if (failed) return null;
+
+  // Tuned per archetype so the sprite anchors near the SVG barrel/grip.
+  const layout = ARCHETYPE_IMG_LAYOUT[archetype];
+
+  return (
+    <div
+      className="absolute pointer-events-none select-none"
+      style={{
+        left: layout.left,
+        top: layout.top,
+        width: layout.width,
+        height: layout.height,
+        // Soft contact + drop shadow so the cutout reads against any arena.
+        filter:
+          'drop-shadow(0 14px 12px rgba(0,0,0,0.55)) drop-shadow(0 2px 2px rgba(0,0,0,0.7))',
+      }}
+    >
+      <img
+        src={asset.src}
+        alt={asset.label}
+        draggable={false}
+        loading="eager"
+        decoding="async"
+        onError={() => setFailed(true)}
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'contain',
+          objectPosition: 'center',
+          transform: layout.transform,
+          imageRendering: 'auto',
+        }}
+      />
+    </div>
+  );
+}
+
+// Per-archetype anchor for the blaster image inside the 700×380 SVG viewbox.
+// Coordinates are in the SVG local space (top/left in px relative to the
+// 700×380 frame). Width/height keep the image readable at first-person scale.
+const ARCHETYPE_IMG_LAYOUT: Record<Archetype, { left: number; top: number; width: number; height: number; transform: string }> = {
+  pistol:   { left: 30,  top: 60,  width: 360, height: 260, transform: 'rotate(-2deg)' },
+  revolver: { left: 30,  top: 60,  width: 360, height: 260, transform: 'rotate(-2deg)' },
+  smg:      { left: 20,  top: 60,  width: 400, height: 260, transform: 'rotate(-2deg)' },
+  double:   { left: 0,   top: 60,  width: 600, height: 240, transform: 'rotate(-1deg)' },
+  shotgun:  { left: 0,   top: 60,  width: 540, height: 260, transform: 'rotate(-1deg)' },
+  carbine:  { left: 0,   top: 60,  width: 600, height: 240, transform: 'rotate(-1deg)' },
+  sniper:   { left: 0,   top: 60,  width: 660, height: 240, transform: 'rotate(-1deg)' },
+  heavy:    { left: 0,   top: 60,  width: 620, height: 280, transform: 'rotate(-1deg)' },
+};
+
 // ─── MAIN GUN COMPONENT ───────────────────────────────────────────────────────
 
 export default function Gun({
@@ -667,9 +730,12 @@ export default function Gun({
               <WeaponSVG gun={gun} layer="mid" arch={arch} />
             </div>
 
-            {/* Front — specular highlights + hand */}
+            {/* Front — SVG fallback (rendered first), image overlay on top */}
             <div className="absolute inset-0" style={{ transform: 'translateZ(14px)' }}>
               <WeaponSVG gun={gun} layer="front" arch={arch} />
+              {/* Image asset layered above the SVG so transparent PNGs read
+                  cleanly. If the image errors, the SVG underneath stays. */}
+              <BlasterImage gunId={gun.id} archetype={arch} />
               {muzzleRef && (
                 <div
                   ref={muzzleRef}

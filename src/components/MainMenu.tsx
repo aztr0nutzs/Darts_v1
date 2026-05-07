@@ -6,6 +6,55 @@ import {
 } from 'lucide-react';
 import { GameMode, DartType, DART_TYPES } from '../App';
 import { GUNS, GunType } from './Gun';
+import { getBlasterAsset, getDartAsset } from '../lib/assetRegistry';
+
+function BlasterCardThumb({ gunId }: { gunId: string }) {
+  const [failed, setFailed] = React.useState(false);
+  const asset = React.useMemo(() => getBlasterAsset(gunId), [gunId]);
+  if (failed) return null;
+  return (
+    <img
+      src={asset.src}
+      alt=""
+      aria-hidden
+      draggable={false}
+      loading="lazy"
+      decoding="async"
+      onError={() => setFailed(true)}
+      className="w-16 h-12 sm:w-20 sm:h-14 shrink-0 select-none"
+      style={{ objectFit: 'contain', objectPosition: 'center' }}
+    />
+  );
+}
+
+function DartCardThumb({ shape }: { shape: DartType['shape'] }) {
+  const [failed, setFailed] = React.useState(false);
+  // Map menu shape ids ('laser' | 'plasma' | 'pulse' | 'rocket') to the
+  // closest provided dart sprite. Defaults to standard dart on miss.
+  const fallbackShape =
+    shape === 'rocket'
+      ? 'rocket'
+      : shape === 'plasma'
+      ? 'vortex'
+      : shape === 'pulse'
+      ? 'rival'
+      : 'dart';
+  const asset = React.useMemo(() => getDartAsset(`dart_${fallbackShape}`), [fallbackShape]);
+  if (failed) return null;
+  return (
+    <img
+      src={asset.src}
+      alt=""
+      aria-hidden
+      draggable={false}
+      loading="lazy"
+      decoding="async"
+      onError={() => setFailed(true)}
+      className="w-10 h-10 shrink-0 select-none"
+      style={{ objectFit: 'contain', objectPosition: 'center' }}
+    />
+  );
+}
 
 export interface MainMenuProps {
   gameMode: GameMode;
@@ -237,12 +286,15 @@ export default function MainMenu({
                           ${isSelected ? 'bg-gradient-to-r from-cyan-900/40 to-slate-900/80 border-cyan-500 shadow-[0_0_20px_rgba(34,211,238,0.15)] scale-[1.02]' : 
                             isUnlocked ? 'bg-slate-900/60 border-slate-700 hover:border-cyan-500/50 hover:bg-slate-800' : 'bg-slate-950/80 border-slate-800/50 opacity-70 grayscale'}`}
                       >
-                        <div className="flex flex-col items-start z-10">
-                          <span className={`text-xl sm:text-2xl font-black italic tracking-tight leading-none mb-1 ${isSelected ? 'text-white' : 'text-slate-300'}`}>{g.name}</span>
-                          <div className="flex items-center gap-2 text-[10px] font-bold tracking-widest uppercase opacity-70">
-                            <Cpu className="w-3 h-3 text-cyan-400" />
-                            <span className={isSelected ? 'text-cyan-200' : 'text-slate-400'}>{g.fireMode}</span>
-                            <span className={isSelected ? 'text-cyan-200' : 'text-slate-400'}>// {g.maxAmmo} MAX</span>
+                        <div className="flex items-center gap-3 z-10 min-w-0">
+                          <BlasterCardThumb gunId={g.id} />
+                          <div className="flex flex-col items-start min-w-0">
+                            <span className={`text-xl sm:text-2xl font-black italic tracking-tight leading-none mb-1 truncate ${isSelected ? 'text-white' : 'text-slate-300'}`}>{g.name}</span>
+                            <div className="flex items-center gap-2 text-[10px] font-bold tracking-widest uppercase opacity-70">
+                              <Cpu className="w-3 h-3 text-cyan-400" />
+                              <span className={isSelected ? 'text-cyan-200' : 'text-slate-400'}>{g.fireMode}</span>
+                              <span className={isSelected ? 'text-cyan-200' : 'text-slate-400'}>// {g.maxAmmo} MAX</span>
+                            </div>
                           </div>
                         </div>
 
@@ -287,8 +339,11 @@ export default function MainMenu({
                           ${isSelected ? 'bg-gradient-to-br from-orange-900/40 to-slate-900/80 border-orange-500 shadow-[0_0_20px_rgba(249,115,22,0.15)] scale-[1.02]' : 
                             isUnlocked ? 'bg-slate-900/60 border-slate-700 hover:border-orange-500/50 hover:bg-slate-800' : 'bg-slate-950/80 border-slate-800/50 opacity-70 grayscale'}`}
                       >
-                         <div className="flex justify-between items-start z-10 w-full mb-2">
-                            <span className={`text-base sm:text-lg font-black italic tracking-tight leading-none ${isSelected ? 'text-white' : 'text-slate-300'}`}>{d.name}</span>
+                         <div className="flex justify-between items-start z-10 w-full mb-2 gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <DartCardThumb shape={d.shape} />
+                              <span className={`text-base sm:text-lg font-black italic tracking-tight leading-none truncate ${isSelected ? 'text-white' : 'text-slate-300'}`}>{d.name}</span>
+                            </div>
                             {!isUnlocked && <Lock className="w-3.5 h-3.5 text-slate-500 shrink-0" />}
                          </div>
 
