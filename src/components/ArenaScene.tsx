@@ -109,6 +109,8 @@ export default function ArenaScene({ arenaId, parallaxX, parallaxY }: ArenaScene
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {/* Concept-art plate (warehouse rush) */}
         <ArenaArtPlate arenaId="warehouse" />
+        {/* Lighting identity: neon blue / purple, strong contrast */}
+        <ArenaLighting arenaId="warehouse" />
         {/* Background: dim warehouse wall */}
         <motion.div className="absolute inset-0" style={{ x: bgX, y: bgY }}>
           <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a0a] via-[#171615] to-[#0c0a08]" />
@@ -173,6 +175,14 @@ export default function ArenaScene({ arenaId, parallaxX, parallaxY }: ArenaScene
           <div className="absolute bottom-1 right-[5%] w-24 h-14 bg-zinc-700 border-2 border-zinc-900 rounded-sm shadow-[0_4px_8px_rgba(0,0,0,0.7)]">
             <div className="absolute inset-1 border border-zinc-600" />
           </div>
+          {/* Industrial control panels + machinery (warehouse identity) */}
+          <IndustrialPanel x="22%" y="78%" tone="cyan" />
+          <IndustrialPanel x="68%" y="80%" tone="magenta" />
+          <Machinery x="38%" y="82%" />
+          {/* Neon rails along the lane and side rails */}
+          <NeonRail orientation="horizontal" left="6%" right="6%" top="58%" color="#22d3ee" />
+          <NeonRail orientation="vertical"   leftPx="3%" topPx="42%" length="22%" color="#a855f7" />
+          <NeonRail orientation="vertical"   leftPx="97%" topPx="42%" length="22%" color="#a855f7" />
         </motion.div>
 
         <FloorPerspective tone="warehouse" />
@@ -185,6 +195,8 @@ export default function ArenaScene({ arenaId, parallaxX, parallaxY }: ArenaScene
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {/* Concept-art plate (skyline rooftop) */}
         <ArenaArtPlate arenaId="rooftop" />
+        {/* Lighting identity: cool night, directional moonlight from upper-left */}
+        <ArenaLighting arenaId="rooftop" />
         {/* Background: dusk sky + distant skyline */}
         <motion.div className="absolute inset-0" style={{ x: bgX, y: bgY }}>
           <div className="absolute inset-0 bg-gradient-to-b from-[#1a0d2e] via-[#3a1b3d] to-[#0a0a14]" />
@@ -256,6 +268,15 @@ export default function ArenaScene({ arenaId, parallaxX, parallaxY }: ArenaScene
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 w-40 h-3 rounded-md bg-amber-900 border border-amber-950 shadow-[0_4px_8px_rgba(0,0,0,0.7)]">
             <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 h-px bg-amber-700/80" />
           </div>
+          {/* Rooftop identity props: vents, antennas, satellite dish */}
+          <RoofVentBox x="32%" bottom="14%" />
+          <RoofVentBox x="58%" bottom="16%" rotated />
+          <Antenna x="20%" bottom="22%" height="20%" />
+          <Antenna x="78%" bottom="26%" height="26%" blink />
+          <Antenna x="48%" bottom="20%" height="14%" />
+          <SatelliteDish x="86%" bottom="32%" />
+          {/* Extra distant skyline silhouettes for parallax depth */}
+          <DistantSkylineRow />
         </motion.div>
 
         <FloorPerspective tone="rooftop" />
@@ -268,6 +289,8 @@ export default function ArenaScene({ arenaId, parallaxX, parallaxY }: ArenaScene
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
       {/* Concept-art plate (training bay) */}
       <ArenaArtPlate arenaId="training" />
+      {/* Lighting identity: neutral white, soft shadows */}
+      <ArenaLighting arenaId="training" />
       {/* Background: training-bay wall with safety stripes */}
       <motion.div className="absolute inset-0" style={{ x: bgX, y: bgY }}>
         <div className="absolute inset-0 bg-gradient-to-b from-[#101418] via-[#1a1f24] to-[#0a0d11]" />
@@ -336,6 +359,15 @@ export default function ArenaScene({ arenaId, parallaxX, parallaxY }: ArenaScene
             ))}
           </div>
         </div>
+        {/* Training identity props: foam targets, crate stacks, simple a-frame stands */}
+        <FoamTarget x="14%" bottom="22%" size={42} />
+        <FoamTarget x="86%" bottom="22%" size={42} />
+        <FoamTarget x="38%" bottom="14%" size={36} />
+        <FoamTarget x="62%" bottom="14%" size={36} />
+        <CrateStack x="6%" bottom="6%" tall />
+        <CrateStack x="92%" bottom="6%" />
+        <SimpleStand x="22%" bottom="10%" />
+        <SimpleStand x="78%" bottom="10%" />
       </motion.div>
 
       <FloorPerspective tone="training" />
@@ -400,6 +432,377 @@ function SpawnPanel({ active = false }: { active?: boolean }) {
         />
       )}
       <div className="absolute bottom-0 left-0 right-0 text-center text-[7px] font-black text-cyan-300/60">SPAWN</div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Per-arena lighting overlay
+// Layered above the CSS scene but below targets / HUD.  Adds the colored light
+// bath that sells each arena's identity:
+//   training  → neutral white wash + soft top-down shadows
+//   warehouse → neon blue + magenta cones, strong vignette contrast
+//   rooftop   → cool moonlight directional light from upper-left
+// Targets read clearly against each because the wash is `mixBlendMode: screen`
+// (lifts mid-tones without washing out saturated target colours).
+// ─────────────────────────────────────────────────────────────────────────────
+function ArenaLighting({ arenaId }: { arenaId: ArenaId }) {
+  if (arenaId === 'warehouse') {
+    return (
+      <div className="absolute inset-0 pointer-events-none z-[1]">
+        {/* Cyan rim from upper-left */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'radial-gradient(ellipse 50% 40% at 18% 12%, rgba(34,211,238,0.32), transparent 70%)',
+            mixBlendMode: 'screen',
+          }}
+        />
+        {/* Magenta rim from upper-right */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'radial-gradient(ellipse 55% 45% at 82% 10%, rgba(217,70,239,0.30), transparent 72%)',
+            mixBlendMode: 'screen',
+          }}
+        />
+        {/* Center spill (high-bay floods) */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'radial-gradient(ellipse 35% 30% at 50% 28%, rgba(168,85,247,0.18), transparent 75%)',
+            mixBlendMode: 'screen',
+          }}
+        />
+        {/* Strong contrast vignette */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'radial-gradient(ellipse at center, transparent 25%, rgba(0,0,0,0.55) 80%, rgba(0,0,0,0.85) 100%)',
+          }}
+        />
+        {/* Subtle scanlines for industrial feel */}
+        <div
+          className="absolute inset-0 opacity-[0.08]"
+          style={{
+            backgroundImage:
+              'repeating-linear-gradient(0deg, rgba(255,255,255,0.6) 0, rgba(255,255,255,0.6) 1px, transparent 1px, transparent 3px)',
+            mixBlendMode: 'overlay',
+          }}
+        />
+      </div>
+    );
+  }
+  if (arenaId === 'rooftop') {
+    return (
+      <div className="absolute inset-0 pointer-events-none z-[1]">
+        {/* Cool moonlight wash, biased to upper-left as a directional source */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'linear-gradient(135deg, rgba(186,230,253,0.22) 0%, rgba(99,102,241,0.10) 35%, rgba(0,0,0,0) 65%)',
+            mixBlendMode: 'screen',
+          }}
+        />
+        {/* Sharper directional disc — the "moon" */}
+        <div
+          className="absolute"
+          style={{
+            top: '4%',
+            left: '14%',
+            width: '120px',
+            height: '120px',
+            borderRadius: '9999px',
+            background:
+              'radial-gradient(circle, rgba(241,245,249,0.85) 0%, rgba(186,230,253,0.35) 40%, rgba(186,230,253,0) 75%)',
+            filter: 'blur(2px)',
+            mixBlendMode: 'screen',
+          }}
+        />
+        {/* Cool tint over the whole frame */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background: 'rgba(30,58,138,0.10)',
+            mixBlendMode: 'multiply',
+          }}
+        />
+        {/* Cool vignette */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'radial-gradient(ellipse at 30% 10%, transparent 30%, rgba(8,8,18,0.55) 80%, rgba(0,0,0,0.85) 100%)',
+          }}
+        />
+      </div>
+    );
+  }
+  // training — neutral white, soft shadows
+  return (
+    <div className="absolute inset-0 pointer-events-none z-[1]">
+      {/* Soft overhead key light — broad, neutral */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(ellipse 70% 55% at 50% 14%, rgba(255,255,255,0.22), transparent 75%)',
+          mixBlendMode: 'screen',
+        }}
+      />
+      {/* Cyan accent so it doesn't read as flat hospital white */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(ellipse 40% 30% at 50% 18%, rgba(165,243,252,0.16), transparent 75%)',
+          mixBlendMode: 'screen',
+        }}
+      />
+      {/* Soft ground shadow — diffuses onto the floor */}
+      <div
+        className="absolute inset-x-0 bottom-0 h-1/3"
+        style={{
+          background:
+            'linear-gradient(to top, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.18) 50%, transparent 100%)',
+        }}
+      />
+      {/* Gentle vignette — keep edges from blowing out */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,0.35) 90%)',
+        }}
+      />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Training-bay props
+// ─────────────────────────────────────────────────────────────────────────────
+
+function FoamTarget({ x, bottom, size = 36 }: { x: string; bottom: string; size?: number }) {
+  return (
+    <div
+      className="absolute"
+      style={{ left: x, bottom, width: size, height: size + 14, transform: 'translateX(-50%)' }}
+    >
+      {/* Bullseye disc on a stick */}
+      <div className="absolute left-1/2 -translate-x-1/2 top-0 rounded-full border-2 border-zinc-200 bg-white shadow-[0_3px_6px_rgba(0,0,0,0.55)]"
+           style={{ width: size, height: size }}>
+        <div className="absolute inset-1 rounded-full bg-rose-500" />
+        <div className="absolute inset-[18%] rounded-full bg-white" />
+        <div className="absolute inset-[32%] rounded-full bg-rose-500" />
+        <div className="absolute inset-[46%] rounded-full bg-zinc-900" />
+      </div>
+      {/* Stick */}
+      <div className="absolute left-1/2 -translate-x-1/2 bottom-0 w-[3px] bg-zinc-500" style={{ height: 14 }} />
+      {/* Soft cast shadow */}
+      <div className="absolute left-1/2 -translate-x-1/2 -bottom-1 w-[80%] h-1 rounded-full bg-black/40 blur-[2px]" />
+    </div>
+  );
+}
+
+function CrateStack({ x, bottom, tall = false }: { x: string; bottom: string; tall?: boolean }) {
+  return (
+    <div className="absolute" style={{ left: x, bottom, transform: 'translateX(-50%)' }}>
+      <div className="flex flex-col items-center gap-[2px]">
+        {tall && (
+          <div className="w-12 h-7 bg-amber-700 border-2 border-amber-950 rounded-sm shadow-[0_3px_6px_rgba(0,0,0,0.55)]">
+            <div className="absolute inset-1 border border-amber-800/80" />
+          </div>
+        )}
+        <div className="w-14 h-9 bg-amber-700 border-2 border-amber-950 rounded-sm shadow-[0_3px_6px_rgba(0,0,0,0.55)] relative">
+          <div className="absolute inset-1 border border-amber-800/80" />
+          <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 h-px bg-amber-950/70" />
+        </div>
+        <div className="w-16 h-10 bg-amber-800 border-2 border-amber-950 rounded-sm shadow-[0_3px_6px_rgba(0,0,0,0.55)] relative">
+          <div className="absolute inset-1 border border-amber-900/80" />
+        </div>
+      </div>
+      <div className="absolute left-1/2 -translate-x-1/2 -bottom-1 w-[110%] h-1 rounded-full bg-black/45 blur-[2px]" />
+    </div>
+  );
+}
+
+function SimpleStand({ x, bottom }: { x: string; bottom: string }) {
+  return (
+    <div className="absolute" style={{ left: x, bottom, transform: 'translateX(-50%)' }}>
+      {/* A-frame style stand */}
+      <div className="relative w-12 h-10">
+        <div className="absolute left-0  bottom-0 w-[3px] h-10 bg-zinc-500 origin-bottom rotate-[14deg]" />
+        <div className="absolute right-0 bottom-0 w-[3px] h-10 bg-zinc-500 origin-bottom -rotate-[14deg]" />
+        <div className="absolute inset-x-1 top-1 h-1 bg-zinc-700 rounded-sm" />
+      </div>
+      <div className="absolute left-1/2 -translate-x-1/2 -bottom-1 w-[90%] h-1 rounded-full bg-black/40 blur-[2px]" />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Warehouse props
+// ─────────────────────────────────────────────────────────────────────────────
+
+function IndustrialPanel({ x, y, tone }: { x: string; y: string; tone: 'cyan' | 'magenta' }) {
+  const palette = tone === 'cyan'
+    ? { border: 'border-cyan-400/60',    glow: '0 0 14px rgba(34,211,238,0.45)',  led: 'bg-cyan-400'    }
+    : { border: 'border-fuchsia-400/60', glow: '0 0 14px rgba(217,70,239,0.45)',  led: 'bg-fuchsia-400' };
+  return (
+    <div
+      className={`absolute w-20 h-14 bg-zinc-900/90 border-2 ${palette.border} rounded-sm`}
+      style={{ left: x, top: y, transform: 'translateX(-50%)', boxShadow: palette.glow }}
+    >
+      <div className="absolute inset-1 grid grid-cols-3 gap-0.5">
+        {Array.from({ length: 9 }).map((_, i) => (
+          <div key={i} className="bg-zinc-800 border border-zinc-700/70" />
+        ))}
+      </div>
+      <div className={`absolute top-1 right-1 w-1.5 h-1.5 rounded-full ${palette.led} animate-pulse`} />
+      <div className="absolute bottom-1 left-1 right-1 h-[2px] bg-zinc-700" />
+    </div>
+  );
+}
+
+function Machinery({ x, y }: { x: string; y: string }) {
+  return (
+    <div
+      className="absolute"
+      style={{ left: x, top: y, transform: 'translateX(-50%)' }}
+    >
+      <div className="relative w-28 h-12 bg-zinc-700 border-2 border-zinc-900 rounded-sm shadow-[0_4px_8px_rgba(0,0,0,0.7)]">
+        <div className="absolute -top-3 left-2 w-6 h-3 bg-zinc-700 border-2 border-zinc-900 rounded-t-sm" />
+        <div className="absolute -top-3 right-3 w-3 h-3 bg-zinc-800 rounded-full border border-zinc-600" />
+        <div className="absolute inset-1 border border-zinc-600/70" />
+        <div className="absolute bottom-1 left-2 right-2 h-2 bg-cyan-400/30 border border-cyan-300/50" />
+      </div>
+    </div>
+  );
+}
+
+function NeonRail({
+  orientation, left, right, top, leftPx, topPx, length, color,
+}: {
+  orientation: 'horizontal' | 'vertical';
+  left?: string; right?: string; top?: string;
+  leftPx?: string; topPx?: string; length?: string;
+  color: string;
+}) {
+  if (orientation === 'horizontal') {
+    return (
+      <div className="absolute" style={{ left, right, top, height: '2px' }}>
+        <div className="absolute inset-0" style={{ background: color, opacity: 0.85 }} />
+        <div
+          className="absolute inset-0"
+          style={{ filter: `blur(6px)`, background: color, opacity: 0.7 }}
+        />
+      </div>
+    );
+  }
+  return (
+    <div className="absolute" style={{ left: leftPx, top: topPx, width: '2px', height: length }}>
+      <div className="absolute inset-0" style={{ background: color, opacity: 0.8 }} />
+      <div
+        className="absolute inset-0"
+        style={{ filter: `blur(6px)`, background: color, opacity: 0.6 }}
+      />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Rooftop props
+// ─────────────────────────────────────────────────────────────────────────────
+
+function RoofVentBox({ x, bottom, rotated = false }: { x: string; bottom: string; rotated?: boolean }) {
+  return (
+    <div
+      className="absolute"
+      style={{
+        left: x, bottom,
+        transform: `translateX(-50%) ${rotated ? 'skewX(-3deg)' : ''}`,
+      }}
+    >
+      <div className="relative w-20 h-10 bg-zinc-800 border-2 border-zinc-900 rounded-sm shadow-[0_4px_8px_rgba(0,0,0,0.7)]">
+        {/* Vent louvres */}
+        <div className="absolute inset-1 grid grid-rows-3 gap-[2px]">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="bg-zinc-900 border border-zinc-700/70" />
+          ))}
+        </div>
+        {/* Top cap */}
+        <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-12 h-2 bg-zinc-700 rounded-t-sm" />
+      </div>
+      <div className="absolute left-1/2 -translate-x-1/2 -bottom-1 w-[110%] h-1 rounded-full bg-black/55 blur-[2px]" />
+    </div>
+  );
+}
+
+function Antenna({
+  x, bottom, height, blink = false,
+}: { x: string; bottom: string; height: string; blink?: boolean }) {
+  return (
+    <div
+      className="absolute flex flex-col items-center"
+      style={{ left: x, bottom, transform: 'translateX(-50%)', height }}
+    >
+      {/* Tip light */}
+      <div className={`w-1.5 h-1.5 rounded-full ${blink ? 'bg-rose-500 animate-pulse' : 'bg-rose-400'}`}
+           style={{ boxShadow: '0 0 8px rgba(244,63,94,0.7)' }} />
+      {/* Mast */}
+      <div className="w-[2px] flex-1 bg-zinc-500" />
+      {/* Cross-struts */}
+      <div className="relative w-4 -mt-[60%] -mb-1 self-center">
+        <div className="absolute left-0 right-0 top-1/3 h-[1px] bg-zinc-600" />
+        <div className="absolute left-0 right-0 top-2/3 h-[1px] bg-zinc-600" />
+      </div>
+    </div>
+  );
+}
+
+function SatelliteDish({ x, bottom }: { x: string; bottom: string }) {
+  return (
+    <div className="absolute" style={{ left: x, bottom, transform: 'translateX(-50%)' }}>
+      <div className="relative w-14 h-10">
+        {/* Dish */}
+        <div
+          className="absolute left-0 top-0 w-12 h-12 rounded-full"
+          style={{
+            background: 'radial-gradient(circle at 30% 30%, rgba(244,244,245,0.3), rgba(63,63,70,0.95) 70%)',
+            border: '2px solid rgba(24,24,27,0.95)',
+            transform: 'rotate(-25deg) scaleY(0.55)',
+          }}
+        />
+        {/* Mount */}
+        <div className="absolute right-0 bottom-0 w-[3px] h-7 bg-zinc-600" />
+        <div className="absolute right-[-2px] bottom-7 w-2 h-2 bg-zinc-500 rounded-full" />
+      </div>
+    </div>
+  );
+}
+
+function DistantSkylineRow() {
+  return (
+    <div className="absolute inset-x-0 top-[40%] h-[10%] opacity-50 pointer-events-none">
+      <div className="absolute inset-0 flex items-end gap-0.5 px-[2%]">
+        {Array.from({ length: 26 }).map((_, i) => {
+          const h = 30 + ((i * 17) % 70);
+          const w = 2 + ((i * 7) % 4);
+          return (
+            <div
+              key={i}
+              className="bg-black/85 border-t border-zinc-800/40"
+              style={{ height: `${h}%`, width: `${w}%` }}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }
