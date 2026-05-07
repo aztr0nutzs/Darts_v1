@@ -1,0 +1,43 @@
+plugins {
+    id "com.android.application"
+}
+
+android {
+    namespace "com.nerfgame"
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.nerfgame"
+        minSdk 23
+        targetSdk 35
+        versionCode 1
+        versionName "1.0"
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+def webRoot = rootProject.projectDir.parentFile
+def webDist = new File(webRoot, "dist")
+def generatedAssets = layout.buildDirectory.dir("generated/assets/web")
+def npmExecutable = System.getProperty("os.name").toLowerCase().contains("windows") ? "npm.cmd" : "npm"
+
+tasks.register("buildWeb", Exec) {
+    workingDir webRoot
+    commandLine npmExecutable, "run", "build"
+}
+
+tasks.register("syncWebAssets", Copy) {
+    dependsOn "buildWeb"
+    from(webDist) {
+        exclude "server.cjs"
+    }
+    into generatedAssets
+}
+
+android.sourceSets.main.assets.srcDir(generatedAssets)
+
+preBuild.dependsOn "syncWebAssets"
