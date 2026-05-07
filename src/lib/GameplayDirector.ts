@@ -21,22 +21,85 @@ export interface WaveConfig {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Spawn layout
+// Spawn layout — named lanes corresponding to physical arena features.
+// Targets are placed in plausible areas (rails, lanes, drone air-zone, boss
+// platform) instead of random empty space.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const LANES = [
-  { xMin:  8, xMax: 20 },   // 0: far-left
-  { xMin: 25, xMax: 40 },   // 1: left-center
-  { xMin: 42, xMax: 58 },   // 2: center
-  { xMin: 60, xMax: 75 },   // 3: right-center
-  { xMin: 78, xMax: 92 },   // 4: far-right
-] as const;
+export type SpawnLane =
+  | 'left_rail'
+  | 'close_lane'
+  | 'mid_lane'
+  | 'far_lane'
+  | 'right_rail'
+  | 'drone_lane'
+  | 'boss_platform';
 
-const DEPTH_Y = {
-  far:   [10, 28] as [number, number],   // high on screen → distant
-  mid:   [28, 54] as [number, number],
-  close: [52, 70] as [number, number],   // low on screen → close threat
+interface LaneRect {
+  xMin: number; xMax: number;
+  yMin: number; yMax: number;
+}
+
+// Coordinates are viewport % (0-100) and tuned to match ArenaScene layouts:
+//   floor stands sit ~top:74%, sliding rail at top:60%, spawn doors at top:50%.
+const LANE_RECTS: Record<SpawnLane, LaneRect> = {
+  // Outer rails — moving / shielded / reflector targets glide along these
+  left_rail:     { xMin:  6, xMax: 18, yMin: 40, yMax: 64 },
+  right_rail:    { xMin: 82, xMax: 94, yMin: 40, yMax: 64 },
+  // Three depth-banded lanes across the centre
+  close_lane:    { xMin: 22, xMax: 78, yMin: 56, yMax: 70 },
+  mid_lane:      { xMin: 22, xMax: 78, yMin: 38, yMax: 54 },
+  far_lane:      { xMin: 22, xMax: 78, yMin: 22, yMax: 36 },
+  // Air zone reserved for drones / phantoms
+  drone_lane:    { xMin: 12, xMax: 88, yMin: 12, yMax: 30 },
+  // Centre boss platform (sandbag platform in the foreground)
+  boss_platform: { xMin: 38, xMax: 62, yMin: 60, yMax: 70 },
 };
+
+const DEPTH_TO_LANES: Record<'close' | 'mid' | 'far' | 'any', SpawnLane[]> = {
+  close: ['close_lane', 'left_rail', 'right_rail'],
+  mid:   ['mid_lane', 'left_rail', 'right_rail'],
+  far:   ['far_lane', 'drone_lane'],
+  any:   ['close_lane', 'mid_lane', 'far_lane', 'left_rail', 'right_rail'],
+};
+
+/**
+ * Choose a believable lane for a given target type.  Falls back to
+ * `defaultLane` when the type isn't strongly typed to a fixture.
+ */
+function laneForType(type: TargetData['type'], defaultLane: SpawnLane): SpawnLane {
+  switch (type) {
+    case 'drone':
+    case 'phantom':
+      return 'drone_lane';
+    case 'moving':
+      // Moving targets ride a rail; pick one of the side rails when the
+      // default would put them in mid-air.
+      return defaultLane === 'left_rail' || defaultLane === 'right_rail'
+        ? defaultLane
+        : (Math.random() < 0.5 ? 'left_rail' : 'right_rail');
+    case 'reflector':
+      // Reflectors prefer side rails (mirror-mounted on lane edges)
+      return Math.random() < 0.5 ? 'left_rail' : 'right_rail';
+    case 'orbital_array':
+    case 'warp_gate':
+    case 'neural_grid':
+    case 'kinetic_swarm':
+    case 'astro_hive':
+    case 'aether_pylon':
+    case 'sentinel_bot':
+    case 'phase_target':
+      // Bosses/large structures occupy the boss platform
+      return 'boss_platform';
+    case 'powerup_damage':
+    case 'powerup_rapid':
+    case 'powerup_shield':
+      // Powerups float in the close lane so the player can grab them
+      return 'close_lane';
+    default:
+      return defaultLane;
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Weapon profiles mapped from gun IDs in Gun.tsx
@@ -431,17 +494,16 @@ export class GameplayDirector {
   private _makeTarget(type: TargetData['type'], depthBias: WaveConfig['depthBias'], lanePattern: WaveConfig['lanePattern']): TargetData {
     this.idCounter++;
 
-    // Resolve spawn position
-    const laneIndices = this._laneIndices(lanePattern);
-    const lane = LANES[laneIndices[Math.floor(Math.random() * laneIndices.length)]];
-    const x = lane.xMin + Math.random() * (lane.xMax - lane.xMin);
+    // Pick a default lane that respects the wave's depth bias and pattern
+    const candidateLanes = this._candidateLanes(depthBias, lanePattern);
+    const defaultLane = candidateLanes[Math.floor(Math.random() * candidateLanes.length)];
 
-    const depth: 'close' | 'mid' | 'far' =
-      depthBias === 'any'
-        ? (['close', 'mid', 'far'] as const)[Math.floor(Math.random() * 3)]
-        : depthBias;
-    const [yMin, yMax] = DEPTH_Y[depth];
-    const y = yMin + Math.random() * (yMax - yMin);
+    // Then route each target type to a believable fixture (rail, drone air,
+    // boss platform, etc.).  Falls back to the default lane otherwise.
+    const lane: SpawnLane = laneForType(type, defaultLane);
+    const rect = LANE_RECTS[lane];
+    const x = rect.xMin + Math.random() * (rect.xMax - rect.xMin);
+    const y = rect.yMin + Math.random() * (rect.yMax - rect.yMin);
 
     const stats = TARGET_STATS[type] ?? DEFAULT_STATS;
 
@@ -459,12 +521,21 @@ export class GameplayDirector {
     };
   }
 
-  private _laneIndices(pattern: WaveConfig['lanePattern']): number[] {
-    switch (pattern) {
-      case 'center': return [1, 2, 3];
-      case 'flanks': return [0, 4];
-      case 'spread': return [0, 1, 2, 3, 4];
-      default:       return [0, 1, 2, 3, 4];
+  /** Combine wave depth bias with lane pattern to a list of candidate lanes. */
+  private _candidateLanes(depthBias: WaveConfig['depthBias'], lanePattern: WaveConfig['lanePattern']): SpawnLane[] {
+    const depthLanes = DEPTH_TO_LANES[depthBias] ?? DEPTH_TO_LANES.any;
+
+    switch (lanePattern) {
+      case 'center':
+        // Centred: drop side rails entirely, prefer mid_lane
+        return depthLanes.filter(l => l !== 'left_rail' && l !== 'right_rail');
+      case 'flanks':
+        // Flanks: only side rails plus the air-zone for drones
+        return ['left_rail', 'right_rail', ...(depthLanes.includes('drone_lane') ? ['drone_lane' as SpawnLane] : [])];
+      case 'spread':
+        return depthLanes;
+      default:
+        return depthLanes;
     }
   }
 }

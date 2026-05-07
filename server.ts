@@ -25,6 +25,101 @@ interface TargetSpec {
   radius: number;  // hit radius in viewport %
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared hitbox zone model
+// Mirrors src/lib/ShotResolver.ts so the server reports the same zones the
+// solo resolver produces. All radii are % of viewport width and scaled by
+// target.scale at hit-test time. Inner → outer:
+//   weak → center → body → armor → graze → miss
+// ─────────────────────────────────────────────────────────────────────────────
+type HitQuality = 'weak_point' | 'center' | 'body' | 'armor' | 'graze';
+
+interface HitboxDef {
+  grazeRadius: number;
+  armorRadius: number;
+  bodyRadius: number;
+  centerRadius: number;
+  weakRadius: number;
+  hasArmor: boolean;
+  hasWeakPoint: boolean;
+}
+
+const DEFAULT_HB: HitboxDef = {
+  grazeRadius: 5.5, armorRadius: 0, bodyRadius: 4.0, centerRadius: 2.0,
+  weakRadius: 0, hasArmor: false, hasWeakPoint: false,
+};
+const basicHB = (gr: number, br: number, cr: number): HitboxDef =>
+  ({ ...DEFAULT_HB, grazeRadius: gr, bodyRadius: br, centerRadius: cr });
+const armoredHB = (gr: number, ar: number, br: number, cr: number): HitboxDef =>
+  ({ ...DEFAULT_HB, grazeRadius: gr, armorRadius: ar, bodyRadius: br, centerRadius: cr, hasArmor: true });
+const weakHB = (gr: number, br: number, cr: number, wr: number): HitboxDef =>
+  ({ ...DEFAULT_HB, grazeRadius: gr, bodyRadius: br, centerRadius: cr, weakRadius: wr, hasWeakPoint: true });
+const armoredWeakHB = (gr: number, ar: number, br: number, cr: number, wr: number): HitboxDef =>
+  ({ ...DEFAULT_HB, grazeRadius: gr, armorRadius: ar, bodyRadius: br, centerRadius: cr, weakRadius: wr, hasArmor: true, hasWeakPoint: true });
+
+const HITBOX_DEFS: Partial<Record<TargetType, HitboxDef>> = {
+  standard:         basicHB(5.5, 4.0, 2.0),
+  moving:           basicHB(6.0, 4.0, 2.0),
+  bonus:            basicHB(4.5, 3.0, 1.5),
+  erratic:          basicHB(5.5, 4.0, 2.0),
+  splitting:        basicHB(5.5, 4.0, 2.0),
+  teleporting:      basicHB(5.0, 3.5, 1.8),
+  decoy:            basicHB(4.5, 3.0, 1.5),
+  phantom:          basicHB(5.5, 4.0, 2.0),
+  drone:            basicHB(4.5, 3.0, 1.5),
+  exploding:        basicHB(5.5, 4.0, 2.0),
+  hostile:          basicHB(6.0, 4.5, 2.2),
+  jammer:           basicHB(5.5, 4.0, 2.0),
+  powerup_damage:   basicHB(5.0, 3.8, 2.0),
+  powerup_rapid:    basicHB(5.0, 3.8, 2.0),
+  powerup_shield:   basicHB(5.0, 3.8, 2.0),
+  armored:          armoredHB(6.0, 5.5, 3.5, 1.8),
+  heavy_armor:      armoredHB(6.5, 6.0, 3.5, 1.8),
+  shielded:         armoredHB(6.0, 5.5, 3.5, 1.8),
+  reflector:        armoredHB(6.0, 5.5, 4.0, 2.0),
+  orbital_array:    armoredWeakHB(9.5, 8.5, 6.5, 3.5, 2.5),
+  kinetic_swarm:    armoredWeakHB(10.0, 9.0, 7.0, 3.5, 2.5),
+  sentinel_bot:     armoredWeakHB(7.5, 7.0, 5.0, 2.5, 1.5),
+  phase_target:     armoredWeakHB(7.5, 7.0, 5.0, 2.5, 1.5),
+  warp_gate:        weakHB(9.5, 7.0, 3.5, 2.5),
+  astro_hive:       weakHB(8.5, 6.5, 3.5, 2.5),
+  neural_grid:      weakHB(9.0, 7.0, 3.5, 2.5),
+  code_matrix:      basicHB(8.0, 6.0, 3.0),
+  gravity_tower:    basicHB(8.0, 6.0, 3.0),
+  data_sphere:      basicHB(8.0, 6.0, 3.0),
+  bot_sentry:       basicHB(8.0, 6.0, 3.0),
+  aether_pylon:     basicHB(8.5, 6.5, 3.5),
+};
+
+function getHitboxDef(type: TargetType): HitboxDef {
+  return HITBOX_DEFS[type] ?? DEFAULT_HB;
+}
+
+/** Determine which zone a shot landed in for a single target. */
+function classifyHit(distPct: number, scale: number, hb: HitboxDef): HitQuality | null {
+  const d = distPct;
+  const grazeR  = hb.grazeRadius  * scale;
+  if (d > grazeR) return null;
+  const weakR   = hb.weakRadius   * scale;
+  const centerR = hb.centerRadius * scale;
+  const bodyR   = hb.bodyRadius   * scale;
+  const armorR  = hb.armorRadius  * scale;
+  if (hb.hasWeakPoint && d <= weakR) return 'weak_point';
+  if (d <= centerR) return 'center';
+  if (d <= bodyR)   return 'body';
+  if (hb.hasArmor && d <= armorR) return 'armor';
+  return 'graze';
+}
+
+/** Per-zone damage multipliers (server authoritative).  Mirrors the solo logic. */
+const ZONE_DAMAGE_MULT: Record<HitQuality, number> = {
+  weak_point: 2.0,
+  center:     1.5,
+  body:       1.0,
+  armor:      0.35,
+  graze:      0.5,
+};
+
 const TARGET_SPECS: Record<TargetType, TargetSpec> = {
   standard:        { hp: 10,  points: 15,  lifespan: 3500, scale: 1,    radius: 7 },
   moving:          { hp: 10,  points: 30,  lifespan: 4500, scale: 1,    radius: 7 },
@@ -601,16 +696,21 @@ async function startServer() {
       p.ammo -= 1;
       p.fireCount += 1;
 
-      // Hitbox: closest target whose center is within its radius of the aim
+      // Zone-based hit-test (mirrors src/lib/ShotResolver.ts).  Pick the
+      // closest target whose graze radius covers the shot.
       let bestTarget: ServerTarget | null = null;
       let bestDist = Infinity;
+      let bestQuality: HitQuality = 'graze';
       for (const t of room.targets) {
         const dx = aimX - t.x;
         const dy = aimY - t.y;
         const d = Math.sqrt(dx * dx + dy * dy);
-        if (d <= t.radius && d < bestDist) {
-          bestTarget = t;
+        const q = classifyHit(d, t.scale ?? 1, getHitboxDef(t.type));
+        if (!q) continue;
+        if (d < bestDist) {
           bestDist = d;
+          bestTarget = t;
+          bestQuality = q;
         }
       }
 
@@ -619,10 +719,10 @@ async function startServer() {
         return;
       }
 
-      // Damage with center bonus
-      const isCrit = bestDist < bestTarget.radius * 0.4;
-      let damage = spec.damage;
-      if (isCrit) damage = Math.round(damage * 1.5);
+      // Damage scaled by hit-zone quality (weak_point/center are crits)
+      const isCrit = bestQuality === 'center' || bestQuality === 'weak_point';
+      const zoneMult = ZONE_DAMAGE_MULT[bestQuality];
+      let damage = Math.max(1, Math.round(spec.damage * zoneMult));
 
       // Powerups award buff visuals only; no score from them
       bestTarget.hp -= damage;
@@ -637,6 +737,7 @@ async function startServer() {
           damage,
           destroyed: false,
           isCrit,
+          quality: bestQuality,
           hitX: bestTarget.x,
           hitY: bestTarget.y,
         });
@@ -701,6 +802,7 @@ async function startServer() {
         damage,
         destroyed: true,
         isCrit,
+        quality: bestQuality,
         points,
         hitX,
         hitY,

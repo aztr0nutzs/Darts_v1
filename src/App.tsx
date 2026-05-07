@@ -23,6 +23,7 @@ import MultiplayerLobby from './components/MultiplayerLobby';
 import ResultsOverlay from './components/ResultsOverlay';
 import { GameplayDirector } from './lib/GameplayDirector';
 import { resolveShotHit } from './lib/ShotResolver';
+import ArenaScene, { ArenaId } from './components/ArenaScene';
 
 export type DartType = {
   id: string;
@@ -206,10 +207,10 @@ function HitEffect({ x, y, color, isDestroy, isMiss, isExplosion }: { key?: Reac
   );
 }
 
-const ARENAS = [
-  { id: 'training', name: "TRAINING BAY", url: "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?auto=format&fit=crop&w=1920&q=80", level: 1, targetScore: 25000 },
-  { id: 'warehouse', name: "WAREHOUSE RUSH", url: "https://images.unsplash.com/photo-1555864326-5cf22ef123cf?auto=format&fit=crop&w=1920&q=80", level: 2, targetScore: 30000 },
-  { id: 'rooftop', name: "SKYLINE ROOFTOP", url: "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=1920&q=80", level: 3, targetScore: 45000 },
+const ARENAS: { id: ArenaId; name: string; level: number; targetScore: number }[] = [
+  { id: 'training',  name: "TRAINING BAY",     level: 1, targetScore: 25000 },
+  { id: 'warehouse', name: "WAREHOUSE RUSH",   level: 2, targetScore: 30000 },
+  { id: 'rooftop',   name: "SKYLINE ROOFTOP",  level: 3, targetScore: 45000 },
 ];
 
 function CustomCrosshair({ x, y, isShooting, hitMarkerTime, hitMarkerType, ammo, maxAmmo, isReloading, scale, gun, buffs, settings }: { x: any, y: any, isShooting: boolean, hitMarkerTime: number, hitMarkerType: 'normal'|'crit'|'kill'|'armor', ammo: number, maxAmmo: number, isReloading: boolean, scale: any, gun: GunType, buffs: { damage: number, rapidFire: number, shield: number }, settings: any }) {
@@ -1291,12 +1292,14 @@ export default function App() {
         const isDestroyed = !!result.destroyed;
         const isExplosion = isDestroyed && upgradedGun.dartType.shape === 'rocket';
         const damage = Number(result.damage ?? 0);
+        const serverQuality: 'weak_point' | 'center' | 'body' | 'armor' | 'graze' | undefined = result.quality;
 
         const effectId = `hit-${hitEffectIdCounter.current++}`;
         setHitEffects(curr => [...curr, { id: effectId, x: aimXPct, y: aimYPct, color: currentGun.dartType.color, isDestroy: isDestroyed, isExplosion }]);
         setHitMarkerTime(Date.now());
         if (isDestroyed) setHitMarkerType('kill');
-        else if (isCrit) setHitMarkerType('crit');
+        else if (serverQuality === 'armor') setHitMarkerType('armor');
+        else if (isCrit || serverQuality === 'weak_point' || serverQuality === 'center') setHitMarkerType('crit');
         else setHitMarkerType('normal');
         setTimeout(() => setHitEffects(curr => curr.filter(h => h.id !== effectId)), isDestroyed || isExplosion ? 800 : 400);
 
@@ -1803,17 +1806,15 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Background Arena */}
-      <motion.div className="absolute inset-0 scale-110" 
-           style={{ 
-             backgroundImage: `url(${currentArena.url})`,
-             backgroundSize: 'cover',
-             backgroundPosition: 'center',
-             filter: 'brightness(0.3) contrast(1.2)',
+      {/* Background Arena — fully layered CSS scene, no external URLs */}
+      <motion.div className="absolute inset-0 scale-110"
+           style={{
+             filter: 'brightness(0.78) contrast(1.08)',
              x: bgX,
              y: bgY
-           }} 
+           }}
       >
+        <ArenaScene arenaId={currentArena.id} parallaxX={mouseX} parallaxY={mouseY} />
         <motion.div className="absolute inset-0" style={{ x: tiltX, y: tiltY }}>
            <DustParticles />
         </motion.div>

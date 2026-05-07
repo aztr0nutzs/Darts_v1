@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Zap, Shield, Swords, Crosshair, Radar } from 'lucide-react';
+import { Zap, Shield, Swords } from 'lucide-react';
 
 export type TargetData = {
   id: string;
@@ -39,26 +39,13 @@ function HexNode({ color, score, active }: { color: string, score: number, activ
 }
 
 export default function Target({ target, onHit, cursorPos }: TargetProps) {
-  // Target type checks
-  const isNerdSet = ['orbital_array', 'code_matrix', 'gravity_tower', 'data_sphere', 'warp_gate', 'bot_sentry'].includes(target.type);
-  const isNerfSet = ['kinetic_swarm', 'aether_pylon', 'astro_hive', 'neural_grid', 'sentinel_bot', 'phase_target'].includes(target.type);
-  const isSpecial = isNerdSet || isNerfSet;
-  
-  const isBonus = target.type === 'bonus';
-  const isArmored = target.type === 'armored';
-  const isExploding = target.type === 'exploding';
+  // Target type checks (kept minimal — most behavior is keyed off target.type directly)
   const isErratic = target.type === 'erratic';
   const isMoving = target.type === 'moving';
-  const isSplitting = target.type === 'splitting';
-  const isTeleporting = target.type === 'teleporting';
-  const isHeavyArmor = target.type === 'heavy_armor';
   const isHostile = target.type === 'hostile';
   const isDrone = target.type === 'drone';
-  const isJammer = target.type === 'jammer';
   const isReflector = target.type === 'reflector';
-  const isDecoy = target.type === 'decoy';
   const isPhantom = target.type === 'phantom';
-  const isShielded = target.type === 'shielded';
   const isPowerupDamage = target.type === 'powerup_damage';
   const isPowerupRapid = target.type === 'powerup_rapid';
   const isPowerupShield = target.type === 'powerup_shield';
@@ -118,12 +105,440 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
 
   // Visual Theme mapping 
   const nerdBlue = 'text-cyan-400 border-cyan-400 shadow-[0_0_20px_#22d3ee]';
-  const nerdOrange = 'text-orange-500 border-orange-500 shadow-[0_0_20px_#f97316]';
-  const nerfBlue = 'text-blue-500 border-blue-500 shadow-[0_0_20px_#3b82f6]';
-  const nerfOrange = 'text-orange-400 border-orange-400 shadow-[0_0_20px_#fb923c]';
 
   const renderInner = () => {
     switch (target.type) {
+      // ── Standard foam bullseye plate on stand ──────────────────────
+      case 'standard':
+        return (
+          <div className="relative w-24 h-32 flex flex-col items-center justify-end">
+            <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-amber-100 to-amber-50 border-4 border-amber-700 shadow-[0_8px_18px_rgba(0,0,0,0.6)] flex items-center justify-center" data-hit-zone="body">
+              <div className="absolute inset-2 rounded-full border-4 border-red-600" />
+              <div className="absolute inset-5 rounded-full border-4 border-amber-50 bg-red-600" />
+              <div className="absolute inset-8 rounded-full border-2 border-red-600 bg-amber-50" />
+              <div className="w-3 h-3 rounded-full bg-red-700 shadow-[0_0_6px_rgba(255,0,0,0.6)] z-10" data-hit-zone="weak_point" />
+            </div>
+            <div className="w-1.5 h-6 bg-zinc-700 -mt-1" />
+            <div className="w-12 h-3 rounded-full bg-zinc-800 border border-zinc-600 shadow-[0_4px_8px_rgba(0,0,0,0.5)]" />
+          </div>
+        );
+
+      // ── Moving rail-mounted sliding foam target ────────────────────
+      case 'moving':
+        return (
+          <div className="relative w-32 h-28 flex flex-col items-center">
+            <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-orange-200 to-orange-50 border-4 border-orange-700 shadow-[0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center" data-hit-zone="body">
+              <div className="absolute inset-2 rounded-full border-4 border-orange-600" />
+              <div className="absolute inset-5 rounded-full bg-amber-50 border-2 border-orange-700" />
+              <div className="absolute inset-7 rounded-full bg-orange-600" />
+              <div className="w-2.5 h-2.5 rounded-full bg-amber-50 z-10" data-hit-zone="weak_point" />
+            </div>
+            {/* Rail mounting bracket */}
+            <div className="w-8 h-2 bg-zinc-700 -mt-1 rounded-b-sm" />
+            {/* Rail */}
+            <div className="absolute -bottom-1 left-[-40%] w-[180%] h-1.5 bg-gradient-to-r from-zinc-900 via-zinc-500 to-zinc-900 rounded-full shadow-inner" />
+            <div className="absolute -bottom-3 left-[-40%] w-[180%] h-1 bg-zinc-800/60 blur-sm" />
+          </div>
+        );
+
+      // ── Bonus shiny trophy can ─────────────────────────────────────
+      case 'bonus':
+        return (
+          <div className="relative w-20 h-28 flex flex-col items-center justify-end">
+            <div className="relative w-18 h-24 w-[72px] rounded-md bg-gradient-to-b from-yellow-300 via-yellow-500 to-yellow-700 border-2 border-yellow-200 shadow-[0_0_20px_rgba(250,204,21,0.6)] overflow-hidden" data-hit-zone="body">
+              <div className="absolute top-1 left-1 right-1 h-2 bg-yellow-100/70 rounded-sm" />
+              <div className="absolute inset-x-2 top-6 bottom-6 bg-yellow-900/30 border-y border-yellow-200 flex items-center justify-center">
+                <span className="text-[10px] font-black italic text-yellow-100 tracking-widest">BONUS</span>
+              </div>
+              <div className="absolute bottom-1 left-1 right-1 h-2 bg-yellow-900/60 rounded-sm" />
+              <div className="absolute top-0 left-1 w-1 h-full bg-white/60 blur-[1px]" data-hit-zone="weak_point" />
+            </div>
+            <div className="w-12 h-2 rounded-full bg-zinc-800 border border-zinc-600" />
+          </div>
+        );
+
+      // ── Armored padded foam dummy ──────────────────────────────────
+      case 'armored':
+        return (
+          <div className="relative w-24 h-32 flex flex-col items-center">
+            {/* Helmet */}
+            <div className="w-12 h-10 rounded-t-full bg-zinc-700 border-2 border-zinc-500 relative">
+              <div className="absolute inset-x-2 top-3 h-2 bg-red-500/70 rounded-sm" data-hit-zone="weak_point" />
+            </div>
+            {/* Body w/ armor plates */}
+            <div className="relative w-20 h-20 bg-gradient-to-b from-zinc-600 to-zinc-800 border-2 border-zinc-500 rounded-md mt-[-4px] shadow-[0_0_10px_rgba(0,0,0,0.6)]" data-hit-zone="armor">
+              <div className="absolute inset-1 grid grid-cols-2 gap-1">
+                <div className="bg-zinc-500 border border-zinc-400 rounded-sm" />
+                <div className="bg-zinc-500 border border-zinc-400 rounded-sm" />
+                <div className="bg-zinc-500 border border-zinc-400 rounded-sm" />
+                <div className="bg-zinc-500 border border-zinc-400 rounded-sm" />
+              </div>
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-red-600 border-2 border-amber-50 shadow-[0_0_8px_rgba(220,38,38,0.6)]" data-hit-zone="body">
+                <div className="absolute inset-1.5 rounded-full bg-amber-50" />
+              </div>
+            </div>
+            {/* Stand */}
+            <div className="w-2 h-3 bg-zinc-700" />
+            <div className="w-10 h-2 rounded-full bg-zinc-900 border border-zinc-700" />
+          </div>
+        );
+
+      // ── Heavy armor large training dummy with thick pads ───────────
+      case 'heavy_armor':
+        return (
+          <div className="relative w-32 h-44 flex flex-col items-center">
+            {/* Reinforced helmet */}
+            <div className="w-16 h-12 rounded-t-2xl bg-zinc-800 border-4 border-zinc-500 relative shadow-[0_0_12px_rgba(0,0,0,0.6)]">
+              <div className="absolute inset-x-2 top-3 h-3 bg-orange-500/80 rounded-sm shadow-[0_0_6px_#f97316]" data-hit-zone="weak_point" />
+              <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-1.5 h-3 bg-zinc-600" />
+            </div>
+            {/* Thick padded body */}
+            <div className="relative w-28 h-28 bg-gradient-to-b from-zinc-700 via-zinc-800 to-zinc-900 border-4 border-zinc-500 rounded-lg mt-[-6px] shadow-[0_0_18px_rgba(0,0,0,0.7)]" data-hit-zone="armor">
+              {/* Heavy strapping */}
+              <div className="absolute inset-x-0 top-3 h-1 bg-zinc-500 opacity-70" />
+              <div className="absolute inset-x-0 bottom-3 h-1 bg-zinc-500 opacity-70" />
+              <div className="absolute inset-y-0 left-3 w-1 bg-zinc-500 opacity-70" />
+              <div className="absolute inset-y-0 right-3 w-1 bg-zinc-500 opacity-70" />
+              {/* Pad blocks */}
+              <div className="absolute inset-2 grid grid-cols-3 grid-rows-3 gap-1">
+                {Array.from({ length: 9 }).map((_, i) => (
+                  <div key={i} className="bg-zinc-600 border border-zinc-400/50 rounded-sm" />
+                ))}
+              </div>
+              {/* Center bullseye */}
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-amber-600 border-4 border-amber-900 shadow-[0_0_10px_rgba(0,0,0,0.6)]" data-hit-zone="body">
+                <div className="absolute inset-1 rounded-full bg-amber-50" />
+                <div className="absolute inset-3 rounded-full bg-red-600" />
+                <div className="absolute inset-[40%] rounded-full bg-amber-50" />
+              </div>
+            </div>
+            {/* Heavy base */}
+            <div className="w-2.5 h-3 bg-zinc-700" />
+            <div className="w-16 h-3 rounded-md bg-zinc-900 border-2 border-zinc-700 shadow-[0_4px_10px_rgba(0,0,0,0.6)]" />
+          </div>
+        );
+
+      // ── Exploding foam pop canister ────────────────────────────────
+      case 'exploding':
+        return (
+          <div className="relative w-20 h-28 flex flex-col items-center">
+            <motion.div
+              animate={{ scale: [1, 1.05, 1] }}
+              transition={{ duration: 0.6, repeat: Infinity }}
+              className="relative w-16 h-20 rounded-md bg-gradient-to-b from-red-600 via-red-800 to-zinc-900 border-2 border-yellow-400 shadow-[0_0_18px_rgba(250,204,21,0.5)] overflow-hidden"
+              data-hit-zone="body"
+            >
+              {/* Hazard stripes */}
+              <div className="absolute inset-0 bg-[repeating-linear-gradient(45deg,transparent,transparent_6px,rgba(0,0,0,0.6)_6px,rgba(0,0,0,0.6)_12px)]" />
+              <div className="absolute inset-x-1 top-2 bottom-2 bg-red-700/80 border border-yellow-500 flex flex-col items-center justify-center gap-1">
+                <div className="text-[8px] font-black text-yellow-300 tracking-widest">DANGER</div>
+                <div className="w-6 h-6 rounded-full bg-yellow-400 border-2 border-black flex items-center justify-center" data-hit-zone="weak_point">
+                  <span className="text-black font-black text-sm">!</span>
+                </div>
+              </div>
+            </motion.div>
+            {/* Cap / fuse */}
+            <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-yellow-400 animate-pulse shadow-[0_0_8px_#facc15]" />
+            <div className="w-12 h-2 rounded-md bg-zinc-900 border border-zinc-600" />
+          </div>
+        );
+
+      // ── Hostile toy sentry turret ──────────────────────────────────
+      case 'hostile':
+        return (
+          <div className="relative w-24 h-28 flex flex-col items-center">
+            {/* Sensor head */}
+            <div className="relative w-16 h-12 rounded-t-2xl bg-gradient-to-b from-red-700 to-red-900 border-2 border-zinc-300 shadow-[0_0_15px_rgba(239,68,68,0.5)]">
+              <div className="absolute inset-x-2 top-2 h-3 rounded-sm bg-zinc-900 border border-red-400 flex items-center justify-center">
+                <motion.div
+                  animate={{ x: ['-30%', '30%', '-30%'] }}
+                  transition={{ duration: 1.4, repeat: Infinity }}
+                  className="w-2 h-2 rounded-full bg-red-400 shadow-[0_0_6px_red]"
+                  data-hit-zone="weak_point"
+                />
+              </div>
+              <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-1 h-2 bg-red-500 animate-pulse" />
+            </div>
+            {/* Barrel */}
+            <div className="relative -mt-1 w-2 h-6 bg-zinc-700 border border-zinc-500 rounded-sm" data-hit-zone="armor">
+              {isCharging && (
+                <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-orange-400 animate-pulse" />
+              )}
+            </div>
+            {/* Body */}
+            <div className="w-20 h-12 bg-zinc-800 border-2 border-zinc-600 rounded-md flex items-center justify-center relative" data-hit-zone="body">
+              <div className="absolute inset-1 grid grid-cols-3 gap-1 opacity-70">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="bg-zinc-700 border border-zinc-500 rounded-sm" />
+                ))}
+              </div>
+              <div className="relative w-3 h-3 rounded-full bg-red-500 shadow-[0_0_6px_red]" />
+            </div>
+            {/* Tripod */}
+            <div className="w-16 h-2 rounded-full bg-zinc-900 border border-zinc-700" />
+          </div>
+        );
+
+      // ── Shielded bullseye behind transparent shield ring ───────────
+      case 'shielded':
+        return (
+          <div className="relative w-32 h-32 flex items-center justify-center">
+            {/* Bullseye core */}
+            <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-amber-100 to-amber-50 border-4 border-amber-700 shadow-[0_4px_10px_rgba(0,0,0,0.5)] z-10" data-hit-zone="body">
+              <div className="absolute inset-2 rounded-full border-4 border-red-600" />
+              <div className="absolute inset-5 rounded-full bg-red-600" />
+              <div className="absolute inset-[42%] rounded-full bg-amber-50" data-hit-zone="weak_point" />
+            </div>
+            {/* Shield ring (transparent with shimmer) */}
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 12, repeat: Infinity, ease: 'linear' }}
+              className="absolute inset-0 rounded-full border-4 border-cyan-400/60 bg-cyan-300/10 backdrop-blur-[1px] shadow-[0_0_25px_rgba(34,211,238,0.4)]"
+              data-hit-zone="armor"
+            >
+              <div className="absolute inset-1 rounded-full border border-cyan-200/40" />
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-cyan-300 shadow-[0_0_10px_#67e8f9]" />
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-cyan-300 shadow-[0_0_10px_#67e8f9]" />
+              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-cyan-300 shadow-[0_0_10px_#67e8f9]" />
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-cyan-300 shadow-[0_0_10px_#67e8f9]" />
+            </motion.div>
+          </div>
+        );
+
+      // ── Drone small toy hover drone ────────────────────────────────
+      case 'drone':
+        return (
+          <div className="relative w-24 h-16 flex items-center justify-center">
+            {/* Body */}
+            <div className="relative w-12 h-7 rounded-full bg-gradient-to-b from-zinc-600 to-zinc-900 border border-zinc-400 shadow-[0_0_12px_rgba(0,0,0,0.6)] flex items-center justify-center z-10" data-hit-zone="body">
+              <div className="w-3 h-2 rounded-full bg-red-500 shadow-[0_0_6px_red]" data-hit-zone="weak_point" />
+              <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-cyan-400 animate-pulse" />
+            </div>
+            {/* Rotors */}
+            {[
+              { side: 'left-0 top-0', spinner: 'top-1 left-1' },
+              { side: 'right-0 top-0', spinner: 'top-1 right-1' },
+              { side: 'left-0 bottom-0', spinner: 'bottom-1 left-1' },
+              { side: 'right-0 bottom-0', spinner: 'bottom-1 right-1' },
+            ].map((r, i) => (
+              <div key={i} className={`absolute ${r.side} w-6 h-6`}>
+                <div className="absolute inset-0 rounded-full border border-zinc-500/60 bg-zinc-900/40" />
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 0.15, repeat: Infinity, ease: 'linear' }}
+                  className="absolute inset-1 rounded-full"
+                >
+                  <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[2px] bg-cyan-300/60" />
+                  <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-[2px] bg-cyan-300/60" />
+                </motion.div>
+              </div>
+            ))}
+            {/* Hover shadow */}
+            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-12 h-1.5 rounded-full bg-black/50 blur-sm" />
+          </div>
+        );
+
+      // ── Erratic wobbling spring-mounted target ─────────────────────
+      case 'erratic':
+        return (
+          <div className="relative w-20 h-32 flex flex-col items-center justify-end">
+            <motion.div
+              animate={{ rotate: [-8, 8, -6, 6, -8] }}
+              transition={{ duration: 0.8, repeat: Infinity }}
+              className="relative w-20 h-20 rounded-full bg-gradient-to-br from-purple-300 to-purple-500 border-4 border-purple-900 shadow-[0_4px_14px_rgba(126,34,206,0.5)] flex items-center justify-center origin-bottom"
+              data-hit-zone="body"
+            >
+              <div className="absolute inset-2 rounded-full border-4 border-amber-50" />
+              <div className="absolute inset-5 rounded-full bg-amber-50" />
+              <div className="absolute inset-[42%] rounded-full bg-purple-700 shadow-[0_0_6px_rgba(168,85,247,0.6)]" data-hit-zone="weak_point" />
+            </motion.div>
+            {/* Spring */}
+            <div className="relative w-3 h-8 flex flex-col justify-between -mt-1">
+              <div className="h-1 bg-zinc-400 rounded-full" />
+              <div className="h-1 bg-zinc-500 rounded-full" />
+              <div className="h-1 bg-zinc-400 rounded-full" />
+              <div className="h-1 bg-zinc-500 rounded-full" />
+              <div className="h-1 bg-zinc-400 rounded-full" />
+            </div>
+            <div className="w-12 h-2 rounded-full bg-zinc-900 border border-zinc-700" />
+          </div>
+        );
+
+      // ── Splitting breakaway double target ──────────────────────────
+      case 'splitting':
+        return (
+          <div className="relative w-28 h-28 flex items-center justify-center">
+            {/* Left half */}
+            <motion.div
+              animate={{ x: hpPercentage < 0.5 ? -12 : 0 }}
+              transition={{ type: 'spring', stiffness: 120 }}
+              className="absolute left-0 top-0 w-14 h-28 overflow-hidden"
+              data-hit-zone="body"
+            >
+              <div className="absolute right-0 w-28 h-28 rounded-full bg-gradient-to-br from-emerald-300 to-emerald-600 border-4 border-emerald-900">
+                <div className="absolute inset-3 rounded-full border-4 border-amber-50" />
+                <div className="absolute inset-6 rounded-full bg-amber-50" />
+                <div className="absolute inset-[44%] rounded-full bg-emerald-800" />
+              </div>
+            </motion.div>
+            {/* Right half */}
+            <motion.div
+              animate={{ x: hpPercentage < 0.5 ? 12 : 0 }}
+              transition={{ type: 'spring', stiffness: 120 }}
+              className="absolute right-0 top-0 w-14 h-28 overflow-hidden"
+              data-hit-zone="body"
+            >
+              <div className="absolute left-0 w-28 h-28 rounded-full bg-gradient-to-br from-emerald-300 to-emerald-600 border-4 border-emerald-900">
+                <div className="absolute inset-3 rounded-full border-4 border-amber-50" />
+                <div className="absolute inset-6 rounded-full bg-amber-50" />
+                <div className="absolute inset-[44%] rounded-full bg-emerald-800" />
+              </div>
+            </motion.div>
+            {/* Split seam glow */}
+            <div className="absolute left-1/2 top-2 bottom-2 w-[2px] -translate-x-1/2 bg-amber-200/80 shadow-[0_0_6px_#fde68a]" data-hit-zone="weak_point" />
+          </div>
+        );
+
+      // ── Teleporting portal-frame target with bullseye ──────────────
+      case 'teleporting':
+        return (
+          <div className="relative w-28 h-32 flex items-center justify-center">
+            {/* Portal frame */}
+            <motion.div
+              animate={{ scale: [1, 1.04, 1], opacity: [0.85, 1, 0.85] }}
+              transition={{ duration: 1.2, repeat: Infinity }}
+              className="absolute inset-0 rounded-[55%] border-[6px] border-fuchsia-500 shadow-[0_0_25px_rgba(217,70,239,0.6)]"
+              data-hit-zone="armor"
+            />
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 6, repeat: Infinity, ease: 'linear' }}
+              className="absolute inset-2 rounded-[55%] bg-[conic-gradient(from_0deg,#7e22ce,#d946ef,#a855f7,#7e22ce)] opacity-60 blur-md"
+            />
+            {/* Bullseye core */}
+            <div className="relative w-16 h-16 rounded-full bg-gradient-to-br from-amber-100 to-amber-50 border-4 border-fuchsia-700 z-10 shadow-[0_4px_10px_rgba(0,0,0,0.5)]" data-hit-zone="body">
+              <div className="absolute inset-2 rounded-full bg-fuchsia-600" />
+              <div className="absolute inset-4 rounded-full bg-amber-50" />
+              <div className="absolute inset-[42%] rounded-full bg-fuchsia-800" data-hit-zone="weak_point" />
+            </div>
+          </div>
+        );
+
+      // ── Jammer signal crate ────────────────────────────────────────
+      case 'jammer':
+        return (
+          <div className="relative w-24 h-24 flex items-center justify-center">
+            <div className="relative w-20 h-20 bg-gradient-to-b from-zinc-700 to-zinc-900 border-2 border-amber-500 rounded-md shadow-[0_0_15px_rgba(245,158,11,0.4)]" data-hit-zone="body">
+              <div className="absolute inset-0 bg-[repeating-linear-gradient(45deg,transparent,transparent_4px,rgba(245,158,11,0.15)_4px,rgba(245,158,11,0.15)_8px)] rounded-md" />
+              <div className="absolute top-1 left-1 right-1 flex justify-between items-center">
+                <div className="text-[7px] font-black text-amber-300 tracking-widest">JMR-04</div>
+                <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shadow-[0_0_4px_#facc15]" />
+              </div>
+              {/* Antenna */}
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-1 h-3 bg-zinc-600">
+                <motion.div
+                  animate={{ scale: [1, 1.4, 1], opacity: [0.4, 0.9, 0.4] }}
+                  transition={{ duration: 1, repeat: Infinity }}
+                  className="absolute -top-2 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full border border-amber-300"
+                />
+              </div>
+              {/* Core dish */}
+              <div className="absolute inset-3 top-5 bg-zinc-800 border border-amber-600 rounded-sm flex items-center justify-center" data-hit-zone="weak_point">
+                <motion.div
+                  animate={{ opacity: [0.4, 1, 0.4] }}
+                  transition={{ duration: 0.8, repeat: Infinity }}
+                  className="w-3 h-3 rounded-full bg-amber-400 shadow-[0_0_6px_#fbbf24]"
+                />
+              </div>
+              <div className="absolute bottom-1 left-1 right-1 flex justify-between text-[7px] font-mono text-amber-400/70">
+                <span>SIG</span>
+                <span>///</span>
+                <span>JAM</span>
+              </div>
+            </div>
+          </div>
+        );
+
+      // ── Reflector mirrored shield plate ────────────────────────────
+      case 'reflector':
+        return (
+          <div className="relative w-28 h-32 flex flex-col items-center justify-end">
+            {/* Mirror plate */}
+            <div className="relative w-24 h-24 rounded-md bg-gradient-to-br from-slate-100 via-slate-300 to-slate-500 border-4 border-slate-600 shadow-[0_0_18px_rgba(148,163,184,0.6)] overflow-hidden" data-hit-zone="armor">
+              <motion.div
+                animate={{ x: ['-100%', '120%'] }}
+                transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                className="absolute inset-y-0 w-1/3 bg-white/60 blur-md skew-x-12"
+              />
+              <div className="absolute inset-2 border-2 border-slate-200/70 rounded-sm" />
+              {/* Center bullseye still hittable */}
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-red-600 border-2 border-amber-50" data-hit-zone="body">
+                <div className="absolute inset-1 rounded-full bg-amber-50" />
+                <div className="absolute inset-[35%] rounded-full bg-red-700" data-hit-zone="weak_point" />
+              </div>
+              {isReflecting && (
+                <motion.div
+                  animate={{ opacity: [0.2, 0.8, 0.2] }}
+                  transition={{ duration: 0.4, repeat: Infinity }}
+                  className="absolute inset-0 bg-cyan-200/40"
+                />
+              )}
+            </div>
+            {/* Stand */}
+            <div className="w-2 h-3 bg-zinc-700" />
+            <div className="w-12 h-2 rounded-full bg-zinc-900 border border-zinc-700" />
+          </div>
+        );
+
+      // ── Decoy cardboard fake target ────────────────────────────────
+      case 'decoy':
+        return (
+          <div className="relative w-20 h-28 flex flex-col items-center">
+            <div className="relative w-18 h-24 w-[72px] bg-gradient-to-b from-amber-300 via-amber-500 to-amber-700 border-2 border-amber-900 shadow-[0_4px_8px_rgba(0,0,0,0.4)] rounded-sm" data-hit-zone="body">
+              {/* Cardboard texture */}
+              <div className="absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent,transparent_3px,rgba(0,0,0,0.08)_3px,rgba(0,0,0,0.08)_4px)]" />
+              {/* Painted human silhouette */}
+              <div className="absolute top-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-zinc-800/80" />
+              <div className="absolute top-6 left-1/2 -translate-x-1/2 w-10 h-10 bg-zinc-800/80 rounded-md" />
+              {/* Painted bullseye */}
+              <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full border-2 border-red-600 bg-amber-100" data-hit-zone="weak_point">
+                <div className="absolute inset-[30%] rounded-full bg-red-600" />
+              </div>
+              {/* DECOY stamp */}
+              <div className="absolute bottom-0 left-0 right-0 text-center text-[7px] font-black text-red-700/80 tracking-widest -rotate-3 mix-blend-multiply">DECOY</div>
+            </div>
+            {/* Lean stand */}
+            <div className="w-10 h-1.5 bg-zinc-700 rounded-full -mt-0.5" />
+          </div>
+        );
+
+      // ── Phantom translucent stealth target ─────────────────────────
+      case 'phantom':
+        return (
+          <div className={`relative w-24 h-32 flex flex-col items-center transition-opacity duration-300 ${isRevealed ? 'opacity-100' : 'opacity-30'}`}>
+            <div className="relative w-20 h-20 rounded-full border-2 border-cyan-200/70 bg-cyan-200/10 backdrop-blur-[2px] shadow-[0_0_18px_rgba(165,243,252,0.3)]" data-hit-zone="body">
+              <div className="absolute inset-2 rounded-full border-2 border-cyan-300/60" />
+              <div className="absolute inset-5 rounded-full border-2 border-cyan-300/60" />
+              <div className="absolute inset-[42%] rounded-full bg-cyan-200/60 shadow-[0_0_8px_#67e8f9]" data-hit-zone="weak_point" />
+              {/* Glitch lines */}
+              <motion.div
+                animate={{ y: ['-100%', '100%'] }}
+                transition={{ duration: 1.4, repeat: Infinity, ease: 'linear' }}
+                className="absolute inset-x-0 h-[2px] bg-cyan-300/70 mix-blend-screen"
+              />
+            </div>
+            <div className="w-1.5 h-4 bg-cyan-200/40" />
+            <div className="w-10 h-1.5 rounded-full bg-cyan-100/30 blur-[1px]" />
+          </div>
+        );
+
+      // ── Powerup pickup crates rendered above (handled in outer JSX) ─
+      // Cases listed for completeness; outer wrapper renders icon crate.
+      case 'powerup_damage':
+      case 'powerup_rapid':
+      case 'powerup_shield':
+        return null;
+
       case 'orbital_array':
         return (
           <div className="relative w-40 h-40 flex items-center justify-center">
@@ -345,6 +760,19 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
              {[50, 100, 150].map((s, i) => (
                 <div key={i} className="absolute font-black text-white text-[10px]" style={{ transform: `translateY(${i * 20 - 70}px)` }}>{s}</div>
              ))}
+          </div>
+        );
+      // ── Safe default fallback: a basic foam bullseye on a stand ───
+      default:
+        return (
+          <div className="relative w-24 h-32 flex flex-col items-center justify-end">
+            <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-amber-100 to-amber-50 border-4 border-zinc-700 shadow-[0_4px_10px_rgba(0,0,0,0.5)]" data-hit-zone="body">
+              <div className="absolute inset-2 rounded-full border-4 border-red-600" />
+              <div className="absolute inset-5 rounded-full bg-red-600" />
+              <div className="absolute inset-[42%] rounded-full bg-amber-50" data-hit-zone="weak_point" />
+            </div>
+            <div className="w-1.5 h-5 bg-zinc-700" />
+            <div className="w-10 h-2 rounded-full bg-zinc-900 border border-zinc-700" />
           </div>
         );
     }
