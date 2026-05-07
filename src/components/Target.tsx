@@ -78,13 +78,13 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
   ) : 100;
   const isRevealed = dist < 15;
 
-  let animateProps: any = { 
-    scale: flash ? baseScale * 1.3 : baseScale, 
+  let animateProps: any = {
+    scale: flash ? baseScale * 1.35 : baseScale,
     opacity: 1,
-    rotate: flash ? [0, -5, 5, 0] : 0,
-    filter: flash ? 'brightness(1.5) drop-shadow(0 0 10px white)' : 'none'
+    rotate: flash ? [0, -8, 8, -4, 4, 0] : 0,
+    filter: flash ? 'brightness(1.6) drop-shadow(0 0 12px white)' : 'none',
   };
-  let transitionProps: any = { type: "spring", stiffness: 200, damping: 10 };
+  let transitionProps: any = { type: 'spring', stiffness: 260, damping: 9 };
 
   if (isMoving || target.type === 'bot_sentry') {
     animateProps.x = ["-50%", "50%", "-50%"];
@@ -804,7 +804,26 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
       ) : (
         <div className="relative">
           {renderInner()}
-          
+
+          {/* Impact flash + recoil ring on hit */}
+          {flash && (
+            <>
+              <motion.div
+                className="absolute inset-[-6px] rounded-full pointer-events-none z-40"
+                style={{ boxShadow: '0 0 22px 6px rgba(255,255,255,0.45)' }}
+                initial={{ opacity: 0.95, scale: 0.85 }}
+                animate={{ opacity: 0, scale: 1.25 }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
+              />
+              <motion.div
+                className="absolute inset-[-10px] rounded-full border-2 border-white/80 pointer-events-none z-40"
+                initial={{ opacity: 0.85, scale: 0.6 }}
+                animate={{ opacity: 0, scale: 1.6 }}
+                transition={{ duration: 0.28, ease: 'easeOut' }}
+              />
+            </>
+          )}
+
           {/* Universal HP / Lock-on Overlays */}
           {isCharging && (
             <motion.div 

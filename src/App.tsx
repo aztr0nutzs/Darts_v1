@@ -64,6 +64,8 @@ type HitEffectData = {
   isDestroy?: boolean;
   isMiss?: boolean;
   isExplosion?: boolean;
+  /** Authoritative hit-zone quality. Drives armor / weak-point / graze visuals. */
+  quality?: 'graze' | 'armor' | 'body' | 'center' | 'weak_point';
 };
 
 type CombatTextData = {
@@ -91,18 +93,35 @@ function CombatText({ text, x, y, color, isCritical }: { key?: React.Key; text: 
   );
 }
 
-function HitEffect({ x, y, color, isDestroy, isMiss, isExplosion }: { key?: React.Key; x: number; y: number; color: string; isDestroy?: boolean; isMiss?: boolean; isExplosion?: boolean }) {
+function HitEffect({ x, y, color, isDestroy, isMiss, isExplosion, quality }: { key?: React.Key; x: number; y: number; color: string; isDestroy?: boolean; isMiss?: boolean; isExplosion?: boolean; quality?: 'graze' | 'armor' | 'body' | 'center' | 'weak_point' }) {
   if (isMiss) {
-    const particleCount = 5;
-    const spread = 40;
+    const particleCount = 6;
+    const spread = 44;
+    // Stable scratch angle keyed off coordinates so the streak doesn't jitter.
+    const scratchAngle = (Math.round(x * 7) + Math.round(y * 11)) % 180 - 90;
     return (
       <div className="absolute pointer-events-none z-30" style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)' }}>
         {/* Wall puff */}
-        <motion.div 
-          initial={{ scale: 0.5, opacity: 0.6 }}
-          animate={{ scale: 2.5, opacity: 0 }}
-          transition={{ duration: 0.4 }}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-stone-300 blur-md"
+        <motion.div
+          initial={{ scale: 0.4, opacity: 0.75 }}
+          animate={{ scale: 2.8, opacity: 0 }}
+          transition={{ duration: 0.45, ease: 'easeOut' }}
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-stone-200 blur-md"
+        />
+        {/* Secondary darker dust ring */}
+        <motion.div
+          initial={{ scale: 0.6, opacity: 0.5 }}
+          animate={{ scale: 3.4, opacity: 0 }}
+          transition={{ duration: 0.55, ease: 'easeOut' }}
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-zinc-700/50 blur-lg"
+        />
+        {/* Sharp scratch streak on the wall */}
+        <motion.div
+          initial={{ opacity: 0.7, scaleX: 0.2 }}
+          animate={{ opacity: 0, scaleX: 1 }}
+          transition={{ duration: 0.5, ease: 'easeOut' }}
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-[1.5px] bg-stone-100 origin-left"
+          style={{ transform: `translate(-50%, -50%) rotate(${scratchAngle}deg)` }}
         />
         {/* Foam bounce pieces */}
         {[...Array(particleCount)].map((_, i) => (
@@ -115,11 +134,147 @@ function HitEffect({ x, y, color, isDestroy, isMiss, isExplosion }: { key?: Reac
               x: Math.cos((i * Math.PI * 2) / Math.max(1, particleCount)) * (spread + Math.random() * 20),
               y: Math.sin((i * Math.PI * 2) / Math.max(1, particleCount)) * (spread + Math.random() * 20) + 80,
               opacity: 0,
-              rotate: Math.random() * 720
+              rotate: Math.random() * 720,
             }}
-            transition={{ duration: 0.4 + Math.random() * 0.3, ease: "easeOut" }}
+            transition={{ duration: 0.45 + Math.random() * 0.3, ease: 'easeOut' }}
           />
         ))}
+        {/* Small grit/debris specks */}
+        {[...Array(5)].map((_, i) => (
+          <motion.div
+            key={`d-${i}`}
+            className="absolute w-[3px] h-[3px] rounded-full bg-zinc-400"
+            initial={{ x: 0, y: 0, opacity: 0.9 }}
+            animate={{
+              x: (Math.random() - 0.5) * 60,
+              y: 30 + Math.random() * 60,
+              opacity: 0,
+            }}
+            transition={{ duration: 0.55, ease: 'easeOut' }}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  // Armor deflection — dart bounces off armored shell
+  if (!isExplosion && !isDestroy && quality === 'armor') {
+    return (
+      <div className="absolute pointer-events-none z-40" style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)' }}>
+        {/* Steely flash */}
+        <motion.div
+          initial={{ scale: 0.4, opacity: 0.95 }}
+          animate={{ scale: 1.6, opacity: 0 }}
+          transition={{ duration: 0.25, ease: 'easeOut' }}
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-slate-100 blur-[2px]"
+        />
+        {/* Spark burst */}
+        {[...Array(10)].map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute w-[2px] h-3 bg-amber-100"
+            style={{ boxShadow: '0 0 6px #fde68a' }}
+            initial={{ x: 0, y: 0, opacity: 1, rotate: (i / 10) * 360 }}
+            animate={{
+              x: Math.cos((i * Math.PI * 2) / 10) * (40 + Math.random() * 20),
+              y: Math.sin((i * Math.PI * 2) / 10) * (40 + Math.random() * 20),
+              opacity: 0,
+            }}
+            transition={{ duration: 0.4, ease: 'easeOut' }}
+          />
+        ))}
+        {/* Deflection ring */}
+        <motion.div
+          initial={{ scale: 0.3, opacity: 0.8 }}
+          animate={{ scale: 2.2, opacity: 0 }}
+          transition={{ duration: 0.45, ease: 'easeOut' }}
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 rounded-full border-2 border-slate-200/80"
+        />
+        {/* Bounced foam piece */}
+        <motion.div
+          className="absolute w-2.5 h-1.5 rounded-sm"
+          style={{ backgroundColor: color }}
+          initial={{ x: 0, y: 0, opacity: 1, rotate: 0 }}
+          animate={{ x: 60, y: -40, opacity: 0, rotate: 540 }}
+          transition={{ duration: 0.5, ease: 'easeOut' }}
+        />
+      </div>
+    );
+  }
+
+  // Weak-point hit — golden burst + crit indicator
+  if (!isExplosion && quality === 'weak_point') {
+    const particleCount = isDestroy ? 18 : 12;
+    const spread = isDestroy ? 110 : 70;
+    return (
+      <div className="absolute pointer-events-none z-40" style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)' }}>
+        {/* Bright core */}
+        <motion.div
+          initial={{ scale: 0.3, opacity: 1 }}
+          animate={{ scale: 2.6, opacity: 0 }}
+          transition={{ duration: 0.35, ease: 'easeOut' }}
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-yellow-200 blur-md"
+        />
+        {/* Outer halo */}
+        <motion.div
+          initial={{ scale: 0.5, opacity: 0.9 }}
+          animate={{ scale: 3.4, opacity: 0 }}
+          transition={{ duration: 0.55, ease: 'easeOut' }}
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 rounded-full border-2 border-yellow-300"
+        />
+        {/* Radial spark spikes */}
+        {[...Array(8)].map((_, i) => (
+          <motion.div
+            key={`s-${i}`}
+            className="absolute w-[2px] h-6 bg-yellow-200"
+            style={{ boxShadow: '0 0 8px #fde047' }}
+            initial={{ x: 0, y: 0, opacity: 1, rotate: (i / 8) * 360 }}
+            animate={{
+              x: Math.cos((i * Math.PI * 2) / 8) * 45,
+              y: Math.sin((i * Math.PI * 2) / 8) * 45,
+              opacity: 0,
+            }}
+            transition={{ duration: 0.45, ease: 'easeOut' }}
+          />
+        ))}
+        {/* Foam particles colored by dart */}
+        {[...Array(particleCount)].map((_, i) => (
+          <motion.div
+            key={i}
+            className={`absolute ${Math.random() > 0.5 ? 'w-3 h-3 rounded-full' : 'w-2 h-4 rounded-sm'}`}
+            style={{ backgroundColor: i % 3 === 0 ? '#fde047' : color }}
+            initial={{ x: 0, y: 0, opacity: 1, rotate: 0 }}
+            animate={{
+              x: Math.cos((i * Math.PI * 2) / particleCount) * (spread + Math.random() * 20),
+              y: Math.sin((i * Math.PI * 2) / particleCount) * (spread + Math.random() * 20),
+              opacity: 0,
+              rotate: Math.random() * 720,
+            }}
+            transition={{ duration: 0.55, ease: 'easeOut' }}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  // Graze — minimal clip with a single drifting flake
+  if (!isExplosion && !isDestroy && quality === 'graze') {
+    return (
+      <div className="absolute pointer-events-none z-30" style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)' }}>
+        <motion.div
+          initial={{ scale: 0.4, opacity: 0.7 }}
+          animate={{ scale: 1.4, opacity: 0 }}
+          transition={{ duration: 0.3 }}
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 rounded-full"
+          style={{ backgroundColor: color, filter: 'blur(3px)', opacity: 0.5 }}
+        />
+        <motion.div
+          className="absolute w-2 h-1 rounded-sm"
+          style={{ backgroundColor: color }}
+          initial={{ x: 0, y: 0, opacity: 1, rotate: 0 }}
+          animate={{ x: 35, y: 20, opacity: 0, rotate: 360 }}
+          transition={{ duration: 0.4, ease: 'easeOut' }}
+        />
       </div>
     );
   }
@@ -1295,7 +1450,7 @@ export default function App() {
         const serverQuality: 'weak_point' | 'center' | 'body' | 'armor' | 'graze' | undefined = result.quality;
 
         const effectId = `hit-${hitEffectIdCounter.current++}`;
-        setHitEffects(curr => [...curr, { id: effectId, x: aimXPct, y: aimYPct, color: currentGun.dartType.color, isDestroy: isDestroyed, isExplosion }]);
+        setHitEffects(curr => [...curr, { id: effectId, x: aimXPct, y: aimYPct, color: currentGun.dartType.color, isDestroy: isDestroyed, isExplosion, quality: serverQuality }]);
         setHitMarkerTime(Date.now());
         if (isDestroyed) setHitMarkerType('kill');
         else if (serverQuality === 'armor') setHitMarkerType('armor');
@@ -1569,7 +1724,10 @@ export default function App() {
 
       // Spawn hit effect
       const effectId = `hit-${hitEffectIdCounter.current++}`;
-      setHitEffects(curr => [...curr, { id: effectId, x: hitX, y: hitY, color: currentGun.dartType.color, isDestroy: isDestroyed, isExplosion }]);
+      const effectQuality = (quality === 'graze' || quality === 'armor' || quality === 'body' || quality === 'center' || quality === 'weak_point')
+        ? quality
+        : undefined;
+      setHitEffects(curr => [...curr, { id: effectId, x: hitX, y: hitY, color: currentGun.dartType.color, isDestroy: isDestroyed, isExplosion, quality: effectQuality }]);
       setHitMarkerTime(Date.now());
       if (isDestroyed) setHitMarkerType('kill');
       else if (isCrit) setHitMarkerType('crit');
@@ -2144,7 +2302,7 @@ export default function App() {
               </AnimatePresence>
 
               {hitEffects.map(effect => (
-                <HitEffect key={effect.id} x={effect.x} y={effect.y} color={effect.color} isDestroy={effect.isDestroy} isMiss={effect.isMiss} isExplosion={effect.isExplosion} />
+                <HitEffect key={effect.id} x={effect.x} y={effect.y} color={effect.color} isDestroy={effect.isDestroy} isMiss={effect.isMiss} isExplosion={effect.isExplosion} quality={effect.quality} />
               ))}
 
               {combatTexts.map(ct => (
