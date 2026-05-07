@@ -66,6 +66,10 @@ type HitEffectData = {
   isExplosion?: boolean;
   /** Authoritative hit-zone quality. Drives armor / weak-point / graze visuals. */
   quality?: 'graze' | 'armor' | 'body' | 'center' | 'weak_point';
+  /** Optional shot trajectory origin in viewport % units — used to bias miss
+      debris so it sprays away from the muzzle for directional consistency. */
+  originX?: number;
+  originY?: number;
 };
 
 type CombatTextData = {
@@ -93,66 +97,93 @@ function CombatText({ text, x, y, color, isCritical }: { key?: React.Key; text: 
   );
 }
 
-function HitEffect({ x, y, color, isDestroy, isMiss, isExplosion, quality }: { key?: React.Key; x: number; y: number; color: string; isDestroy?: boolean; isMiss?: boolean; isExplosion?: boolean; quality?: 'graze' | 'armor' | 'body' | 'center' | 'weak_point' }) {
+function HitEffect({ x, y, color, isDestroy, isMiss, isExplosion, quality, originX, originY }: { key?: React.Key; x: number; y: number; color: string; isDestroy?: boolean; isMiss?: boolean; isExplosion?: boolean; quality?: 'graze' | 'armor' | 'body' | 'center' | 'weak_point'; originX?: number; originY?: number }) {
   if (isMiss) {
-    const particleCount = 6;
-    const spread = 44;
-    // Stable scratch angle keyed off coordinates so the streak doesn't jitter.
-    const scratchAngle = (Math.round(x * 7) + Math.round(y * 11)) % 180 - 90;
+    const particleCount = 8;
+    const spread = 50;
+    // Trajectory direction (from muzzle to impact) drives debris spray so misses
+    // feel directionally consistent with the shot. Falls back to bottom-center
+    // when no origin is supplied.
+    const ox = typeof originX === 'number' ? originX : 50;
+    const oy = typeof originY === 'number' ? originY : 100;
+    const trajRad = Math.atan2(y - oy, x - ox);
+    const trajDeg = trajRad * 180 / Math.PI;
+    // Stable scratch angle: orient streak roughly perpendicular to trajectory so
+    // it reads as a glancing scrape on the wall.
+    const scratchAngle = trajDeg + 90 + ((Math.round(x * 7) + Math.round(y * 11)) % 30 - 15);
     return (
       <div className="absolute pointer-events-none z-30" style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)' }}>
-        {/* Wall puff */}
+        {/* Wall puff — slightly stronger so misses still register as feedback */}
         <motion.div
-          initial={{ scale: 0.4, opacity: 0.75 }}
-          animate={{ scale: 2.8, opacity: 0 }}
+          initial={{ scale: 0.4, opacity: 0.85 }}
+          animate={{ scale: 3.0, opacity: 0 }}
           transition={{ duration: 0.45, ease: 'easeOut' }}
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-stone-200 blur-md"
         />
         {/* Secondary darker dust ring */}
         <motion.div
-          initial={{ scale: 0.6, opacity: 0.5 }}
-          animate={{ scale: 3.4, opacity: 0 }}
-          transition={{ duration: 0.55, ease: 'easeOut' }}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-zinc-700/50 blur-lg"
+          initial={{ scale: 0.6, opacity: 0.55 }}
+          animate={{ scale: 3.6, opacity: 0 }}
+          transition={{ duration: 0.6, ease: 'easeOut' }}
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-zinc-700/55 blur-lg"
         />
-        {/* Sharp scratch streak on the wall */}
+        {/* Trajectory-aligned smoke trail puff */}
         <motion.div
-          initial={{ opacity: 0.7, scaleX: 0.2 }}
+          initial={{ scale: 0.3, opacity: 0.5 }}
+          animate={{ scale: 1.7, opacity: 0, x: -Math.cos(trajRad) * 28, y: -Math.sin(trajRad) * 28 }}
+          transition={{ duration: 0.5, ease: 'easeOut' }}
+          className="absolute top-1/2 left-1/2 w-8 h-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-stone-300/70 blur-sm"
+          style={{ transform: `translate(-50%, -50%) rotate(${trajDeg}deg)` }}
+        />
+        {/* Sharp scratch streak on the wall — perpendicular to trajectory */}
+        <motion.div
+          initial={{ opacity: 0.8, scaleX: 0.2 }}
           animate={{ opacity: 0, scaleX: 1 }}
           transition={{ duration: 0.5, ease: 'easeOut' }}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-[1.5px] bg-stone-100 origin-left"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-9 h-[1.5px] bg-stone-100 origin-left"
           style={{ transform: `translate(-50%, -50%) rotate(${scratchAngle}deg)` }}
         />
-        {/* Foam bounce pieces */}
-        {[...Array(particleCount)].map((_, i) => (
-          <motion.div
-            key={i}
-            className="absolute rounded-sm w-3 h-2"
-            style={{ backgroundColor: color }}
-            initial={{ x: 0, y: 0, scale: 1, opacity: 1, rotate: Math.random() * 360 }}
-            animate={{
-              x: Math.cos((i * Math.PI * 2) / Math.max(1, particleCount)) * (spread + Math.random() * 20),
-              y: Math.sin((i * Math.PI * 2) / Math.max(1, particleCount)) * (spread + Math.random() * 20) + 80,
-              opacity: 0,
-              rotate: Math.random() * 720,
-            }}
-            transition={{ duration: 0.45 + Math.random() * 0.3, ease: 'easeOut' }}
-          />
-        ))}
-        {/* Small grit/debris specks */}
-        {[...Array(5)].map((_, i) => (
-          <motion.div
-            key={`d-${i}`}
-            className="absolute w-[3px] h-[3px] rounded-full bg-zinc-400"
-            initial={{ x: 0, y: 0, opacity: 0.9 }}
-            animate={{
-              x: (Math.random() - 0.5) * 60,
-              y: 30 + Math.random() * 60,
-              opacity: 0,
-            }}
-            transition={{ duration: 0.55, ease: 'easeOut' }}
-          />
-        ))}
+        {/* Foam bounce pieces — ricochet biased into a forward cone (±70° around
+            the trajectory direction) so debris sprays away from the shot line. */}
+        {[...Array(particleCount)].map((_, i) => {
+          const cone = ((i / Math.max(1, particleCount - 1)) - 0.5) * (Math.PI * 70 / 90);
+          const a = trajRad + cone + (Math.random() - 0.5) * 0.25;
+          const r = spread + Math.random() * 24;
+          return (
+            <motion.div
+              key={i}
+              className="absolute rounded-sm w-3 h-2"
+              style={{ backgroundColor: color }}
+              initial={{ x: 0, y: 0, scale: 1, opacity: 1, rotate: Math.random() * 360 }}
+              animate={{
+                x: Math.cos(a) * r,
+                y: Math.sin(a) * r + 45,
+                opacity: 0,
+                rotate: Math.random() * 720,
+              }}
+              transition={{ duration: 0.5 + Math.random() * 0.3, ease: 'easeOut' }}
+            />
+          );
+        })}
+        {/* Small grit/debris specks — also biased along trajectory */}
+        {[...Array(6)].map((_, i) => {
+          const cone = ((i / 5) - 0.5) * (Math.PI * 60 / 90);
+          const a = trajRad + cone;
+          const r = 20 + Math.random() * 50;
+          return (
+            <motion.div
+              key={`d-${i}`}
+              className="absolute w-[3px] h-[3px] rounded-full bg-zinc-400"
+              initial={{ x: 0, y: 0, opacity: 0.9 }}
+              animate={{
+                x: Math.cos(a) * r,
+                y: Math.sin(a) * r + 25 + Math.random() * 35,
+                opacity: 0,
+              }}
+              transition={{ duration: 0.55, ease: 'easeOut' }}
+            />
+          );
+        })}
       </div>
     );
   }
@@ -423,32 +454,77 @@ function CustomCrosshair({ x, y, isShooting, hitMarkerTime, hitMarkerType, ammo,
           />
         )}
 
-        {/* Kill confirmation pulse ring */}
+        {/* Kill confirmation: thick inner ring + outer halo + brief scale snap */}
         <AnimatePresence>
           {showHit && hitMarkerType === 'kill' && (
-            <motion.div
-              key="kill-ring"
-              initial={{ scale: 0.6, opacity: 1 }}
-              animate={{ scale: 3.5, opacity: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.38, ease: 'easeOut' }}
-              className="absolute w-16 h-16 rounded-full border-2 border-red-500 pointer-events-none"
-              style={{ boxShadow: '0 0 20px rgba(239,68,68,0.6)' }}
-            />
+            <>
+              <motion.div
+                key="kill-ring"
+                initial={{ scale: 0.55, opacity: 1 }}
+                animate={{ scale: 3.6, opacity: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.42, ease: 'easeOut' }}
+                className="absolute w-16 h-16 rounded-full border-[3px] border-red-500 pointer-events-none"
+                style={{ boxShadow: '0 0 26px rgba(239,68,68,0.8), inset 0 0 14px rgba(239,68,68,0.4)' }}
+              />
+              <motion.div
+                key="kill-halo"
+                initial={{ scale: 0.4, opacity: 0.7 }}
+                animate={{ scale: 5.2, opacity: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.55, ease: 'easeOut' }}
+                className="absolute w-16 h-16 rounded-full border border-red-300/70 pointer-events-none"
+              />
+            </>
           )}
         </AnimatePresence>
 
-        {/* Weak-point / crit golden ring */}
+        {/* Weak-point / crit golden ring + radial spike accents */}
         <AnimatePresence>
           {showHit && hitMarkerType === 'crit' && (
+            <>
+              <motion.div
+                key="crit-ring"
+                initial={{ scale: 0.5, opacity: 1 }}
+                animate={{ scale: 3.0, opacity: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.32, ease: 'easeOut' }}
+                className="absolute w-16 h-16 rounded-full border-[2.5px] border-yellow-300 pointer-events-none"
+                style={{ boxShadow: '0 0 18px rgba(253,224,71,0.85)' }}
+              />
+              {/* Four radial spikes for crits — read as "sweet spot" */}
+              {[0, 90, 180, 270].map(angle => (
+                <motion.div
+                  key={`crit-spike-${angle}`}
+                  initial={{ opacity: 1, scale: 0.6 }}
+                  animate={{ opacity: 0, scale: 1.6 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.26, ease: 'easeOut' }}
+                  className="absolute w-[2px] h-5 bg-yellow-200 pointer-events-none"
+                  style={{
+                    transform: `rotate(${angle}deg) translateY(-26px)`,
+                    boxShadow: '0 0 6px #fde047',
+                  }}
+                />
+              ))}
+            </>
+          )}
+        </AnimatePresence>
+
+        {/* Armor block: chevron brackets pulse outward — reads as deflection */}
+        <AnimatePresence>
+          {showHit && hitMarkerType === 'armor' && (
             <motion.div
-              key="crit-ring"
-              initial={{ scale: 0.5, opacity: 0.95 }}
-              animate={{ scale: 2.8, opacity: 0 }}
+              key="armor-shell"
+              initial={{ opacity: 0.95, scale: 0.6 }}
+              animate={{ opacity: 0, scale: 1.8 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.30, ease: 'easeOut' }}
-              className="absolute w-16 h-16 rounded-full border-2 border-yellow-300 pointer-events-none"
-              style={{ boxShadow: '0 0 14px rgba(253,224,71,0.7)' }}
+              transition={{ duration: 0.28, ease: 'easeOut' }}
+              className="absolute w-14 h-14 rounded-full pointer-events-none"
+              style={{
+                border: '2px dashed rgba(203,213,225,0.95)',
+                boxShadow: '0 0 12px rgba(203,213,225,0.55)',
+              }}
             />
           )}
         </AnimatePresence>
@@ -502,23 +578,42 @@ function CustomCrosshair({ x, y, isShooting, hitMarkerTime, hitMarkerType, ammo,
            <div className={`absolute w-8 h-8 rounded-full border border-orange-500/30 ${isShooting ? 'scale-150 opacity-0' : 'scale-100 opacity-100'} transition-all duration-150`} />
         )}
 
-        {/* Hit Marker X — scales with hit type */}
+        {/* Hit Marker X — sharper scale pop + brighter glow per type */}
         <AnimatePresence>
           {showHit && (
             <motion.div
-              initial={{ scale: 0.4, opacity: 0, rotate: 45 }}
-              animate={{ scale: hitMarkerType === 'kill' ? 2.0 : hitMarkerType === 'crit' ? 1.7 : 1.3, opacity: 1, rotate: 45 }}
-              exit={{ scale: 3.0, opacity: 0, transition: { duration: 0.14 } }}
+              initial={{ scale: 0.25, opacity: 0, rotate: 45 }}
+              animate={{
+                scale: hitMarkerType === 'kill' ? 2.2 : hitMarkerType === 'crit' ? 1.85 : hitMarkerType === 'armor' ? 1.1 : 1.4,
+                opacity: 1,
+                rotate: 45,
+              }}
+              exit={{ scale: 3.2, opacity: 0, transition: { duration: 0.14 } }}
+              transition={{ type: 'spring', stiffness: 700, damping: 18 }}
               className="absolute pointer-events-none flex items-center justify-center transform -translate-x-1/2 -translate-y-1/2"
             >
+              {/* Thicker stroke + double-glow on kill/crit so they pop. */}
               <div
-                className="w-10 h-[2.5px] rounded-full absolute origin-center left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
-                style={{ backgroundColor: hmColor, boxShadow: `0 0 12px ${hmShadow}, 0 0 24px ${hmShadow}` }}
+                className={`${hitMarkerType === 'kill' ? 'w-12 h-[3.5px]' : hitMarkerType === 'crit' ? 'w-11 h-[3px]' : 'w-10 h-[2.5px]'} rounded-full absolute origin-center left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2`}
+                style={{ backgroundColor: hmColor, boxShadow: `0 0 14px ${hmShadow}, 0 0 28px ${hmShadow}` }}
               />
               <div
-                className="h-10 w-[2.5px] rounded-full absolute origin-center left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
-                style={{ backgroundColor: hmColor, boxShadow: `0 0 12px ${hmShadow}, 0 0 24px ${hmShadow}` }}
+                className={`${hitMarkerType === 'kill' ? 'h-12 w-[3.5px]' : hitMarkerType === 'crit' ? 'h-11 w-[3px]' : 'h-10 w-[2.5px]'} rounded-full absolute origin-center left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2`}
+                style={{ backgroundColor: hmColor, boxShadow: `0 0 14px ${hmShadow}, 0 0 28px ${hmShadow}` }}
               />
+              {/* Kill gets an extra diagonal cross under the X to read as a double-snap */}
+              {hitMarkerType === 'kill' && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.5, rotate: 0 }}
+                  animate={{ opacity: 0.85, scale: 1, rotate: 0 }}
+                  exit={{ opacity: 0, scale: 1.6 }}
+                  transition={{ duration: 0.18, ease: 'easeOut' }}
+                  className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+                >
+                  <div className="w-9 h-[2px] rounded-full" style={{ backgroundColor: hmColor, boxShadow: `0 0 10px ${hmShadow}` }} />
+                  <div className="h-9 w-[2px] rounded-full -mt-9 ml-[16px]" style={{ backgroundColor: hmColor, boxShadow: `0 0 10px ${hmShadow}` }} />
+                </motion.div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -785,7 +880,34 @@ export default function App() {
   const [flash, setFlash] = useState(false);
   // Brief orange/white pulse on target kill — separate from damage flash
   const [killFlash, setKillFlash] = useState(false);
+  // Hit-pause / micro time dilation: 'crit' = 50ms pulse, 'kill' = 80ms pulse.
+  // Used to drive a brief punch-zoom + saturate overlay that simulates the
+  // freeze-frame impact moment without halting the game loop.
+  const [hitPause, setHitPause] = useState<null | 'crit' | 'kill'>(null);
   const [showSettings, setShowSettings] = useState(false);
+
+  // Briefly punch the screen with a saturate/contrast pulse to simulate the
+  // freeze-frame "hit feel" used in critical & kill hits.
+  const triggerHitPause = useCallback((kind: 'crit' | 'kill') => {
+    setHitPause(kind);
+    const ms = kind === 'kill' ? 80 : 50;
+    setTimeout(() => setHitPause(null), ms);
+  }, []);
+
+  // Compute muzzle origin in viewport % (relative to game area). Used to give
+  // miss effects a directionally-consistent debris spray.
+  const getMuzzleOrigin = useCallback((): { x: number, y: number } => {
+    const rect = gameAreaRef.current?.getBoundingClientRect();
+    if (!rect) return { x: 50, y: 100 };
+    if (muzzleRef.current) {
+      const m = muzzleRef.current.getBoundingClientRect();
+      return {
+        x: ((m.left + m.width / 2 - rect.left) / rect.width) * 100,
+        y: ((m.top + m.height / 2 - rect.top) / rect.height) * 100,
+      };
+    }
+    return { x: 50, y: 100 };
+  }, []);
 
   const [uiSettings, setUiSettings] = useState(() => {
     try {
@@ -1477,7 +1599,8 @@ export default function App() {
         if (!result || !result.accepted || !result.hit) {
           // Miss visual (also covers rate-limited / reloading drops)
           const effectId = `miss-${hitEffectIdCounter.current++}`;
-          setHitEffects(curr => [...curr, { id: effectId, x: aimXPct, y: aimYPct, color: upgradedGun.dartType.color, isMiss: true }]);
+          const muzzle = getMuzzleOrigin();
+          setHitEffects(curr => [...curr, { id: effectId, x: aimXPct, y: aimYPct, color: upgradedGun.dartType.color, isMiss: true, originX: muzzle.x, originY: muzzle.y }]);
           setTimeout(() => setHitEffects(curr => curr.filter(h => h.id !== effectId)), 600);
           setCombo(0);
           return;
@@ -1498,6 +1621,33 @@ export default function App() {
         else if (isCrit || serverQuality === 'weak_point' || serverQuality === 'center') setHitMarkerType('crit');
         else setHitMarkerType('normal');
         setTimeout(() => setHitEffects(curr => curr.filter(h => h.id !== effectId)), isDestroyed || isExplosion ? 800 : 400);
+
+        // Screen impact feedback — mirrors the singleplayer path so multiplayer
+        // hits feel equally weighty.
+        const isCritHit = isCrit || serverQuality === 'weak_point' || serverQuality === 'center';
+        if (isExplosion) {
+          setShakeIntensity(38);
+          setFlash(true);
+          setTimeout(() => setFlash(false), 100);
+          setTimeout(() => setShakeIntensity(0), 500);
+          triggerHitPause('kill');
+        } else if (isDestroyed) {
+          setShakeIntensity(18);
+          setKillFlash(true);
+          setTimeout(() => setKillFlash(false), 130);
+          setTimeout(() => setShakeIntensity(0), 240);
+          triggerHitPause('kill');
+        } else if (isCritHit) {
+          setShakeIntensity(10);
+          setTimeout(() => setShakeIntensity(0), 130);
+          triggerHitPause('crit');
+        } else if (serverQuality === 'armor') {
+          setShakeIntensity(3);
+          setTimeout(() => setShakeIntensity(0), 80);
+        } else {
+          setShakeIntensity(5);
+          setTimeout(() => setShakeIntensity(0), 100);
+        }
 
         if (damage > 0) {
           const textId = `txt-${hitEffectIdCounter.current++}`;
@@ -1624,9 +1774,19 @@ export default function App() {
             handleTargetHit(hitResult.targetId, (endX / rect.width) * 100, (endY / rect.height) * 100, hitResult.quality);
           } else {
             sounds.playPlasticBounce();
-            // Miss Effect
+            // Miss Effect — pass muzzle origin so debris sprays away from the
+            // shot trajectory for directional consistency.
             const effectId = `miss-${hitEffectIdCounter.current++}`;
-            setHitEffects(curr => [...curr, { id: effectId, x: (endX / rect.width) * 100, y: (endY / rect.height) * 100, color: upgradedGun.dartType.color, isMiss: true }]);
+            const muzzle = getMuzzleOrigin();
+            setHitEffects(curr => [...curr, {
+              id: effectId,
+              x: (endX / rect.width) * 100,
+              y: (endY / rect.height) * 100,
+              color: upgradedGun.dartType.color,
+              isMiss: true,
+              originX: muzzle.x,
+              originY: muzzle.y,
+            }]);
             setTimeout(() => {
                setHitEffects(curr => curr.filter(h => h.id !== effectId));
             }, 600);
@@ -1775,24 +1935,33 @@ export default function App() {
       else if (quality === 'armor') setHitMarkerType('armor');
       else setHitMarkerType('normal');
       
-      // Hit feedback — screen impulse scales with hit quality
+      // Hit feedback — screen impulse scales with hit quality.
+      // Tiers: minimal (normal) → moderate (heavy/crit) → sharp pulse (kill / explosion).
       if (isExplosion) {
-        setShakeIntensity(35);
+        setShakeIntensity(38);
         setFlash(true);
         setTimeout(() => setFlash(false), 100);
         setTimeout(() => setShakeIntensity(0), 500);
+        triggerHitPause('kill');
       } else if (isDestroyed) {
-        // Kill confirmation: brief screen impulse + orange kill flash
-        setShakeIntensity(12);
+        // Kill confirmation: sharp pulse + orange kill flash + hit pause
+        setShakeIntensity(18);
         setKillFlash(true);
-        setTimeout(() => setKillFlash(false), 80);
-        setTimeout(() => setShakeIntensity(0), 200);
-      } else if (quality === 'weak_point' || quality === 'center') {
-        // Strong hit on weak point: small impulse
-        setShakeIntensity(6);
-        setTimeout(() => setShakeIntensity(0), 110);
+        setTimeout(() => setKillFlash(false), 130);
+        setTimeout(() => setShakeIntensity(0), 240);
+        triggerHitPause('kill');
+      } else if (quality === 'weak_point' || quality === 'center' || isCrit) {
+        // Critical / weak-point hit: moderate shake + brief crit hit pause
+        setShakeIntensity(10);
+        setTimeout(() => setShakeIntensity(0), 130);
+        triggerHitPause('crit');
+      } else if (quality === 'armor') {
+        // Armor block: tight, dry impulse — feels like a deflection
+        setShakeIntensity(3);
+        setTimeout(() => setShakeIntensity(0), 80);
       } else {
-        setShakeIntensity(4);
+        // Normal body hit: minimal kick
+        setShakeIntensity(5);
         setTimeout(() => setShakeIntensity(0), 100);
       }
       
@@ -2014,17 +2183,64 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Kill confirmation flash — brief orange vignette pulse on the screen edges */}
+      {/* Kill confirmation flash — vignette pulse + center pop ring + accent
+          color, fades quickly. Used as a satisfying "kill confirmed" beat. */}
       <AnimatePresence>
         {killFlash && (
+          <>
+            <motion.div
+              key="kill-vignette"
+              initial={{ opacity: 0.7 }}
+              animate={{ opacity: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
+              className="absolute inset-0 z-[199] pointer-events-none"
+              style={{
+                background: 'radial-gradient(ellipse at center, transparent 28%, rgba(249,115,22,0.55) 100%)',
+                mixBlendMode: 'screen',
+              }}
+            />
+            {/* Center pop pulse — quick scale-up + fade */}
+            <motion.div
+              key="kill-pulse"
+              initial={{ opacity: 0.85, scale: 0.6 }}
+              animate={{ opacity: 0, scale: 1.6 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.22, ease: 'easeOut' }}
+              className="absolute inset-0 z-[199] pointer-events-none flex items-center justify-center"
+            >
+              <div
+                className="w-[42vmin] h-[42vmin] rounded-full"
+                style={{
+                  background: 'radial-gradient(circle, rgba(255,255,255,0.18) 0%, rgba(249,115,22,0.12) 35%, rgba(255,255,255,0) 70%)',
+                  boxShadow: '0 0 80px 20px rgba(249,115,22,0.35)',
+                  mixBlendMode: 'screen',
+                }}
+              />
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Hit pause / micro time-dilation visual — saturate + contrast pulse +
+          tiny zoom punch. Triggered on critical and kill hits. The actual
+          pause duration is 50ms (crit) / 80ms (kill); the overlay bridges it
+          with a freeze-frame look without halting the game loop. */}
+      <AnimatePresence>
+        {hitPause && (
           <motion.div
-            initial={{ opacity: 0.55 }}
+            key={`hp-${hitPause}`}
+            initial={{ opacity: 1 }}
             animate={{ opacity: 0 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.14, ease: 'easeOut' }}
-            className="absolute inset-0 z-[199] pointer-events-none"
+            transition={{ duration: hitPause === 'kill' ? 0.16 : 0.10, ease: 'easeOut' }}
+            className="absolute inset-0 z-[198] pointer-events-none"
             style={{
-              background: 'radial-gradient(ellipse at center, transparent 30%, rgba(249,115,22,0.45) 100%)',
+              background: hitPause === 'kill'
+                ? 'radial-gradient(ellipse at center, rgba(255,235,200,0.10) 0%, rgba(0,0,0,0) 60%)'
+                : 'radial-gradient(ellipse at center, rgba(255,255,200,0.08) 0%, rgba(0,0,0,0) 60%)',
+              backdropFilter: hitPause === 'kill' ? 'saturate(1.55) contrast(1.18)' : 'saturate(1.35) contrast(1.10)',
+              WebkitBackdropFilter: hitPause === 'kill' ? 'saturate(1.55) contrast(1.18)' : 'saturate(1.35) contrast(1.10)',
               mixBlendMode: 'screen',
             }}
           />
@@ -2247,21 +2463,24 @@ export default function App() {
           </>
         )}
 
-        <motion.div 
+        <motion.div
           className="absolute inset-0 origin-center"
           animate={{
             ...(shakeIntensity > 0 ? {
               x: [0, -shakeIntensity, shakeIntensity, -shakeIntensity/2, shakeIntensity/2, 0],
               y: [0, shakeIntensity, -shakeIntensity, shakeIntensity/2, -shakeIntensity/2, 0]
             } : { x: 0, y: 0 }),
-            scale: isADS ? upgradedGun.zoomInADS : 1,
+            // Hit-pause adds a tiny zoom punch on top of the ADS scale so
+            // critical / kill hits feel like a freeze-frame snap.
+            scale: (isADS ? upgradedGun.zoomInADS : 1) * (hitPause === 'kill' ? 1.018 : hitPause === 'crit' ? 1.010 : 1),
             skewX: jammingIntensity > 0 ? [0, jammingIntensity, -jammingIntensity, 0] : 0,
             filter: jammingIntensity > 0 ? `hue-rotate(${jammingIntensity * 10}deg) brightness(${1 + jammingIntensity * 0.05})` : 'none'
           }}
-          transition={{ 
-            duration: jammingIntensity > 0 ? 0.1 : 0.2, 
+          transition={{
+            duration: jammingIntensity > 0 ? 0.1 : 0.2,
             ease: "easeOut",
-            skewX: { repeat: jammingIntensity > 0 ? Infinity : 0, duration: 0.1 }
+            skewX: { repeat: jammingIntensity > 0 ? Infinity : 0, duration: 0.1 },
+            scale: { duration: hitPause ? 0.06 : 0.2, ease: 'easeOut' },
           }}
           onContextMenu={(e) => e.preventDefault()}
           onPointerMove={(e) => {
@@ -2369,7 +2588,7 @@ export default function App() {
               </AnimatePresence>
 
               {hitEffects.map(effect => (
-                <HitEffect key={effect.id} x={effect.x} y={effect.y} color={effect.color} isDestroy={effect.isDestroy} isMiss={effect.isMiss} isExplosion={effect.isExplosion} quality={effect.quality} />
+                <HitEffect key={effect.id} x={effect.x} y={effect.y} color={effect.color} isDestroy={effect.isDestroy} isMiss={effect.isMiss} isExplosion={effect.isExplosion} quality={effect.quality} originX={effect.originX} originY={effect.originY} />
               ))}
 
               {combatTexts.map(ct => (
