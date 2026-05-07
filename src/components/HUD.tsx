@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { GunType } from './Gun';
 import { DartType } from '../App';
 import { 
@@ -86,8 +86,8 @@ const RadarMap = ({ targets = [], projectiles = [] }: { targets: any[], projecti
   );
 };
 
-export default function HUD({ 
-  score, timeLeft, ammo, gun, dart, isReloading, combo, credits, 
+export default function HUD({
+  score, timeLeft, ammo, gun, dart, isReloading, combo, credits,
   gameMode, lives,  targetsHit, targetGoal, activeBuffs,
   wave = 2, maxWave = 3, waveName, targetScore = 45000,
   levelName = "SKYLINE ROOFTOP", levelNumber = 3,
@@ -104,13 +104,23 @@ export default function HUD({
 }: HUDProps) {
   const [now, setNow] = useState(Date.now());
   const [pulseWarn, setPulseWarn] = useState(false);
-  
+  const [scoreKey, setScoreKey] = useState(0);
+  const prevScoreRef = useRef(score);
+
   const scaleMap: Record<string, string> = {
     'small': 'scale-75 origin-top',
     'normal': 'scale-100 origin-top',
     'large': 'scale-110 origin-top'
   };
   const scaleClass = scaleMap[settings.hudScale] || 'scale-100 origin-top';
+
+  // Pulse the score display whenever it increases
+  useEffect(() => {
+    if (score > prevScoreRef.current) {
+      setScoreKey(k => k + 1);
+    }
+    prevScoreRef.current = score;
+  }, [score]);
 
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 100);
@@ -156,7 +166,10 @@ export default function HUD({
                  {/* Score */}
                  <div className="flex flex-col">
                    <span className="text-[9px] font-black tracking-[0.2em] text-orange-400 uppercase">Score</span>
-                   <span className="text-2xl sm:text-4xl font-black italic tracking-tighter text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.4)] leading-none mt-1">
+                   <span
+                     key={scoreKey}
+                     className="text-2xl sm:text-4xl font-black italic tracking-tighter text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.4)] leading-none mt-1 animate-score-pulse"
+                   >
                      {score.toLocaleString()}
                    </span>
                  </div>
@@ -314,17 +327,25 @@ export default function HUD({
           {/* Combo Meter */}
           <AnimatePresence>
             {combo > 1 && (
-              <motion.div 
-                initial={{ x: settings.leftHanded ? 20 : -20, opacity: 0, skewX: 0 }}
-                animate={{ x: 0, opacity: 1, skewX: -10 }}
-                exit={{ x: settings.leftHanded ? 20 : -20, opacity: 0 }}
+              <motion.div
+                key={combo}
+                initial={{ x: settings.leftHanded ? 20 : -20, opacity: 0, scale: 0.85, skewX: 0 }}
+                animate={{ x: 0, opacity: 1, scale: 1, skewX: -10 }}
+                exit={{ x: settings.leftHanded ? 20 : -20, opacity: 0, scale: 0.9 }}
+                transition={{ type: 'spring', stiffness: 380, damping: 22 }}
                 className={`bg-cyan-500/20 border-l-4 border-cyan-400 p-3 pr-8 backdrop-blur-sm -skew-x-[10deg] origin-left shadow-[0_0_20px_rgba(34,211,238,0.2)]`}
               >
                 <div className="skew-x-[10deg] flex flex-col">
                   <span className="text-[10px] font-black text-cyan-400 tracking-[0.2em] uppercase">Combo Chain</span>
-                  <div className="text-3xl sm:text-5xl font-black italic drop-shadow-[0_0_10px_#22d3ee] leading-none text-white outline-text tracking-tighter">
+                  <motion.div
+                    key={combo}
+                    initial={{ scale: 1.35, color: '#22d3ee' }}
+                    animate={{ scale: 1, color: '#ffffff' }}
+                    transition={{ duration: 0.25, ease: 'easeOut' }}
+                    className="text-3xl sm:text-5xl font-black italic drop-shadow-[0_0_10px_#22d3ee] leading-none outline-text tracking-tighter"
+                  >
                     x{combo}
-                  </div>
+                  </motion.div>
                 </div>
               </motion.div>
             )}

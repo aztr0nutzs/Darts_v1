@@ -56,56 +56,65 @@ export default function Dart({ id, startX, startY, endX, endY, dartType, onCompl
   const isRocket = dartType.shape === 'rocket';
   const isVortex = dartType.shape === 'vortex';
   const isMega = dartType.shape === 'mega';
-  
-  // Custom gravity arc for heavy projectiles like rockets and mega darts
-  const dropAmount = (isRocket || isMega) ? 50 : 20;
 
-  const controlPointX = startX + (endX - startX) / 2;
-  const controlPointY = startY + (endY - startY) / 2 - dropAmount;
+  // Gravity arc: heavier projectiles drop more. Rockets have a dramatic arc.
+  const dropAmount = isRocket ? 70 : isMega ? 55 : 22;
+
+  // Offset control point slightly towards the shooter to make close-range shots
+  // look like they travel through 3D space rather than straight across 2D.
+  const travelFrac = 0.42;
+  const controlPointX = startX + (endX - startX) * travelFrac;
+  const controlPointY = startY + (endY - startY) * travelFrac - dropAmount;
+
+  // Depth scaling: projectile starts large (close) and shrinks as it recedes.
+  // More dramatic range improves perceived perspective.
+  const startScale = isRocket ? 2.8 : isMega ? 2.6 : 2.2;
+  const endScale   = isRocket ? 0.25 : isMega ? 0.28 : 0.32;
 
   return (
     <>
       <svg className="absolute inset-0 w-full h-full pointer-events-none z-30" style={{ overflow: 'visible' }}>
         <defs>
-           <linearGradient id={`trail-${id}`} x1="0%" y1="0%" x2="100%" y2="0%" gradientTransform={`rotate(${angle})`}>
-             <stop offset="0%" stopColor={dartType.color} stopOpacity="0.4" />
-             <stop offset="100%" stopColor="transparent" stopOpacity="0" />
-           </linearGradient>
+          <linearGradient id={`trail-${id}`} x1="0%" y1="0%" x2="100%" y2="0%" gradientTransform={`rotate(${angle})`}>
+            <stop offset="0%" stopColor={dartType.color} stopOpacity="0.55" />
+            <stop offset="60%" stopColor={dartType.color} stopOpacity="0.15" />
+            <stop offset="100%" stopColor="transparent" stopOpacity="0" />
+          </linearGradient>
         </defs>
-        
-        {/* Subtle Motion Trail - NOT a laser */}
+
+        {/* Motion trail — widens for heavier projectiles */}
         {!isVortex && (
           <motion.path
             d={`M ${startX} ${startY} Q ${controlPointX} ${controlPointY} ${endX} ${endY}`}
             stroke={`url(#trail-${id})`}
-            strokeWidth={isMega ? 16 : isRocket ? 24 : 8}
+            strokeWidth={isMega ? 18 : isRocket ? 28 : 9}
             strokeLinecap="round"
             fill="none"
-            initial={{ pathLength: 0, opacity: 0.5 }}
+            initial={{ pathLength: 0, opacity: 0.7 }}
             animate={{ pathLength: 1, opacity: 0 }}
             transition={{ duration: dartType.speed / 1000, ease: "easeOut" }}
           />
         )}
       </svg>
 
-      {/* Dart Projectile */}
+      {/* Dart Projectile — perspective-scaled (large near camera, small far) */}
       <motion.div
         className="absolute z-40 pointer-events-none drop-shadow-md"
-        initial={{ 
-          x: startX, 
-          y: startY, 
-          scale: 2.0,
-          rotate: isVortex ? 0 : angle + 90
+        initial={{
+          x: startX,
+          y: startY,
+          scale: startScale,
+          rotate: isVortex ? 0 : angle + 90,
         }}
-        animate={{ 
-          x: endX, 
-          y: endY, 
-          scale: 0.35,
-          rotate: isVortex ? 1080 : angle + 90
+        animate={{
+          x: endX,
+          y: endY,
+          scale: endScale,
+          rotate: isVortex ? 1080 : angle + 90,
         }}
-        transition={{ 
-            duration: dartType.speed / 1000, 
-            ease: "easeIn" // accelerate away from camera
+        transition={{
+          duration: dartType.speed / 1000,
+          ease: "easeIn",
         }}
       >
         {dartType.shape === 'dart' && (
