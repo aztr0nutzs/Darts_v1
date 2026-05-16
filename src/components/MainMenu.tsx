@@ -7,6 +7,7 @@ import {
 import { GameMode, DartType, DART_TYPES } from '../App';
 import { GUNS, GunType } from './Gun';
 import { getBlasterAsset, getDartAsset } from '../lib/assetRegistry';
+import type { MultiplayerConnectionStatus, MultiplayerRuntimeConfig } from '../lib/runtimeConfig';
 
 function BlasterCardThumb({ gunId }: { gunId: string }) {
   const [failed, setFailed] = React.useState(false);
@@ -62,7 +63,12 @@ export interface MainMenuProps {
   roomId: string;
   setRoomId: (id: string) => void;
   socket: any;
-  connectionStatus: 'connected' | 'disconnected' | 'connecting' | 'error';
+  connectionStatus: MultiplayerConnectionStatus;
+  socketUrl: string | null;
+  multiplayerConfigSource: MultiplayerRuntimeConfig['source'];
+  multiplayerConfigReason?: string;
+  roomError: string | null;
+  onRetryMultiplayer: () => void;
   setIsMultiplayerWaiting: (b: boolean) => void;
   startGame: (mode: GameMode) => void;
   setShowUpgradeMenu: (b: boolean) => void;
@@ -84,6 +90,11 @@ export default function MainMenu({
   setRoomId,
   socket,
   connectionStatus,
+  socketUrl,
+  multiplayerConfigSource,
+  multiplayerConfigReason,
+  roomError,
+  onRetryMultiplayer,
   setIsMultiplayerWaiting,
   startGame,
   setShowUpgradeMenu,
@@ -97,6 +108,28 @@ export default function MainMenu({
   setCurrentDart,
   buyDart
 }: MainMenuProps) {
+  const isMultiplayerReady = connectionStatus === 'connected' && Boolean(socket);
+  const isMultiplayerConnecting = connectionStatus === 'connecting';
+  const multiplayerStatusLabel =
+    connectionStatus === 'not_configured'
+      ? 'Backend URL required'
+      : connectionStatus === 'connection_failed'
+      ? 'Backend unreachable'
+      : connectionStatus === 'connected'
+      ? 'Backend connected'
+      : connectionStatus === 'connecting'
+      ? 'Connecting to backend'
+      : 'Backend disconnected';
+  const multiplayerStatusDetail =
+    connectionStatus === 'not_configured'
+      ? (multiplayerConfigReason ?? 'Set VITE_SOCKET_URL to enable multiplayer in this runtime.')
+      : connectionStatus === 'connection_failed'
+      ? (roomError ?? 'Unable to connect to the configured Socket.IO backend.')
+      : connectionStatus === 'connected'
+      ? `Socket.IO: ${socketUrl ?? 'same origin'}`
+      : connectionStatus === 'connecting'
+      ? `Socket.IO: ${socketUrl ?? 'same origin'}`
+      : 'The multiplayer socket disconnected. Retry before creating or joining a room.';
 
   const gameModes = [
     { id: 'classic', name: 'STANDARD', icon: Crosshair, desc: '60s_PRECISION', tag: 'RECOMMENDED', color: 'from-cyan-600 to-cyan-900', border: 'border-cyan-500' },
@@ -137,7 +170,7 @@ export default function MainMenu({
             animate={{ y: 0, opacity: 1 }}
             className="flex items-center gap-3 px-4 py-1.5 rounded-full bg-slate-900/60 border border-slate-700/50 mb-6 backdrop-blur-md shadow-lg"
           >
-            <div className={`w-2 h-2 rounded-full animate-pulse shadow-[0_0_8px] ${connectionStatus === 'connected' ? 'bg-green-500 shadow-green-500' : connectionStatus === 'error' ? 'bg-red-500 shadow-red-500' : 'bg-orange-500 shadow-orange-500'}`} />
+            <div className={`w-2 h-2 rounded-full animate-pulse shadow-[0_0_8px] ${connectionStatus === 'connected' ? 'bg-green-500 shadow-green-500' : connectionStatus === 'connection_failed' || connectionStatus === 'not_configured' ? 'bg-red-500 shadow-red-500' : 'bg-orange-500 shadow-orange-500'}`} />
             <span className="text-[10px] sm:text-xs font-bold text-slate-300 tracking-widest uppercase">
               {connectionStatus === 'connected' ? 'SYNCED_LIVE' : connectionStatus === 'connecting' ? 'SYNCING...' : 'OFFLINE_MODE'}
             </span>
@@ -217,15 +250,27 @@ export default function MainMenu({
                   className="bg-slate-900/80 border border-yellow-500/30 rounded-xl p-5 relative overflow-hidden backdrop-blur-md"
                 >
                    <div className="flex items-center gap-3 mb-4 text-xs font-black text-yellow-500 tracking-[0.2em] uppercase">
-                      <Wifi className="w-4 h-4 animate-pulse" />
-                      <span>Network Link</span>
-                   </div>
-                   <div className="flex flex-col sm:flex-row gap-3">
-                      <div className="relative flex-1">
-                        <Terminal className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+                       <Wifi className={`w-4 h-4 ${isMultiplayerConnecting ? 'animate-pulse' : ''}`} />
+                       <span>Network Link</span>
+                    </div>
+                    <div className={`mb-4 rounded-lg border p-3 text-xs font-bold ${
+                      isMultiplayerReady
+                        ? 'border-green-500/30 bg-green-500/10 text-green-300'
+                        : 'border-red-500/30 bg-red-500/10 text-red-300'
+                    }`}>
+                      <div className="uppercase tracking-widest">{multiplayerStatusLabel}</div>
+                      <div className="mt-1 text-[11px] normal-case tracking-normal text-slate-300">{multiplayerStatusDetail}</div>
+                      {multiplayerConfigSource === 'same_origin' && (
+                        <div className="mt-1 text-[10px] uppercase tracking-widest text-slate-500">Using same-origin web fallback</div>
+                      )}
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                       <div className="relative flex-1">
+                         <Terminal className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
                         <input 
                           type="text" 
-                          placeholder="ROOM_KEY" 
+                           placeholder="ROOM_KEY" 
+                          disabled={!isMultiplayerReady}
                           className="w-full bg-slate-950 border border-slate-700 text-yellow-400 font-bold px-12 py-3 rounded-lg focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 focus:outline-none tracking-widest placeholder:text-slate-600 transition-all font-mono"
                           onChange={(e) => setRoomId(e.target.value.toUpperCase())}
                           value={roomId}
@@ -233,19 +278,32 @@ export default function MainMenu({
                       </div>
                       <button 
                         onClick={() => {
-                          if (roomId && socket) {
+                          if (roomId && isMultiplayerReady) {
                             socket.emit('join-room', roomId);
                             setIsMultiplayerWaiting(true);
                           }
                         }}
-                        className="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-black px-6 py-3 rounded-lg transition-all flex items-center justify-center gap-2"
+                        disabled={!roomId || !isMultiplayerReady}
+                        className={`font-black px-6 py-3 rounded-lg transition-all flex items-center justify-center gap-2 ${
+                          isMultiplayerReady && roomId
+                            ? 'bg-yellow-500 hover:bg-yellow-400 text-slate-900'
+                            : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                        }`}
                       >
                         <LockOpen className="w-5 h-5" />
                         <span className="tracking-widest uppercase text-sm">SYNC</span>
                       </button>
-                   </div>
-                </motion.div>
-              )}
+                    </div>
+                    {(connectionStatus === 'connection_failed' || connectionStatus === 'disconnected') && (
+                      <button
+                        onClick={onRetryMultiplayer}
+                        className="mt-3 w-full border border-yellow-500/30 bg-yellow-500/10 px-4 py-2 text-xs font-black uppercase tracking-widest text-yellow-400 transition-colors hover:bg-yellow-500/20"
+                      >
+                        Retry Backend Connection
+                      </button>
+                    )}
+                 </motion.div>
+               )}
             </AnimatePresence>
           </div>
 
@@ -389,7 +447,7 @@ export default function MainMenu({
           <button 
             onClick={() => {
               if (gameMode === 'multiplayer') {
-                if (!socket) return;
+                if (!isMultiplayerReady) return;
                 if (!roomId) {
                   const newRoomId = Math.random().toString(36).substring(2, 8).toUpperCase();
                   setRoomId(newRoomId);
@@ -402,7 +460,12 @@ export default function MainMenu({
                 startGame(gameMode);
               }
             }}
-            className="flex-[2] sm:flex-none flex items-center justify-center gap-4 bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-black px-12 py-5 rounded-xl transition-all shadow-[0_0_30px_rgba(34,211,238,0.4)] hover:shadow-[0_0_40px_rgba(34,211,238,0.6)] active:scale-[0.98] group overflow-hidden relative"
+            disabled={gameMode === 'multiplayer' && !isMultiplayerReady}
+            className={`flex-[2] sm:flex-none flex items-center justify-center gap-4 font-black px-12 py-5 rounded-xl transition-all active:scale-[0.98] group overflow-hidden relative ${
+              gameMode === 'multiplayer' && !isMultiplayerReady
+                ? 'bg-slate-800 text-slate-500 cursor-not-allowed shadow-none'
+                : 'bg-cyan-500 hover:bg-cyan-400 text-slate-900 shadow-[0_0_30px_rgba(34,211,238,0.4)] hover:shadow-[0_0_40px_rgba(34,211,238,0.6)]'
+            }`}
           >
             <Play className="w-8 h-8 fill-slate-900 relative z-10 group-hover:scale-110 transition-transform" />
             <span className="text-xl sm:text-2xl tracking-tight italic uppercase relative z-10">

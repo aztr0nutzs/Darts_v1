@@ -219,6 +219,31 @@ const MIN_FIRE_INTERVAL_MS = 50;          // hard floor independent of weapon
 const FIRE_RATE_TOLERANCE = 0.7;          // accept fires at 70% of nominal interval to allow client jitter
 const MAX_DROPPED_FIRES_PER_MATCH = 200;  // sanity log threshold
 const ARENA_IDS: ArenaIdForDirector[] = ['training', 'warehouse', 'rooftop'];
+const ANDROID_WEBVIEW_ORIGIN = 'https://appassets.androidplatform.net';
+
+function parseOriginList(value?: string) {
+  return (value ?? '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
+
+function buildAllowedSocketOrigins() {
+  const configuredOrigins = parseOriginList(process.env.SOCKET_CORS_ORIGINS);
+  if (configuredOrigins.length > 0) return configuredOrigins;
+
+  const origins = parseOriginList(process.env.APP_URL);
+  if (process.env.NODE_ENV !== 'production') {
+    origins.push(
+      'http://localhost:3000',
+      'http://127.0.0.1:3000',
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+    );
+  }
+  origins.push(ANDROID_WEBVIEW_ORIGIN);
+  return [...new Set(origins)];
+}
 
 // ============================================================
 // Types
@@ -423,8 +448,18 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
   const httpServer = createServer(app);
+  const allowedSocketOrigins = buildAllowedSocketOrigins();
   const io = new Server(httpServer, {
-    cors: { origin: "*" },
+    cors: {
+      origin: (origin, callback) => {
+        if (!origin || allowedSocketOrigins.includes(origin)) {
+          callback(null, true);
+          return;
+        }
+        callback(new Error(`Socket.IO origin not allowed: ${origin}`));
+      },
+      credentials: false,
+    },
   });
 
   const rooms = new Map<string, Room>();

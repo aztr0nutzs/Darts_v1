@@ -5,13 +5,16 @@ import {
   Settings, Wifi, ShieldCheck, Activity, Terminal
 } from 'lucide-react';
 import { Socket } from 'socket.io-client';
+import type { MultiplayerConnectionStatus } from '../lib/runtimeConfig';
 
 interface MultiplayerLobbyProps {
   roomId: string;
   multiplayerState: any;
   socket: Socket | null;
-  connectionStatus: 'connected' | 'disconnected' | 'connecting' | 'error';
+  connectionStatus: MultiplayerConnectionStatus;
   roomError: string | null;
+  socketUrl: string | null;
+  onRetry: () => void;
   onLeave: () => void;
   onReady: () => void;
 }
@@ -22,12 +25,25 @@ export default function MultiplayerLobby({
   socket, 
   connectionStatus,
   roomError,
+  socketUrl,
+  onRetry,
   onLeave, 
   onReady 
 }: MultiplayerLobbyProps) {
   const players = multiplayerState?.players ? (Object.values(multiplayerState.players) as any[]) : [];
   const localPlayer = players.find((p: any) => p.id === socket?.id);
   const isHost = players.length > 0 && players[0].id === socket?.id;
+  const isConnected = connectionStatus === 'connected' && Boolean(socket);
+  const statusLabel =
+    connectionStatus === 'not_configured'
+      ? 'Unavailable'
+      : connectionStatus === 'connection_failed'
+      ? 'Failed'
+      : connectionStatus === 'connected'
+      ? 'Linked'
+      : connectionStatus === 'connecting'
+      ? 'Linking'
+      : 'Disconnected';
 
   const copyRoomCode = () => {
     navigator.clipboard.writeText(roomId);
@@ -60,17 +76,17 @@ export default function MultiplayerLobby({
             <div className="absolute top-0 right-0 p-2 bg-slate-800 flex items-center gap-2">
                {connectionStatus === 'connected' ? (
                  <>
-                   <span className="text-[8px] font-black text-green-500 uppercase tracking-widest">Linked</span>
+                   <span className="text-[8px] font-black text-green-500 uppercase tracking-widest">{statusLabel}</span>
                    <Wifi className="w-3 h-3 text-green-500 animate-pulse" />
                  </>
                ) : connectionStatus === 'connecting' ? (
                  <>
-                   <span className="text-[8px] font-black text-yellow-500 uppercase tracking-widest">Linking</span>
+                   <span className="text-[8px] font-black text-yellow-500 uppercase tracking-widest">{statusLabel}</span>
                    <Activity className="w-3 h-3 text-yellow-500 animate-spin" />
                  </>
                ) : (
                  <>
-                   <span className="text-[8px] font-black text-red-500 uppercase tracking-widest">Offline</span>
+                   <span className="text-[8px] font-black text-red-500 uppercase tracking-widest">{statusLabel}</span>
                    <Wifi className="w-3 h-3 text-red-500" />
                  </>
                )}
@@ -98,9 +114,17 @@ export default function MultiplayerLobby({
             )}
 
             <div className="flex items-center gap-4 text-[10px] font-bold text-slate-400">
-              <span className="flex items-center gap-1.5"><ShieldCheck className="w-3 h-3 text-green-500" /> ENCRYPTED</span>
-              <span className="flex items-center gap-1.5"><Activity className="w-3 h-3 text-cyan-500" /> STABLE_PING</span>
+              <span className="flex items-center gap-1.5"><ShieldCheck className={`w-3 h-3 ${isConnected ? 'text-green-500' : 'text-slate-600'}`} /> {isConnected ? 'BACKEND_READY' : 'BACKEND_UNAVAILABLE'}</span>
+              <span className="flex items-center gap-1.5"><Activity className={`w-3 h-3 ${isConnected ? 'text-cyan-500' : 'text-slate-600'}`} /> {socketUrl ?? 'NO_SOCKET_URL'}</span>
             </div>
+            {!isConnected && connectionStatus !== 'not_configured' && (
+              <button
+                onClick={onRetry}
+                className="mt-4 w-full border border-yellow-500/30 bg-yellow-500/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-yellow-400 transition-colors hover:bg-yellow-500/20"
+              >
+                Retry Backend Connection
+              </button>
+            )}
           </div>
 
           <div className="bg-slate-900/50 border border-slate-800 p-6 rounded-2xl flex-1">
@@ -212,16 +236,16 @@ export default function MultiplayerLobby({
               <div className="mt-8">
                  <button 
                    onClick={onReady}
-                   disabled={localPlayer?.ready}
+                   disabled={!isConnected || localPlayer?.ready}
                    className={`w-full py-5 rounded-2xl font-black text-lg tracking-[0.4em] italic uppercase transition-all shadow-2xl relative overflow-hidden group
-                    ${localPlayer?.ready 
+                    ${!isConnected || localPlayer?.ready 
                       ? 'bg-zinc-800 text-zinc-600 cursor-default grayscale' 
                       : 'bg-green-500 text-black hover:bg-green-400 active:scale-95'}`}
                  >
                     <div className="relative z-10 flex items-center justify-center gap-3">
-                       {localPlayer?.ready ? 'MOD_READY' : 'CONFIRM_READY'}
+                       {!isConnected ? 'BACKEND_OFFLINE' : localPlayer?.ready ? 'MOD_READY' : 'CONFIRM_READY'}
                     </div>
-                    {!localPlayer?.ready && (
+                    {isConnected && !localPlayer?.ready && (
                       <motion.div 
                         animate={{ x: ['-100%', '100%'] }}
                         transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}

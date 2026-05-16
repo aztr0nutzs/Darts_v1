@@ -27,6 +27,10 @@ import ArenaScene, { ArenaId } from './components/ArenaScene';
 import { createBossState, tickBoss, damageBoss, BOSS_DEFINITIONS, type BossState } from './lib/BossEncounter';
 import BossRenderer from './components/BossRenderer';
 import BossHUD from './components/BossHUD';
+import {
+  resolveMultiplayerRuntimeConfig,
+  type MultiplayerConnectionStatus,
+} from './lib/runtimeConfig';
 
 export type DartType = {
   id: string;
@@ -1223,11 +1227,13 @@ export default function App() {
 
   // Multiplayer State
   const [socket, setSocket] = useState<Socket | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting' | 'error'>('connecting');
+  const [connectionStatus, setConnectionStatus] = useState<MultiplayerConnectionStatus>('connecting');
+  const [socketRetryNonce, setSocketRetryNonce] = useState(0);
   const [roomId, setRoomId] = useState('');
   const [multiplayerState, setMultiplayerState] = useState<any>(null);
   const [isMultiplayerWaiting, setIsMultiplayerWaiting] = useState(false);
   const [roomError, setRoomError] = useState<string | null>(null);
+  const multiplayerRuntimeConfig = resolveMultiplayerRuntimeConfig();
   // Cache of server fire-result responses keyed by clientFireId, used to
   // render hit/miss visuals after the dart finishes traveling.
   const pendingFireResults = useRef<Map<string, any>>(new Map());
@@ -1310,8 +1316,21 @@ export default function App() {
     localStorage.setItem('nerf_upgrades', JSON.stringify(upgrades));
   }, [credits, unlockedGuns, unlockedDarts, upgrades]);
 
+  const retryMultiplayerConnection = useCallback(() => {
+    setRoomError(null);
+    setSocketRetryNonce((value) => value + 1);
+  }, []);
+
   useEffect(() => {
-    const newSocket = io();
+    if (!multiplayerRuntimeConfig.socketUrl) {
+      setSocket(null);
+      setConnectionStatus('not_configured');
+      setRoomError(multiplayerRuntimeConfig.reason ?? 'Multiplayer backend URL is not configured.');
+      return;
+    }
+
+    setConnectionStatus('connecting');
+    const newSocket = io(multiplayerRuntimeConfig.socketUrl);
     setSocket(newSocket);
 
     newSocket.on("connect", () => {
@@ -1323,8 +1342,9 @@ export default function App() {
       setConnectionStatus('disconnected');
     });
 
-    newSocket.on("connect_error", () => {
-      setConnectionStatus('error');
+    newSocket.on("connect_error", (error) => {
+      setConnectionStatus('connection_failed');
+      setRoomError(`Unable to connect to multiplayer backend: ${error.message}`);
     });
 
     newSocket.on("room-error", (error: string) => {
@@ -1453,8 +1473,9 @@ export default function App() {
       newSocket.off("boss-defeated");
       newSocket.off("game-over");
       newSocket.disconnect();
+      setSocket(null);
     };
-  }, []);
+  }, [multiplayerRuntimeConfig.socketUrl, multiplayerRuntimeConfig.reason, socketRetryNonce]);
 
   // Keep a ref to gameMode so socket listeners (registered once) can branch correctly.
   useEffect(() => {
@@ -2790,6 +2811,11 @@ export default function App() {
             setRoomId={setRoomId}
             socket={socket}
             connectionStatus={connectionStatus}
+            socketUrl={multiplayerRuntimeConfig.socketUrl}
+            multiplayerConfigSource={multiplayerRuntimeConfig.source}
+            multiplayerConfigReason={multiplayerRuntimeConfig.reason}
+            roomError={roomError}
+            onRetryMultiplayer={retryMultiplayerConnection}
             setIsMultiplayerWaiting={setIsMultiplayerWaiting}
             startGame={startGame}
             setShowUpgradeMenu={setShowUpgradeMenu}
@@ -2824,6 +2850,8 @@ export default function App() {
           socket={socket}
           connectionStatus={connectionStatus}
           roomError={roomError}
+          socketUrl={multiplayerRuntimeConfig.socketUrl}
+          onRetry={retryMultiplayerConnection}
           onLeave={() => {
             socket?.emit('leave-room', roomId);
             setIsMultiplayerWaiting(false);
