@@ -169,9 +169,9 @@ export const WAVES: WaveConfig[] = [
   // ── Wave 1: CALIBRATION — gentle intro ────────────────────────────
   {
     id: 1, name: 'CALIBRATION',
-    objective: 'hit_count', objectiveValue: 12,
-    targetPool: ['standard', 'standard', 'standard', 'moving', 'bonus'],
-    spawnRateMs: 1400, maxConcurrent: 3, swarmChance: 0,
+    objective: 'hit_count', objectiveValue: 10,
+    targetPool: ['standard', 'standard', 'moving', 'bonus'],
+    spawnRateMs: 900, maxConcurrent: 4, swarmChance: 0.08,
     intensity: 'rest', powerupChance: 0.05,
     depthBias: 'mid', lanePattern: 'spread',
   },
@@ -179,17 +179,17 @@ export const WAVES: WaveConfig[] = [
   {
     id: 2, name: 'SKIRMISH',
     objective: 'hit_count', objectiveValue: 18,
-    targetPool: ['standard', 'moving', 'moving', 'armored', 'bonus'],
-    spawnRateMs: 1100, maxConcurrent: 4, swarmChance: 0.10,
+    targetPool: ['standard', 'moving', 'moving', 'drone', 'armored', 'bonus'],
+    spawnRateMs: 780, maxConcurrent: 5, swarmChance: 0.16,
     intensity: 'build', powerupChance: 0.07,
     depthBias: 'any', lanePattern: 'spread',
   },
   // ── Wave 3: ARMOR BREACH — introduce armored foes ─────────────────
   {
     id: 3, name: 'ARMOR BREACH',
-    objective: 'hit_count', objectiveValue: 20,
-    targetPool: ['armored', 'armored', 'shielded', 'heavy_armor', 'standard'],
-    spawnRateMs: 1000, maxConcurrent: 4, swarmChance: 0.05,
+    objective: 'hit_count', objectiveValue: 18,
+    targetPool: ['armored', 'armored', 'shielded', 'heavy_armor', 'standard', 'bonus'],
+    spawnRateMs: 820, maxConcurrent: 5, swarmChance: 0.10,
     intensity: 'normal', powerupChance: 0.06,
     depthBias: 'mid', lanePattern: 'spread',
   },
@@ -205,9 +205,9 @@ export const WAVES: WaveConfig[] = [
   // ── Wave 5: RECON PAUSE — rest after swarm ────────────────────────
   {
     id: 5, name: 'RECON PAUSE',
-    objective: 'hit_count', objectiveValue: 10,
-    targetPool: ['bonus', 'bonus', 'standard', 'moving'],
-    spawnRateMs: 1600, maxConcurrent: 3, swarmChance: 0,
+    objective: 'hit_count', objectiveValue: 8,
+    targetPool: ['bonus', 'bonus', 'standard', 'moving', 'powerup_rapid'],
+    spawnRateMs: 950, maxConcurrent: 3, swarmChance: 0,
     intensity: 'rest', powerupChance: 0.22,
     depthBias: 'mid', lanePattern: 'center',
   },
@@ -516,13 +516,16 @@ export class GameplayDirector {
       // Precision rifles reward accurate long-range shots
       typePool.push('phase_target', 'teleporting', 'erratic');
       depthBias = 'far';
+      swarmChance = Math.max(0, swarmChance - 0.08);
     } else if (profile === 'heavy') {
       // Heavy blasters are rewarded with armored targets they can crack
-      typePool.push('armored', 'heavy_armor', 'armored');
+      typePool.push('armored', 'heavy_armor', 'armored', 'shielded');
       if (depthBias === 'far') depthBias = 'mid'; // bring targets closer
+      swarmChance = Math.max(swarmChance, 0.12);
     } else if (profile === 'auto') {
       // Auto-blasters excel in swarms
-      swarmChance = Math.min(0.9, swarmChance + 0.15);
+      typePool.push('drone', 'moving', 'bonus');
+      swarmChance = Math.min(0.9, swarmChance + 0.22);
     }
 
     // ── Arena bias: append the arena's signature targets to the pool and
@@ -557,7 +560,7 @@ export class GameplayDirector {
     if (Math.random() < swarmChance) {
       // SWARM RUSH bursts saturate multiple lanes simultaneously to sell
       // the signature multi-lane feel; other waves keep the original 3.
-      spawnCount = config.waveType === 'swarm_rush' ? 4 : 3;
+      spawnCount = config.waveType === 'swarm_rush' ? 4 : profile === 'auto' ? 4 : 3;
       typePool.push('moving', 'drone');
     }
 

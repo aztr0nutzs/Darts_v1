@@ -6,7 +6,7 @@ import {
   Trophy, RefreshCw, Home, ShieldPlus, Wind, Cpu
 } from 'lucide-react';
 import type { Socket } from 'socket.io-client';
-import { NerfReactor, FloatingOrb, ParticleSystem, DamageIndicator, ScanningLaser, CyberGridBackground, CRTOverlay } from './components/BackgroundElements';
+import { DamageIndicator, ScanningLaser, CyberGridBackground, CRTOverlay } from './components/BackgroundElements';
 import { sounds, HAPTIC, hapticForGun } from './lib/sounds';
 
 import MainMenu from './components/MainMenu';
@@ -1251,6 +1251,10 @@ export default function App() {
   const pendingFireResults = useRef<Map<string, any>>(new Map());
   const gameModeRef = useRef<GameMode>('classic');
 
+  const handleBootComplete = useCallback(() => {
+    setHasBooted(true);
+  }, []);
+
   // Persistence
   const [credits, setCredits] = useState(() => parseInt(localStorage.getItem('nerf_credits') || '0'));
   const [unlockedGuns, setUnlockedGuns] = useState<string[]>(() => {
@@ -1600,6 +1604,10 @@ export default function App() {
     setCurrentArena(pickedArena);
   };
 
+  const handleCountdownComplete = useCallback(() => {
+    setShowCountdown(false);
+  }, []);
+
   const [isADS, setIsADS] = useState(false);
   const [isFiring, setIsFiring] = useState(false);
   const [pointerSway, setPointerSway] = useState({ x: 0, y: 0 });
@@ -1746,7 +1754,7 @@ export default function App() {
       setTargets(prev => {
         if (prev.length >= director.getWaveConfig().maxConcurrent) return prev;
 
-        const newSpawns = director.generateSpawn(prev.length, currentGun.fireMode);
+        const newSpawns = director.generateSpawn(prev.length, currentGun.id);
         if (newSpawns.length === 0) return prev;
 
         return [...prev, ...newSpawns];
@@ -1891,7 +1899,7 @@ export default function App() {
       clearInterval(cleanupInterval);
       clearInterval(timerInterval);
     };
-  }, [gameState, gameMode, showCountdown, multiplayerState, socket]);
+  }, [gameState, gameMode, showCountdown, multiplayerState, socket, currentGun.id, takeDamage]);
 
   // Game Over Condition Check
   useEffect(() => {
@@ -2584,10 +2592,11 @@ export default function App() {
       
       if (!isCrit) vibrate(HAPTIC.DESTROY);
       
-      const comboMultiplier = Math.min(newCombo, 5);
+      const comboMultiplier = Math.min(newCombo, 6);
       const isCriticalHitForScore = target.type === 'erratic' || isCrit || Date.now() < activeBuffs.damage;
       const qualityScoreBonus = quality === 'weak_point' ? 2.0 : quality === 'center' ? 1.5 : quality === 'graze' ? 0.75 : 1.0;
-      const totalPoints = Math.round(target.points * comboMultiplier * (isCriticalHitForScore ? 2 : 1) * qualityScoreBonus);
+      const streakBonus = newCombo >= 12 ? 1.35 : newCombo >= 8 ? 1.22 : newCombo >= 4 ? 1.12 : 1;
+      const totalPoints = Math.round(target.points * comboMultiplier * (isCriticalHitForScore ? 2 : 1) * qualityScoreBonus * streakBonus);
       
       setScore(s => s + totalPoints);
 
@@ -2598,7 +2607,7 @@ export default function App() {
           id: Math.random().toString(),
           x: target.x,
           y: target.y - 20,
-          text: isCriticalHitForScore ? `CRIT! ${totalPoints}` : `+${totalPoints}`,
+          text: isCriticalHitForScore ? `CRIT! ${totalPoints}` : newCombo >= 4 ? `CHAIN x${newCombo} +${totalPoints}` : `+${totalPoints}`,
           color: isCriticalHitForScore ? '#facc15' : '#ffffff',
           isCritical: isCriticalHitForScore
         }
@@ -2696,12 +2705,12 @@ export default function App() {
 
   return (
     <div 
-      className="relative w-full h-screen overflow-hidden bg-[#050505] select-none touch-none film-grain"
+      className={`relative w-full h-screen overflow-hidden bg-[#050505] select-none touch-none ${uiSettings.screenEffects !== false ? 'film-grain' : ''}`}
       onMouseMove={handleMouseMove}
     >
       <AnimatePresence>
         {!hasBooted && (
-          <BootSequence onComplete={() => setHasBooted(true)} />
+          <BootSequence onComplete={handleBootComplete} />
         )}
       </AnimatePresence>
 
@@ -2937,7 +2946,7 @@ export default function App() {
       <AnimatePresence>
         {showCountdown && (
           <Suspense fallback={<DeferredModuleFallback label="Loading mission" />}>
-            <CountdownOverlay onComplete={() => setShowCountdown(false)} />
+            <CountdownOverlay onComplete={handleCountdownComplete} />
           </Suspense>
         )}
       </AnimatePresence>
@@ -2994,13 +3003,16 @@ export default function App() {
                  perspective: '1000px'
                }}
             >
-              <CyberGridBackground />
-              <ParticleSystem />
-              <ScanningLaser />
+              {uiSettings.screenEffects !== false && (
+                <>
+                  <CyberGridBackground />
+                  <ScanningLaser />
+                </>
+              )}
             </motion.div>
             
             <DamageIndicator direction={damageDirection} />
-            <CRTOverlay />
+            {uiSettings.screenEffects !== false && <CRTOverlay />}
             
             {/* Enemy Projectiles */}
             {enemyDarts.map(proj => (
@@ -3013,12 +3025,6 @@ export default function App() {
                 }} 
               />
             ))}
-            <div className="absolute top-1/4 right-1/4 opacity-50">
-              <NerfReactor onClick={() => console.log('Reactor clicked!')} />
-            </div>
-            <div className="absolute bottom-1/3 left-1/3">
-              <FloatingOrb icon={Zap} color="yellow" delay={0} onClick={() => console.log('Orb clicked!')} />
-            </div>
             <CustomCrosshair 
               x={cursorSpringX} 
               y={cursorSpringY} 

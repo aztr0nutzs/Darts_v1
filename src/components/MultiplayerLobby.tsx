@@ -55,15 +55,14 @@ export default function MultiplayerLobby({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-[#020617]/95 backdrop-blur-2xl p-4 md:p-8 overflow-y-auto"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black p-4 md:p-8 overflow-y-auto"
     >
-      {/* Background Tech Effects */}
-      <div className="absolute inset-0 pointer-events-none opacity-20 overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_center,#1e3a8a_0%,transparent_70%)]" />
-        <div className="absolute top-0 left-0 w-full h-[1px] bg-cyan-500/20 animate-scan" style={{ animation: 'scan 4s linear infinite' }} />
+      {/* Black-first lobby shell; thin structure replaces blue animated backdrop. */}
+      <div className="absolute inset-0 pointer-events-none opacity-100 overflow-hidden">
+        <div className="absolute inset-x-0 top-0 h-px bg-white/20" />
         <div className="grid grid-cols-8 gap-4 p-8">
            {[...Array(64)].map((_, i) => (
-             <div key={i} className="aspect-square border border-white/5 rounded-sm" />
+             <div key={i} className="aspect-square border border-white/[0.025] rounded-sm" />
            ))}
         </div>
       </div>
@@ -72,17 +71,17 @@ export default function MultiplayerLobby({
         
         {/* Left Column: Room Info */}
         <div className="md:col-span-5 flex flex-col gap-6">
-          <div className="bg-slate-900/50 border border-slate-800 p-6 rounded-2xl relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-2 bg-slate-800 flex items-center gap-2">
+          <div className="bg-[#050505] border border-white/10 p-6 rounded-md relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-2 bg-[#111] flex items-center gap-2">
                {connectionStatus === 'connected' ? (
                  <>
                    <span className="text-[8px] font-black text-green-500 uppercase tracking-widest">{statusLabel}</span>
-                   <Wifi className="w-3 h-3 text-green-500 animate-pulse" />
+                   <Wifi className="w-3 h-3 text-green-500" />
                  </>
                ) : connectionStatus === 'connecting' ? (
                  <>
                    <span className="text-[8px] font-black text-yellow-500 uppercase tracking-widest">{statusLabel}</span>
-                   <Activity className="w-3 h-3 text-yellow-500 animate-spin" />
+                   <Activity className="w-3 h-3 text-yellow-500" />
                  </>
                ) : (
                  <>
@@ -127,21 +126,21 @@ export default function MultiplayerLobby({
             )}
           </div>
 
-          <div className="bg-slate-900/50 border border-slate-800 p-6 rounded-2xl flex-1">
+          <div className="bg-[#050505] border border-white/10 p-6 rounded-md flex-1">
              <div className="flex items-center justify-between mb-4">
                 <span className="text-[10px] font-black text-slate-500 tracking-[0.4em] uppercase">SYSTEM_OVERRIDE</span>
                 <Terminal className="w-4 h-4 text-slate-600" />
              </div>
              <div className="space-y-3">
-                <div className="p-3 bg-black/40 border border-white/5 rounded-lg flex items-center justify-between">
+                <div className="p-3 bg-black border border-white/10 rounded-md flex items-center justify-between">
                    <span className="text-xs font-bold text-slate-300 tracking-wider">WAITING_FOR_SQUAD</span>
                    <span className="text-xs font-black text-cyan-400">{players.length}/4</span>
                 </div>
-                <div className="p-3 bg-black/40 border border-white/5 rounded-lg flex items-center justify-between">
+                <div className="p-3 bg-black border border-white/10 rounded-md flex items-center justify-between">
                    <span className="text-xs font-bold text-slate-300 tracking-wider">GAME_MODE</span>
                    <span className="text-xs font-black text-orange-500">MULTIPLAYER_ARENA</span>
                 </div>
-                <div className="p-3 bg-black/40 border border-white/5 rounded-lg">
+                <div className="p-3 bg-black border border-white/10 rounded-md">
                    <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-bold text-slate-300 tracking-wider">READY_STATUS</span>
                       <span className="text-xs font-black text-white">{players.filter((p: any) => p.ready).length}/{players.length}</span>
@@ -159,7 +158,7 @@ export default function MultiplayerLobby({
 
           <button 
             onClick={onLeave}
-            className="w-full bg-red-950/20 border border-red-500/30 hover:bg-red-500/20 text-red-500 p-4 rounded-xl font-black text-xs tracking-[0.5em] transition-all flex items-center justify-center gap-3 active:scale-95"
+            className="w-full bg-red-950/20 border border-red-500/30 hover:bg-red-500/20 text-red-500 p-4 rounded-md font-black text-xs tracking-[0.5em] transition-all flex items-center justify-center gap-3 active:scale-95"
           >
             <LogOut className="w-4 h-4" />
             DISCONNECT_SESSION
@@ -168,7 +167,7 @@ export default function MultiplayerLobby({
 
         {/* Right Column: Player List */}
         <div className="md:col-span-7 flex flex-col gap-4">
-           <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-2xl flex-1 flex flex-col">
+           <div className="bg-[#050505] border border-white/10 p-6 rounded-md flex-1 flex flex-col">
               <div className="flex items-center gap-3 mb-6">
                 <Users className="w-6 h-6 text-cyan-400" />
                 <h3 className="text-2xl font-black text-white italic tracking-tight uppercase">Squad_Manifest</h3>
@@ -182,7 +181,7 @@ export default function MultiplayerLobby({
                         initial={{ x: 20, opacity: 0 }}
                         animate={{ x: 0, opacity: 1 }}
                         exit={{ x: -20, opacity: 0 }}
-                        className={`flex items-center justify-between p-4 rounded-xl border ${p.id === socket?.id ? 'bg-cyan-500/10 border-cyan-500/40 shadow-[0_0_20px_rgba(34,211,238,0.1)]' : 'bg-slate-900/60 border-slate-800'}`}
+                        className={`flex items-center justify-between p-4 rounded-md border ${p.id === socket?.id ? 'bg-cyan-500/10 border-cyan-500/40' : 'bg-black border-white/10'}`}
                       >
                          <div className="flex items-center gap-4">
                             <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black ${p.id === socket?.id ? 'bg-cyan-500 text-black' : 'bg-slate-800 text-slate-400'}`}>
@@ -227,7 +226,7 @@ export default function MultiplayerLobby({
                  </AnimatePresence>
                  
                  {players.length < 4 && (
-                   <div className="p-4 rounded-xl border border-dashed border-slate-800 flex items-center justify-center text-slate-700 font-bold text-xs uppercase tracking-[0.3em]">
+                   <div className="p-4 rounded-md border border-dashed border-white/10 flex items-center justify-center text-slate-700 font-bold text-xs uppercase tracking-[0.3em]">
                       Waiting for reinforcement...
                    </div>
                  )}
@@ -237,7 +236,7 @@ export default function MultiplayerLobby({
                  <button 
                    onClick={onReady}
                    disabled={!isConnected || localPlayer?.ready}
-                   className={`w-full py-5 rounded-2xl font-black text-lg tracking-[0.4em] italic uppercase transition-all shadow-2xl relative overflow-hidden group
+                   className={`w-full py-5 rounded-md font-black text-lg tracking-[0.4em] italic uppercase transition-all relative overflow-hidden group
                     ${!isConnected || localPlayer?.ready 
                       ? 'bg-zinc-800 text-zinc-600 cursor-default grayscale' 
                       : 'bg-green-500 text-black hover:bg-green-400 active:scale-95'}`}
@@ -246,15 +245,11 @@ export default function MultiplayerLobby({
                        {!isConnected ? 'BACKEND_OFFLINE' : localPlayer?.ready ? 'MOD_READY' : 'CONFIRM_READY'}
                     </div>
                     {isConnected && !localPlayer?.ready && (
-                      <motion.div 
-                        animate={{ x: ['-100%', '100%'] }}
-                        transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-                        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent w-full"
-                      />
+                      <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                     )}
                  </button>
                  {isHost && players.length < 2 && (
-                   <p className="text-center text-[10px] font-bold text-orange-500 mt-2 animate-pulse uppercase">Host requires 2+ squad members to start</p>
+                   <p className="text-center text-[10px] font-bold text-orange-500 mt-2 uppercase">Host requires 2+ squad members to start</p>
                  )}
               </div>
            </div>

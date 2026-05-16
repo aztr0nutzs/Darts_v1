@@ -465,12 +465,15 @@ function WeaponSVG({ gun, layer, arch }: { gun: GunType; layer: Layer; arch: Arc
 // remains as the visual fallback. This preserves all existing rigging and
 // animations — recoil, sway, ADS, reload, muzzle flash positions — because we
 // only paint a sprite on the same transform stack.
-function BlasterImage({ gunId, archetype }: { gunId: string; archetype: Archetype }) {
-  const [failed, setFailed] = React.useState(false);
-  const asset = React.useMemo(() => getBlasterAsset(gunId), [gunId]);
-
-  if (failed) return null;
-
+function BlasterImage({
+  asset,
+  archetype,
+  onError,
+}: {
+  asset: ReturnType<typeof getBlasterAsset>;
+  archetype: Archetype;
+  onError: () => void;
+}) {
   // Tuned per archetype so the sprite anchors near the SVG barrel/grip.
   const layout = ARCHETYPE_IMG_LAYOUT[archetype];
 
@@ -493,7 +496,7 @@ function BlasterImage({ gunId, archetype }: { gunId: string; archetype: Archetyp
         draggable={false}
         loading="eager"
         decoding="async"
-        onError={() => setFailed(true)}
+        onError={onError}
         style={{
           width: '100%',
           height: '100%',
@@ -511,14 +514,14 @@ function BlasterImage({ gunId, archetype }: { gunId: string; archetype: Archetyp
 // Coordinates are in the SVG local space (top/left in px relative to the
 // 700×380 frame). Width/height keep the image readable at first-person scale.
 const ARCHETYPE_IMG_LAYOUT: Record<Archetype, { left: number; top: number; width: number; height: number; transform: string }> = {
-  pistol:   { left: 30,  top: 60,  width: 360, height: 260, transform: 'rotate(-2deg)' },
-  revolver: { left: 30,  top: 60,  width: 360, height: 260, transform: 'rotate(-2deg)' },
-  smg:      { left: 20,  top: 60,  width: 400, height: 260, transform: 'rotate(-2deg)' },
-  double:   { left: 0,   top: 60,  width: 600, height: 240, transform: 'rotate(-1deg)' },
-  shotgun:  { left: 0,   top: 60,  width: 540, height: 260, transform: 'rotate(-1deg)' },
-  carbine:  { left: 0,   top: 60,  width: 600, height: 240, transform: 'rotate(-1deg)' },
-  sniper:   { left: 0,   top: 60,  width: 660, height: 240, transform: 'rotate(-1deg)' },
-  heavy:    { left: 0,   top: 60,  width: 620, height: 280, transform: 'rotate(-1deg)' },
+  pistol:   { left: 4,   top: 32,  width: 430, height: 310, transform: 'rotate(-2deg)' },
+  revolver: { left: 4,   top: 32,  width: 430, height: 310, transform: 'rotate(-2deg)' },
+  smg:      { left: -8,  top: 32,  width: 490, height: 310, transform: 'rotate(-2deg)' },
+  double:   { left: -38, top: 32,  width: 690, height: 300, transform: 'rotate(-1deg)' },
+  shotgun:  { left: -42, top: 28,  width: 640, height: 320, transform: 'rotate(-1deg)' },
+  carbine:  { left: -42, top: 28,  width: 700, height: 310, transform: 'rotate(-1deg)' },
+  sniper:   { left: -52, top: 28,  width: 760, height: 300, transform: 'rotate(-1deg)' },
+  heavy:    { left: -52, top: 20,  width: 720, height: 340, transform: 'rotate(-1deg)' },
 };
 
 // ─── MAIN GUN COMPONENT ───────────────────────────────────────────────────────
@@ -536,6 +539,8 @@ export default function Gun({
   weaponFeedback,
 }: GunProps) {
   const arch = gun.archetype;
+  const blasterAsset = React.useMemo(() => getBlasterAsset(gun.id), [gun.id]);
+  const [assetFailed, setAssetFailed] = React.useState(false);
   const muzzle = MUZZLE_POS[arch];
   const feel = ARCHETYPE_FEEL[arch];
   const flashOffset = WEAPON_MUZZLE_OVERRIDE[gun.id] ?? MUZZLE_FLASH_OFFSET[arch];
@@ -570,6 +575,10 @@ export default function Gun({
   // tail dedicated to settling. Tuned independently of fireRate (purely visual).
   const recoilTimes: [number, number, number, number] = [0, 0.10, 0.55, 1];
   const recoilEase: [number, number, number, number] = [0.08, 0.0, 0.55, 1.0];
+
+  React.useEffect(() => {
+    setAssetFailed(false);
+  }, [blasterAsset.src]);
 
   return (
     <motion.div
@@ -698,20 +707,9 @@ export default function Gun({
               ease: isShooting ? recoilEase : 'easeOut',
             }}
           >
-            {/* Back shadow layer — pushed deeper into Z for stronger parallax. */}
-            <div className="absolute inset-0" style={{ transform: `translateZ(${-feel.depthPx}px)` }}>
-              <WeaponSVG gun={gun} layer="back" arch={arch} />
-            </div>
-
-            {/* Mid — main body, anchor plane. */}
-            <div className="absolute inset-0" style={{ transform: 'translateZ(0px)' }}>
-              <WeaponSVG gun={gun} layer="mid" arch={arch} />
-            </div>
-
-            {/* Front layer — pushed forward in Z and scaled larger so the barrel
-                end reads bigger than the rear (foreground dominance + barrel-
-                forward perspective illusion). Drop-shadow gives the underside
-                contact shadow that pairs with the SVG's top-light gloss. */}
+            {/* Supplied blaster PNG is the primary weapon visual. The procedural
+                SVG renders only as a failure fallback so it cannot obscure or
+                cheapen the real asset art. */}
             <div
               className="absolute inset-0"
               style={{
@@ -720,10 +718,11 @@ export default function Gun({
                 filter: 'drop-shadow(0 12px 10px rgba(0,0,0,0.55)) drop-shadow(0 2px 2px rgba(0,0,0,0.7))',
               }}
             >
-              <WeaponSVG gun={gun} layer="front" arch={arch} />
-              {/* Image asset layered above the SVG so transparent PNGs read
-                  cleanly. If the image errors, the SVG underneath stays. */}
-              <BlasterImage gunId={gun.id} archetype={arch} />
+              {assetFailed ? (
+                <WeaponSVG gun={gun} layer="front" arch={arch} />
+              ) : (
+                <BlasterImage asset={blasterAsset} archetype={arch} onError={() => setAssetFailed(true)} />
+              )}
               {muzzleRef && (
                 <div
                   ref={muzzleRef}

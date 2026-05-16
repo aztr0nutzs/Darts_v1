@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { sounds } from '../lib/sounds';
 
@@ -8,18 +8,42 @@ interface CountdownOverlayProps {
 
 export default function CountdownOverlay({ onComplete }: CountdownOverlayProps) {
   const [count, setCount] = useState(3);
+  const onCompleteRef = useRef(onComplete);
 
   useEffect(() => {
-    if (count > 0) {
-      sounds.playCountdown();
-      const timer = setTimeout(() => setCount(count - 1), 1000);
-      return () => clearTimeout(timer);
-    } else {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
+  useEffect(() => {
+    let step = 3;
+    let cancelled = false;
+
+    const runStep = () => {
+      if (cancelled) return;
+      setCount(step);
+
+      if (step > 0) {
+        sounds.playCountdown();
+        step -= 1;
+        window.setTimeout(runStep, 1000);
+        return;
+      }
+
       sounds.playMatchStart();
-      const timer = setTimeout(onComplete, 800);
-      return () => clearTimeout(timer);
-    }
-  }, [count, onComplete]);
+      window.setTimeout(() => {
+        if (!cancelled) onCompleteRef.current();
+      }, 800);
+    };
+
+    // Parent rerenders used to recreate the inline onComplete callback and
+    // restart this timer. The sequence now runs once per mount and calls the
+    // latest callback through a ref.
+    runStep();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none select-none overflow-hidden">

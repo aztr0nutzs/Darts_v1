@@ -58,7 +58,7 @@ export default function ResultsOverlay({
   }
 
   const StatItem = ({ label, value, icon: Icon, color }: { label: string, value: string | number, icon: any, color: string }) => (
-    <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-xl flex flex-col gap-1">
+    <div className="bg-[#050505] border border-white/10 p-4 rounded-md flex flex-col gap-1">
       <div className="flex items-center gap-2 text-slate-500 mb-1">
         <Icon className="w-3 h-3" />
         <span className="text-[10px] font-black uppercase tracking-widest">{label}</span>
@@ -72,12 +72,12 @@ export default function ResultsOverlay({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#020617]/98 backdrop-blur-2xl p-4 md:p-8"
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black p-4 md:p-8"
     >
-      {/* Background Decor */}
+      {/* Black-first debrief shell. No blue full-screen gradient or animated grain. */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className={`absolute top-0 left-0 w-full h-full ${isWinner ? 'bg-[radial-gradient(circle_at_center,#facc1510_0%,transparent_70%)]' : 'bg-[radial-gradient(circle_at_center,#1e3a8a_20%,transparent_70%)]'}`} />
-        <div className="absolute inset-0 opacity-10 bg-[url('https://grain-y.com/images/noise.png')]" />
+        <div className={`absolute inset-x-0 top-0 h-40 ${isWinner ? 'bg-yellow-500/5' : 'bg-white/[0.035]'}`} />
+        <div className="absolute inset-x-0 top-0 h-px bg-white/20" />
       </div>
 
       <div className="relative w-full max-w-5xl flex flex-col items-center h-[90vh] overflow-y-auto pr-4 custom-scrollbar">
@@ -112,7 +112,7 @@ export default function ResultsOverlay({
               )}
             </div>
 
-            <div className="bg-slate-900/60 border-2 border-yellow-500/30 p-8 rounded-3xl relative overflow-hidden group">
+            <div className="bg-[#050505] border border-yellow-500/30 p-8 rounded-md relative overflow-hidden group">
                <div className="absolute -top-4 -right-4 bg-yellow-500 text-black px-4 py-1 font-black text-[10px] italic skew-x-[-20deg]">AWARDED</div>
                <div className="flex items-center justify-between">
                   <div>
@@ -130,14 +130,14 @@ export default function ResultsOverlay({
           {/* Multiplayer/Social Column */}
           <div className="md:col-span-5 flex flex-col gap-4">
              {isMultiplayer ? (
-               <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-2xl flex-1 flex flex-col">
+               <div className="bg-[#050505] border border-white/10 p-6 rounded-md flex-1 flex flex-col">
                   <div className="flex items-center gap-3 mb-6">
                     <Users className="w-5 h-5 text-cyan-400" />
                     <h3 className="text-lg font-black text-white italic tracking-tight uppercase">Squad_Results</h3>
                   </div>
                   <div className="space-y-2 flex-1">
                      {players.map((p: any, idx: number) => (
-                       <div key={p.id} className={`flex items-center justify-between p-3 rounded-lg border ${p.id === socketId ? 'bg-cyan-500/10 border-cyan-500/40' : 'bg-black/40 border-slate-800'}`}>
+                       <div key={p.id} className={`flex items-center justify-between p-3 rounded-md border ${p.id === socketId ? 'bg-cyan-500/10 border-cyan-500/40' : 'bg-black border-white/10'}`}>
                           <div className="flex items-center gap-3">
                              <span className="text-xs font-black text-slate-500">#{idx + 1}</span>
                              <span className="text-xs font-bold text-white uppercase">{p.id.substring(0, 8)}</span>
@@ -149,7 +149,7 @@ export default function ResultsOverlay({
                   </div>
                </div>
              ) : (
-               <div className="bg-slate-900/40 border border-slate-800 p-8 rounded-2xl flex-1 flex flex-col items-center justify-center text-center">
+               <div className="bg-[#050505] border border-white/10 p-8 rounded-md flex-1 flex flex-col items-center justify-center text-center">
                   <Shield className="w-16 h-16 text-slate-800 mb-4" />
                   <p className="text-xs font-black text-slate-500 tracking-widest uppercase mb-2">Training_Complete</p>
                   <p className="text-[9px] font-bold text-slate-600 max-w-[200px] uppercase">All biometric data successfully uploaded to the central tac-net.</p>
@@ -159,14 +159,14 @@ export default function ResultsOverlay({
              <div className="flex flex-col gap-2 mt-auto pb-8">
                <button 
                  onClick={isMultiplayer ? onRematch : onRestart}
-                 className="w-full bg-white text-black py-4 rounded-xl font-black italic text-lg tracking-widest uppercase hover:bg-cyan-500 transition-all active:scale-[0.98] flex items-center justify-center gap-3 group"
+                 className="w-full bg-orange-500 text-black py-4 rounded-md font-black italic text-lg tracking-widest uppercase hover:bg-orange-400 transition-all active:scale-[0.98] flex items-center justify-center gap-3 group"
                >
                  <RefreshCw className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" />
                  {isMultiplayer ? 'REQUEST_REMATCH' : 'RESTART_LEVEL'}
                </button>
                <button 
                  onClick={onMenu}
-                 className="w-full bg-slate-800/50 hover:bg-slate-700/50 text-white/60 hover:text-white py-4 rounded-xl font-black italic text-xs tracking-[0.5em] uppercase transition-all flex items-center justify-center gap-3"
+                 className="w-full bg-[#050505] border border-white/10 hover:bg-[#111] text-white/60 hover:text-white py-4 rounded-md font-black italic text-xs tracking-[0.5em] uppercase transition-all flex items-center justify-center gap-3"
                >
                  <Home className="w-4 h-4" />
                  RETURN_TO_BASE

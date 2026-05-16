@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { GameMode, DartType, DART_TYPES } from '../App';
 import { GUNS, type GunType } from '../lib/guns';
-import { getBlasterAsset, getDartAsset } from '../lib/assetRegistry';
+import { getArenaAsset, getBlasterAsset, getDartAsset } from '../lib/assetRegistry';
 import type { MultiplayerConnectionStatus, MultiplayerRuntimeConfig } from '../lib/runtimeConfig';
 
 function BlasterCardThumb({ gunId }: { gunId: string }) {
@@ -22,7 +22,7 @@ function BlasterCardThumb({ gunId }: { gunId: string }) {
       loading="lazy"
       decoding="async"
       onError={() => setFailed(true)}
-      className="w-16 h-12 sm:w-20 sm:h-14 shrink-0 select-none"
+      className="w-24 h-16 sm:w-32 sm:h-20 shrink-0 select-none"
       style={{ objectFit: 'contain', objectPosition: 'center' }}
     />
   );
@@ -140,52 +140,54 @@ export default function MainMenu({
     { id: 'multiplayer', name: 'NETWORK', icon: Users, desc: 'PVP_CONJUNCTION', tag: 'PVP', color: 'from-yellow-600 to-yellow-900', border: 'border-yellow-500' },
     { id: 'coop', name: 'CO-OP', icon: Shield, desc: 'DUAL_SYNC', tag: 'TEAM', color: 'from-emerald-600 to-emerald-900', border: 'border-emerald-500' },
   ];
+  const currentBlasterAsset = getBlasterAsset(currentGun.id);
+  const arenaOverview = getArenaAsset('arena_overview');
 
   return (
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="absolute inset-0 z-50 flex flex-col pt-10 md:pt-16 pb-24 items-center bg-[#070b14] overflow-x-hidden overflow-y-auto font-sans custom-scrollbar select-none"
+      className="absolute inset-0 z-50 flex flex-col pt-8 md:pt-10 pb-20 items-center bg-black overflow-x-hidden overflow-y-auto font-sans custom-scrollbar select-none"
     >
-      {/* VIVID PREMIUM BACKGROUND */}
+      {/* Black-first shell: artwork sits inside panels instead of coloring the whole screen blue. */}
       <div className="fixed inset-0 pointer-events-none">
-        {/* Deep base gradient */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,#1e3a8a_0%,#020617_80%)] opacity-80" />
-        
-        {/* Technological Grid Pattern */}
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCI+CjxyZWN0IHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmZmZmIiBzdHJva2Utb3BhY2l0eT0iMC4wNSIgc3Ryb2tlLXdpZHRoPSIxIi8+Cjwvc3ZnPg==')] mask-image:linear-gradient(to_bottom,white,transparent)" />
-        
-        {/* Glow Effects */}
-        <div className="absolute -top-[20%] -right-[10%] w-[60vw] h-[60vw] max-w-[800px] max-h-[800px] bg-orange-600/10 rounded-full blur-[100px] md:blur-[150px] mix-blend-screen animate-pulse" />
-        <div className="absolute top-[20%] -left-[10%] w-[50vw] h-[50vw] max-w-[600px] max-h-[600px] bg-cyan-500/10 rounded-full blur-[100px] md:blur-[120px] mix-blend-screen" />
+        <div className="absolute inset-0 bg-black" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.055)_0,rgba(255,255,255,0)_220px)]" />
+        <div className="absolute inset-x-0 top-0 h-px bg-white/20" />
       </div>
 
       <div className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8 flex flex-col min-h-full">
         
         {/* PREMIUM TITLE HEADER */}
-        <div className="flex flex-col items-center mb-10 md:mb-16 mt-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-6 lg:gap-10 mb-8 md:mb-10 mt-2 items-end">
+          <div className="flex flex-col items-start">
           <motion.div 
             initial={{ y: -50, opacity: 0 }} 
             animate={{ y: 0, opacity: 1 }}
-            className="flex items-center gap-3 px-4 py-1.5 rounded-full bg-slate-900/60 border border-slate-700/50 mb-6 backdrop-blur-md shadow-lg"
+            className="flex items-center gap-3 px-4 py-1.5 bg-[#070707] border border-white/10 mb-5"
           >
-            <div className={`w-2 h-2 rounded-full animate-pulse shadow-[0_0_8px] ${connectionStatus === 'connected' ? 'bg-green-500 shadow-green-500' : connectionStatus === 'connection_failed' || connectionStatus === 'not_configured' ? 'bg-red-500 shadow-red-500' : 'bg-orange-500 shadow-orange-500'}`} />
+            <div className={`w-2 h-2 rounded-full ${connectionStatus === 'connected' ? 'bg-green-500' : connectionStatus === 'connection_failed' || connectionStatus === 'not_configured' ? 'bg-red-500' : 'bg-orange-500'}`} />
             <span className="text-[10px] sm:text-xs font-bold text-slate-300 tracking-widest uppercase">
               {connectionStatus === 'connected' ? 'SYNCED_LIVE' : connectionStatus === 'connecting' ? 'SYNCING...' : 'OFFLINE_MODE'}
             </span>
-            <div className="w-2 h-2 rounded-full bg-cyan-500 shadow-[0_0_8px_#06b6d4]" />
           </motion.div>
 
-          <div className="relative text-center">
-            <h1 className="text-6xl sm:text-8xl lg:text-[10rem] font-black italic tracking-tighter uppercase text-white drop-shadow-[0_0_30px_rgba(34,211,238,0.3)] leading-none -skew-x-12 relative z-10">
-              DART<span className="text-transparent bg-clip-text bg-gradient-to-br from-orange-400 to-orange-600 drop-shadow-[0_0_30px_rgba(249,115,22,0.4)]">STRIKE</span>
+          <div className="relative text-left">
+            <h1 className="text-6xl sm:text-8xl lg:text-[9rem] font-black italic uppercase text-white leading-[0.82] -skew-x-12 relative z-10">
+              DART<span className="text-orange-500">STRIKE</span>
             </h1>
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-12 bg-gradient-to-r from-transparent via-cyan-500/30 to-transparent blur-xl z-0" />
           </div>
           
-          <div className="mt-2 text-cyan-400 font-bold tracking-[0.5em] md:tracking-[1em] text-xs md:text-sm uppercase opacity-80 decoration-2 underline-offset-8 decoration-cyan-500/50 underline">
+          <div className="mt-4 text-cyan-400 font-bold tracking-[0.35em] md:tracking-[0.65em] text-xs md:text-sm uppercase">
             TACTICAL ASSAULT ARENA
+          </div>
+          </div>
+          <div className="relative hidden lg:block h-56 border border-white/10 bg-[#050505] overflow-hidden">
+            <img src={arenaOverview.src} alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover opacity-35 grayscale contrast-125" />
+            <img src={currentBlasterAsset.src} alt={currentBlasterAsset.label} className="absolute right-[-7%] bottom-[-18%] w-[118%] h-[105%] object-contain object-right-bottom drop-shadow-[0_22px_18px_rgba(0,0,0,0.85)]" />
+            <div className="absolute left-5 top-5 text-[10px] font-black uppercase tracking-[0.28em] text-orange-400">Equipped</div>
+            <div className="absolute left-5 bottom-5 max-w-[55%] text-2xl font-black italic uppercase leading-none text-white">{currentGun.name}</div>
           </div>
         </div>
 
@@ -209,13 +211,13 @@ export default function MainMenu({
                   <button
                     key={mode.id}
                     onClick={() => setGameMode(mode.id as GameMode)}
-                    className={`group relative flex items-center justify-between p-4 sm:p-5 rounded-xl border-2 transition-all overflow-hidden text-left
-                      ${isSelected ? `bg-gradient-to-br ${mode.color} ${mode.border} shadow-[0_0_20px_rgba(255,255,255,0.1)] scale-[1.02] active:scale-[0.98]` 
-                      : 'bg-slate-900/60 border-slate-700 hover:border-slate-500 hover:bg-slate-800/80 active:scale-[0.98]'}`}
+                    className={`group relative flex items-center justify-between p-4 sm:p-5 rounded-md border transition-all overflow-hidden text-left
+                      ${isSelected ? `bg-[#0a0a0a] ${mode.border} active:scale-[0.98]` 
+                      : 'bg-[#050505] border-white/10 hover:border-slate-500 hover:bg-[#090909] active:scale-[0.98]'}`}
                   >
                     <div className="flex items-center gap-4 relative z-10">
                       <div className={`p-3 rounded-lg flex items-center justify-center transition-colors
-                        ${isSelected ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400 group-hover:text-slate-200 group-hover:bg-slate-700'}`}>
+                        ${isSelected ? 'bg-orange-500 text-black' : 'bg-[#111] text-slate-400 group-hover:text-slate-200 group-hover:bg-[#171717]'}`}>
                         <Icon className="w-6 h-6 sm:w-8 sm:h-8" />
                       </div>
                       <div className="flex flex-col">
@@ -232,9 +234,6 @@ export default function MainMenu({
                         {mode.tag}
                       </div>
                     )}
-                    {isSelected && (
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 blur-[30px] rounded-full translate-x-1/2 -translate-y-1/2" />
-                    )}
                   </button>
                 );
               })}
@@ -247,7 +246,7 @@ export default function MainMenu({
                   initial={{ opacity: 0, height: 0, marginTop: 0 }}
                   animate={{ opacity: 1, height: 'auto', marginTop: 8 }}
                   exit={{ opacity: 0, height: 0, marginTop: 0 }}
-                  className="bg-slate-900/80 border border-yellow-500/30 rounded-xl p-5 relative overflow-hidden backdrop-blur-md"
+                  className="bg-[#050505] border border-yellow-500/30 rounded-md p-5 relative overflow-hidden"
                 >
                    <div className="flex items-center gap-3 mb-4 text-xs font-black text-yellow-500 tracking-[0.2em] uppercase">
                        <Wifi className={`w-4 h-4 ${isMultiplayerConnecting ? 'animate-pulse' : ''}`} />
@@ -317,7 +316,7 @@ export default function MainMenu({
                 <h2 className="text-xl md:text-2xl font-black text-white italic tracking-wider">LOADOUT</h2>
               </div>
               
-              <div className="flex items-center gap-2 bg-slate-900/80 border border-slate-700 px-4 py-2 rounded-lg relative overflow-hidden group">
+              <div className="flex items-center gap-2 bg-[#050505] border border-white/10 px-4 py-2 rounded-md relative overflow-hidden group">
                 <div className="absolute inset-0 bg-yellow-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                 <Coins className="w-5 h-5 text-yellow-500" />
                 <div className="text-xl font-black text-yellow-500 tracking-tighter shadow-black drop-shadow-md">{credits.toLocaleString()}</div>
@@ -340,9 +339,9 @@ export default function MainMenu({
                       <button
                         key={g.id}
                         onClick={() => isUnlocked ? setCurrentGun(g) : buyGun(g)}
-                        className={`group relative p-4 rounded-xl border-2 transition-all flex justify-between items-center overflow-hidden
-                          ${isSelected ? 'bg-gradient-to-r from-cyan-900/40 to-slate-900/80 border-cyan-500 shadow-[0_0_20px_rgba(34,211,238,0.15)] scale-[1.02]' : 
-                            isUnlocked ? 'bg-slate-900/60 border-slate-700 hover:border-cyan-500/50 hover:bg-slate-800' : 'bg-slate-950/80 border-slate-800/50 opacity-70 grayscale'}`}
+                        className={`group relative p-4 rounded-md border transition-all flex justify-between items-center overflow-hidden min-h-[112px]
+                          ${isSelected ? 'bg-[#0a0a0a] border-cyan-500 scale-[1.01]' : 
+                            isUnlocked ? 'bg-[#050505] border-white/10 hover:border-cyan-500/50 hover:bg-[#090909]' : 'bg-[#030303] border-white/5 opacity-70 grayscale'}`}
                       >
                         <div className="flex items-center gap-3 z-10 min-w-0">
                           <BlasterCardThumb gunId={g.id} />
@@ -365,13 +364,13 @@ export default function MainMenu({
                                </div>
                             </div>
                           ) : isSelected ? (
-                            <div className="w-4 h-4 rounded-full bg-cyan-400 shadow-[0_0_10px_#22d3ee] flex items-center justify-center">
+                            <div className="w-4 h-4 rounded-full bg-cyan-400 flex items-center justify-center">
                               <div className="w-1.5 h-1.5 rounded-full bg-white" />
                             </div>
                           ) : null}
                         </div>
 
-                        {isSelected && <div className="absolute inset-y-0 left-0 w-1 bg-cyan-400 shadow-[0_0_10px_#22d3ee]" />}
+                        {isSelected && <div className="absolute inset-y-0 left-0 w-1 bg-cyan-400" />}
                       </button>
                     );
                   })}
@@ -393,9 +392,9 @@ export default function MainMenu({
                       <button
                         key={d.id}
                         onClick={() => isUnlocked ? setCurrentDart(d) : buyDart(d)}
-                        className={`group relative p-4 rounded-xl border-2 transition-all flex flex-col justify-between h-[120px] overflow-hidden
-                          ${isSelected ? 'bg-gradient-to-br from-orange-900/40 to-slate-900/80 border-orange-500 shadow-[0_0_20px_rgba(249,115,22,0.15)] scale-[1.02]' : 
-                            isUnlocked ? 'bg-slate-900/60 border-slate-700 hover:border-orange-500/50 hover:bg-slate-800' : 'bg-slate-950/80 border-slate-800/50 opacity-70 grayscale'}`}
+                        className={`group relative p-4 rounded-md border transition-all flex flex-col justify-between h-[120px] overflow-hidden
+                          ${isSelected ? 'bg-[#0a0a0a] border-orange-500 scale-[1.01]' : 
+                            isUnlocked ? 'bg-[#050505] border-white/10 hover:border-orange-500/50 hover:bg-[#090909]' : 'bg-[#030303] border-white/5 opacity-70 grayscale'}`}
                       >
                          <div className="flex justify-between items-start z-10 w-full mb-2 gap-2">
                             <div className="flex items-center gap-2 min-w-0">
@@ -438,7 +437,7 @@ export default function MainMenu({
           
           <button 
             onClick={() => setShowUpgradeMenu(true)}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-3 bg-slate-900 border-2 border-slate-700 hover:bg-slate-800 hover:border-slate-500 text-slate-300 font-bold px-8 py-5 rounded-xl transition-all shadow-lg active:scale-95 group"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-3 bg-[#050505] border border-white/10 hover:bg-[#101010] hover:border-slate-500 text-slate-300 font-bold px-8 py-5 rounded-md transition-all active:scale-95 group"
           >
             <Settings className="w-6 h-6 group-hover:rotate-180 transition-transform duration-700" />
             <span className="tracking-widest uppercase text-sm sm:text-base">UPGRADES</span>
@@ -463,15 +462,14 @@ export default function MainMenu({
             disabled={gameMode === 'multiplayer' && !isMultiplayerReady}
             className={`flex-[2] sm:flex-none flex items-center justify-center gap-4 font-black px-12 py-5 rounded-xl transition-all active:scale-[0.98] group overflow-hidden relative ${
               gameMode === 'multiplayer' && !isMultiplayerReady
-                ? 'bg-slate-800 text-slate-500 cursor-not-allowed shadow-none'
-                : 'bg-cyan-500 hover:bg-cyan-400 text-slate-900 shadow-[0_0_30px_rgba(34,211,238,0.4)] hover:shadow-[0_0_40px_rgba(34,211,238,0.6)]'
+                ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed shadow-none'
+                : 'bg-orange-500 hover:bg-orange-400 text-black'
             }`}
           >
             <Play className="w-8 h-8 fill-slate-900 relative z-10 group-hover:scale-110 transition-transform" />
             <span className="text-xl sm:text-2xl tracking-tight italic uppercase relative z-10">
               {gameMode === 'multiplayer' ? 'HOST/JOIN MATCH' : 'START MISSION'}
             </span>
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-[200%] group-hover:animate-[shimmer_1.5s_infinite]" />
           </button>
 
         </div>
