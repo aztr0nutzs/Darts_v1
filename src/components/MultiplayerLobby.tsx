@@ -4,7 +4,7 @@ import {
   Users, CheckCircle2, Circle, Copy, LogOut, 
   Settings, Wifi, ShieldCheck, Activity, Terminal
 } from 'lucide-react';
-import { Socket } from 'socket.io-client';
+import type { Socket } from 'socket.io-client';
 import type { MultiplayerConnectionStatus } from '../lib/runtimeConfig';
 
 interface MultiplayerLobbyProps {
