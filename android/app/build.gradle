@@ -30,9 +30,19 @@ dependencies {
 def webRoot = rootProject.projectDir.parentFile
 def webDist = new File(webRoot, "dist")
 def generatedAssets = layout.buildDirectory.dir("generated/assets/web")
+def webNodeModules = new File(webRoot, "node_modules")
 def npmExecutable = System.getProperty("os.name").toLowerCase().contains("windows") ? "npm.cmd" : "npm"
 
+tasks.register("installWebDependencies", Exec) {
+    workingDir webRoot
+    commandLine npmExecutable, "ci"
+    inputs.file(new File(webRoot, "package.json"))
+    inputs.file(new File(webRoot, "package-lock.json"))
+    outputs.dir(webNodeModules)
+}
+
 tasks.register("buildWeb", Exec) {
+    dependsOn "installWebDependencies"
     workingDir webRoot
     commandLine npmExecutable, "run", "build"
 }
