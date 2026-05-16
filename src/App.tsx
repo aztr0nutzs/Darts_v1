@@ -5,7 +5,7 @@ import {
   Activity, Terminal, Settings, ShieldCheck, Wifi, LockOpen, Play, ArrowUpCircle, XCircle, Skull, 
   Trophy, RefreshCw, Home, ShieldPlus, Wind, Cpu
 } from 'lucide-react';
-import { io, Socket } from 'socket.io-client';
+import type { Socket } from 'socket.io-client';
 import { NerfReactor, FloatingOrb, ParticleSystem, DamageIndicator, ScanningLaser, CyberGridBackground, CRTOverlay } from './components/BackgroundElements';
 import { sounds, HAPTIC, hapticForGun } from './lib/sounds';
 
@@ -1341,150 +1341,172 @@ export default function App() {
       return;
     }
 
+    let disposed = false;
+    let activeSocket: Socket | null = null;
+
+    const disconnectSocket = (socketToDisconnect: Socket) => {
+      socketToDisconnect.off("connect");
+      socketToDisconnect.off("disconnect");
+      socketToDisconnect.off("connect_error");
+      socketToDisconnect.off("room-error");
+      socketToDisconnect.off("room-state");
+      socketToDisconnect.off("game-start");
+      socketToDisconnect.off("new-target");
+      socketToDisconnect.off("target-update");
+      socketToDisconnect.off("target-expired");
+      socketToDisconnect.off("target-destroyed");
+      socketToDisconnect.off("fire-result");
+      socketToDisconnect.off("wave-update");
+      socketToDisconnect.off("boss-spawned");
+      socketToDisconnect.off("boss-updated");
+      socketToDisconnect.off("boss-phase-changed");
+      socketToDisconnect.off("boss-defeated");
+      socketToDisconnect.off("game-over");
+      socketToDisconnect.disconnect();
+    };
+
     setConnectionStatus('connecting');
-    const newSocket = io(multiplayerRuntimeConfig.socketUrl);
-    setSocket(newSocket);
 
-    newSocket.on("connect", () => {
-      setConnectionStatus('connected');
-      setRoomError(null);
-    });
+    void import('socket.io-client')
+      .then(({ io }) => {
+        if (disposed) return;
 
-    newSocket.on("disconnect", () => {
-      setConnectionStatus('disconnected');
-    });
+        const newSocket = io(multiplayerRuntimeConfig.socketUrl);
+        activeSocket = newSocket;
+        setSocket(newSocket);
 
-    newSocket.on("connect_error", (error) => {
-      setConnectionStatus('connection_failed');
-      setRoomError(`Unable to connect to multiplayer backend: ${error.message}`);
-    });
+        newSocket.on("connect", () => {
+          setConnectionStatus('connected');
+          setRoomError(null);
+        });
 
-    newSocket.on("room-error", (error: string) => {
-      setRoomError(error);
-    });
+        newSocket.on("disconnect", () => {
+          setConnectionStatus('disconnected');
+        });
 
-    newSocket.on("room-state", (state) => {
-      setMultiplayerState(state);
-      if (state.gameState === 'playing' && gameState !== 'playing') {
-        startGame('multiplayer');
-        setIsMultiplayerWaiting(false);
-      }
-      if (state?.arenaId) {
-        const arena = arenaById(state.arenaId);
-        setCurrentArena(arena);
-        directorRef.current.setArena(arena.id);
-      }
-      if (state?.activeBoss) {
-        setActiveBoss(state.activeBoss);
-        setBossDefeated(false);
-      } else if (state?.bossDefeated) {
-        setActiveBoss(null);
-        setBossDefeated(true);
-        setTimeout(() => setBossDefeated(false), 3500);
-      }
-      // Mirror server's authoritative target list whenever room-state arrives in MP.
-      if (gameModeRef.current === 'multiplayer' && Array.isArray(state.targets)) {
-        setTargets(state.targets.map((t: any) => ({
-          id: t.id,
-          type: t.type,
-          x: t.x,
-          y: t.y,
-          createdAt: t.createdAt,
-          lifespan: t.lifespan,
-          hp: t.hp,
-          maxHp: t.maxHp,
-          points: t.points,
-          scale: t.scale,
-        })));
-      }
-    });
+        newSocket.on("connect_error", (error) => {
+          setConnectionStatus('connection_failed');
+          setRoomError(`Unable to connect to multiplayer backend: ${error.message}`);
+        });
 
-    newSocket.on("game-start", () => {
-      startGame('multiplayer');
-      setIsMultiplayerWaiting(false);
-    });
+        newSocket.on("room-error", (error: string) => {
+          setRoomError(error);
+        });
 
-    newSocket.on("new-target", (target: TargetData) => {
-      setTargets(prev => {
-        if (prev.some(t => t.id === target.id)) return prev;
-        return [...prev, target];
+        newSocket.on("room-state", (state) => {
+          setMultiplayerState(state);
+          if (state.gameState === 'playing' && gameState !== 'playing') {
+            startGame('multiplayer');
+            setIsMultiplayerWaiting(false);
+          }
+          if (state?.arenaId) {
+            const arena = arenaById(state.arenaId);
+            setCurrentArena(arena);
+            directorRef.current.setArena(arena.id);
+          }
+          if (state?.activeBoss) {
+            setActiveBoss(state.activeBoss);
+            setBossDefeated(false);
+          } else if (state?.bossDefeated) {
+            setActiveBoss(null);
+            setBossDefeated(true);
+            setTimeout(() => setBossDefeated(false), 3500);
+          }
+          // Mirror server's authoritative target list whenever room-state arrives in MP.
+          if (gameModeRef.current === 'multiplayer' && Array.isArray(state.targets)) {
+            setTargets(state.targets.map((t: any) => ({
+              id: t.id,
+              type: t.type,
+              x: t.x,
+              y: t.y,
+              createdAt: t.createdAt,
+              lifespan: t.lifespan,
+              hp: t.hp,
+              maxHp: t.maxHp,
+              points: t.points,
+              scale: t.scale,
+            })));
+          }
+        });
+
+        newSocket.on("game-start", () => {
+          startGame('multiplayer');
+          setIsMultiplayerWaiting(false);
+        });
+
+        newSocket.on("new-target", (target: TargetData) => {
+          setTargets(prev => {
+            if (prev.some(t => t.id === target.id)) return prev;
+            return [...prev, target];
+          });
+        });
+
+        newSocket.on("target-update", ({ id, hp }: { id: string; hp: number }) => {
+          setTargets(prev => prev.map(t => t.id === id ? { ...t, hp } : t));
+        });
+
+        newSocket.on("target-expired", ({ id }: { id: string }) => {
+          setTargets(prev => prev.filter(t => t.id !== id));
+        });
+
+        newSocket.on("target-destroyed", (payload: any) => {
+          const targetId = payload?.id ?? payload?.targetId;
+          setTargets(prev => prev.filter(t => t.id !== targetId));
+        });
+
+        newSocket.on("fire-result", (result: any) => {
+          if (result?.clientFireId) {
+            pendingFireResults.current.set(result.clientFireId, result);
+            // Auto-evict to avoid leaks
+            setTimeout(() => pendingFireResults.current.delete(result.clientFireId), 4000);
+          }
+        });
+
+        newSocket.on("wave-update", ({ waveIndex }: { waveIndex: number; name: string }) => {
+          setWave(waveIndex + 1);
+        });
+
+        newSocket.on("boss-spawned", ({ boss }: { boss: BossState }) => {
+          setActiveBoss(boss);
+          setBossDefeated(false);
+          setTargets(prev => prev.filter(t => !t.id.startsWith('boss-support-')));
+          const arena = arenaById(boss.arenaId);
+          setCurrentArena(arena);
+          directorRef.current.setArena(arena.id);
+        });
+
+        newSocket.on("boss-updated", ({ boss }: { boss: BossState }) => {
+          setActiveBoss(boss);
+        });
+
+        newSocket.on("boss-phase-changed", ({ boss }: { boss: BossState; phase: number }) => {
+          setActiveBoss({ ...boss, phaseTransitionAlert: true });
+          spawnEnvironmentImpact(boss.x, boss.y, 'weak_point', true, 'boss');
+        });
+
+        newSocket.on("boss-defeated", ({ boss }: { boss: BossState }) => {
+          setActiveBoss(null);
+          setBossDefeated(true);
+          spawnEnvironmentImpact(boss?.x ?? 50, boss?.y ?? 42, 'weak_point', true, 'boss');
+          setTimeout(() => setBossDefeated(false), 3500);
+        });
+
+        newSocket.on("game-over", () => {
+          // Server has ended the match; client's local timer will also reach 0.
+          // The existing game-over effect will pick this up via timeLeft.
+        });
+      })
+      .catch((error) => {
+        if (disposed) return;
+        setConnectionStatus('connection_failed');
+        setRoomError(`Unable to load multiplayer client: ${error instanceof Error ? error.message : String(error)}`);
       });
-    });
-
-    newSocket.on("target-update", ({ id, hp }: { id: string; hp: number }) => {
-      setTargets(prev => prev.map(t => t.id === id ? { ...t, hp } : t));
-    });
-
-    newSocket.on("target-expired", ({ id }: { id: string }) => {
-      setTargets(prev => prev.filter(t => t.id !== id));
-    });
-
-    newSocket.on("target-destroyed", (payload: any) => {
-      const targetId = payload?.id ?? payload?.targetId;
-      setTargets(prev => prev.filter(t => t.id !== targetId));
-    });
-
-    newSocket.on("fire-result", (result: any) => {
-      if (result?.clientFireId) {
-        pendingFireResults.current.set(result.clientFireId, result);
-        // Auto-evict to avoid leaks
-        setTimeout(() => pendingFireResults.current.delete(result.clientFireId), 4000);
-      }
-    });
-
-    newSocket.on("wave-update", ({ waveIndex }: { waveIndex: number; name: string }) => {
-      setWave(waveIndex + 1);
-    });
-
-    newSocket.on("boss-spawned", ({ boss }: { boss: BossState }) => {
-      setActiveBoss(boss);
-      setBossDefeated(false);
-      setTargets(prev => prev.filter(t => !t.id.startsWith('boss-support-')));
-      const arena = arenaById(boss.arenaId);
-      setCurrentArena(arena);
-      directorRef.current.setArena(arena.id);
-    });
-
-    newSocket.on("boss-updated", ({ boss }: { boss: BossState }) => {
-      setActiveBoss(boss);
-    });
-
-    newSocket.on("boss-phase-changed", ({ boss }: { boss: BossState; phase: number }) => {
-      setActiveBoss({ ...boss, phaseTransitionAlert: true });
-      spawnEnvironmentImpact(boss.x, boss.y, 'weak_point', true, 'boss');
-    });
-
-    newSocket.on("boss-defeated", ({ boss }: { boss: BossState }) => {
-      setActiveBoss(null);
-      setBossDefeated(true);
-      spawnEnvironmentImpact(boss?.x ?? 50, boss?.y ?? 42, 'weak_point', true, 'boss');
-      setTimeout(() => setBossDefeated(false), 3500);
-    });
-
-    newSocket.on("game-over", () => {
-      // Server has ended the match; client's local timer will also reach 0.
-      // The existing game-over effect will pick this up via timeLeft.
-    });
 
     return () => {
-      newSocket.off("connect");
-      newSocket.off("disconnect");
-      newSocket.off("connect_error");
-      newSocket.off("room-error");
-      newSocket.off("room-state");
-      newSocket.off("game-start");
-      newSocket.off("new-target");
-      newSocket.off("target-update");
-      newSocket.off("target-expired");
-      newSocket.off("target-destroyed");
-      newSocket.off("fire-result");
-      newSocket.off("wave-update");
-      newSocket.off("boss-spawned");
-      newSocket.off("boss-updated");
-      newSocket.off("boss-phase-changed");
-      newSocket.off("boss-defeated");
-      newSocket.off("game-over");
-      newSocket.disconnect();
+      disposed = true;
+      if (activeSocket) {
+        disconnectSocket(activeSocket);
+      }
       setSocket(null);
     };
   }, [multiplayerRuntimeConfig.socketUrl, multiplayerRuntimeConfig.reason, socketRetryNonce]);
