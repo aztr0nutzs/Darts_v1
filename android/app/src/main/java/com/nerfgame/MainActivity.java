@@ -2,6 +2,7 @@ package com.nerfgame;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.pm.ApplicationInfo;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
@@ -35,7 +36,8 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG);
+        WebView.setWebContentsDebuggingEnabled(
+            (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0);
 
         // Immersive fullscreen.
         getWindow().getDecorView().setSystemUiVisibility(
