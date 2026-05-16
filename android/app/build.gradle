@@ -30,14 +30,28 @@ tasks.register("buildWeb", Exec) {
     commandLine npmExecutable, "run", "build"
 }
 
-tasks.register("syncWebAssets", Copy) {
+tasks.register("syncWebAssets", Sync) {
     dependsOn "buildWeb"
     from(webDist) {
         exclude "server.cjs"
     }
     into generatedAssets
+
+    doLast {
+        def outputDir = generatedAssets.get().asFile
+        fileTree(outputDir).matching { include "**/*.html" }.files.each { htmlFile ->
+            htmlFile.text = htmlFile.text
+                .replace('"/assets/', '"assets/')
+                .replace("'/assets/", "'assets/")
+        }
+    }
 }
 
 android.sourceSets.main.assets.srcDir(generatedAssets)
 
-preBuild.dependsOn "syncWebAssets"
+preBuild.dependsOn tasks.named("syncWebAssets")
+
+dependencies {
+    implementation "androidx.webkit:webkit:1.12.1"
+}
+

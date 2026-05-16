@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CopilotDiffPersistence">
+    <option name="pendingDiffs">
+      <map>
+        <entry key="$PROJECT_DIR$/gradle.properties">
+          <value>
+            <PendingDiffInfo>
+              <option name="filePath" value="$PROJECT_DIR$/gradle.properties" />
+              <option name="originalContent" value="org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8&#10;android.useAndroidX=false&#10;android.nonTransitiveRClass=true&#10;" />
+              <option name="updatedContent" value="org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8&#10;android.useAndroidX=true&#10;android.nonTransitiveRClass=true&#10;" />
+            </PendingDiffInfo>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+</project>
