@@ -3,8 +3,15 @@
 // Centralized typed maps for arenas, targets, blasters, and darts. Every helper
 // returns a safe fallback so the existing CSS/SVG renderers can take over if an
 // image asset fails to load or no mapping exists.
-// All asset paths are public-relative ("/game-assets/...") and served by Vite.
+// All asset paths are resolved via BASE_URL for dev/build/Android compatibility.
 // ─────────────────────────────────────────────────────────────────────────────
+
+
+function resolvePublicAsset(path: string): string {
+  const normalized = path.replace(/^\/+/, '');
+  const baseUrl = (import.meta as ImportMeta & { env: { BASE_URL: string } }).env.BASE_URL;
+  return `${baseUrl}${normalized}`;
+}
 
 export type FallbackStyle =
   | 'cyber-bullseye'
@@ -33,35 +40,35 @@ export const arenaAssets = {
   arena_overview: {
     id: 'arena_overview',
     label: 'Arena Overview',
-    src: '/game-assets/arenas/arena_overview.png',
+    src: resolvePublicAsset('game-assets/arenas/arena_overview.png'),
     fallbackStyle: 'overview',
     recommended: 'menu',
   },
   arena_gameplay_01: {
     id: 'arena_gameplay_01',
     label: 'Training Bay Concept',
-    src: '/game-assets/arenas/arena_gameplay_01.png',
+    src: resolvePublicAsset('game-assets/arenas/arena_gameplay_01.png'),
     fallbackStyle: 'training',
     recommended: 'training',
   },
   arena_gameplay_02: {
     id: 'arena_gameplay_02',
     label: 'Training Lanes',
-    src: '/game-assets/arenas/arena_gameplay_02.png',
+    src: resolvePublicAsset('game-assets/arenas/arena_gameplay_02.png'),
     fallbackStyle: 'training',
     recommended: 'training',
   },
   arena_gameplay_03: {
     id: 'arena_gameplay_03',
     label: 'Warehouse Rush',
-    src: '/game-assets/arenas/arena_gameplay_03.png',
+    src: resolvePublicAsset('game-assets/arenas/arena_gameplay_03.png'),
     fallbackStyle: 'warehouse',
     recommended: 'warehouse',
   },
   arena_gameplay_04: {
     id: 'arena_gameplay_04',
     label: 'Skyline Rooftop',
-    src: '/game-assets/arenas/arena_gameplay_04.png',
+    src: resolvePublicAsset('game-assets/arenas/arena_gameplay_04.png'),
     fallbackStyle: 'rooftop',
     recommended: 'rooftop',
   },
@@ -80,24 +87,24 @@ export type TargetAssetEntry = {
 
 export const targetAssets = {
   // Master sheets / cards (collated reference art)
-  targets_master:        { id: 'targets_master',        label: 'Targets Master Sheet',  src: '/game-assets/targets/targets_master.png',        fallbackStyle: 'cyber-card'     },
-  target_card_master_01: { id: 'target_card_master_01', label: 'Target Card 01',         src: '/game-assets/targets/target_card_master_01.png', fallbackStyle: 'cyber-card'     },
-  target_card_master_02: { id: 'target_card_master_02', label: 'Target Card 02',         src: '/game-assets/targets/target_card_master_02.png', fallbackStyle: 'cyber-card'     },
-  target_card_master_03: { id: 'target_card_master_03', label: 'Target Card 03',         src: '/game-assets/targets/target_card_master_03.png', fallbackStyle: 'cyber-card'     },
-  target_card_master_04: { id: 'target_card_master_04', label: 'Target Card 04',         src: '/game-assets/targets/target_card_master_04.png', fallbackStyle: 'cyber-card'     },
-  target_card_master_05: { id: 'target_card_master_05', label: 'Target Card 05',         src: '/game-assets/targets/target_card_master_05.png', fallbackStyle: 'cyber-card'     },
-  target_card_master_06: { id: 'target_card_master_06', label: 'Target Card 06',         src: '/game-assets/targets/target_card_master_06.png', fallbackStyle: 'cyber-card'     },
+  targets_master:        { id: 'targets_master',        label: 'Targets Master Sheet',  src: resolvePublicAsset('game-assets/targets/targets_master.png'),        fallbackStyle: 'cyber-card'     },
+  target_card_master_01: { id: 'target_card_master_01', label: 'Target Card 01',         src: resolvePublicAsset('game-assets/targets/target_card_master_01.png'), fallbackStyle: 'cyber-card'     },
+  target_card_master_02: { id: 'target_card_master_02', label: 'Target Card 02',         src: resolvePublicAsset('game-assets/targets/target_card_master_02.png'), fallbackStyle: 'cyber-card'     },
+  target_card_master_03: { id: 'target_card_master_03', label: 'Target Card 03',         src: resolvePublicAsset('game-assets/targets/target_card_master_03.png'), fallbackStyle: 'cyber-card'     },
+  target_card_master_04: { id: 'target_card_master_04', label: 'Target Card 04',         src: resolvePublicAsset('game-assets/targets/target_card_master_04.png'), fallbackStyle: 'cyber-card'     },
+  target_card_master_05: { id: 'target_card_master_05', label: 'Target Card 05',         src: resolvePublicAsset('game-assets/targets/target_card_master_05.png'), fallbackStyle: 'cyber-card'     },
+  target_card_master_06: { id: 'target_card_master_06', label: 'Target Card 06',         src: resolvePublicAsset('game-assets/targets/target_card_master_06.png'), fallbackStyle: 'cyber-card'     },
   // Individual gameplay targets
-  target_leaderboard:    { id: 'target_leaderboard',    label: 'Leaderboard Pylon',      src: '/game-assets/targets/target_leaderboard.png',    fallbackStyle: 'cyber-pylon'    },
-  target_warp_gate:      { id: 'target_warp_gate',      label: 'Warp Gate',              src: '/game-assets/targets/target_warp_gate.png',      fallbackStyle: 'cyber-portal'   },
-  target_rhythm:         { id: 'target_rhythm',         label: 'Rhythm Hazard',          src: '/game-assets/targets/target_rhythm.png',         fallbackStyle: 'cyber-bullseye' },
-  target_crystal_hive:   { id: 'target_crystal_hive',   label: 'Crystal Hive',           src: '/game-assets/targets/target_crystal_hive.png',   fallbackStyle: 'cyber-card'     },
-  target_scout_drone:    { id: 'target_scout_drone',    label: 'Scout Drone',            src: '/game-assets/targets/target_scout_drone.png',    fallbackStyle: 'cyber-orb'      },
-  target_chaos_gladiator:{ id: 'target_chaos_gladiator',label: 'Chaos Gladiator',        src: '/game-assets/targets/target_chaos_gladiator.png',fallbackStyle: 'cyber-card'     },
-  target_orbital_array:  { id: 'target_orbital_array',  label: 'Orbital Array',          src: '/game-assets/targets/target_orbital_array.png',  fallbackStyle: 'cyber-bullseye' },
-  target_data_sphere:    { id: 'target_data_sphere',    label: 'Data Sphere',            src: '/game-assets/targets/target_data_sphere.png',    fallbackStyle: 'cyber-orb'      },
-  target_sky_stacks:     { id: 'target_sky_stacks',     label: 'Sky Stacks',             src: '/game-assets/targets/target_sky_stacks.png',     fallbackStyle: 'cyber-pylon'    },
-  target_quantum_target: { id: 'target_quantum_target', label: 'Quantum Target',         src: '/game-assets/targets/target_quantum_target.png', fallbackStyle: 'cyber-bullseye' },
+  target_leaderboard:    { id: 'target_leaderboard',    label: 'Leaderboard Pylon',      src: resolvePublicAsset('game-assets/targets/target_leaderboard.png'),    fallbackStyle: 'cyber-pylon'    },
+  target_warp_gate:      { id: 'target_warp_gate',      label: 'Warp Gate',              src: resolvePublicAsset('game-assets/targets/target_warp_gate.png'),      fallbackStyle: 'cyber-portal'   },
+  target_rhythm:         { id: 'target_rhythm',         label: 'Rhythm Hazard',          src: resolvePublicAsset('game-assets/targets/target_rhythm.png'),         fallbackStyle: 'cyber-bullseye' },
+  target_crystal_hive:   { id: 'target_crystal_hive',   label: 'Crystal Hive',           src: resolvePublicAsset('game-assets/targets/target_crystal_hive.png'),   fallbackStyle: 'cyber-card'     },
+  target_scout_drone:    { id: 'target_scout_drone',    label: 'Scout Drone',            src: resolvePublicAsset('game-assets/targets/target_scout_drone.png'),    fallbackStyle: 'cyber-orb'      },
+  target_chaos_gladiator:{ id: 'target_chaos_gladiator',label: 'Chaos Gladiator',        src: resolvePublicAsset('game-assets/targets/target_chaos_gladiator.png'),fallbackStyle: 'cyber-card'     },
+  target_orbital_array:  { id: 'target_orbital_array',  label: 'Orbital Array',          src: resolvePublicAsset('game-assets/targets/target_orbital_array.png'),  fallbackStyle: 'cyber-bullseye' },
+  target_data_sphere:    { id: 'target_data_sphere',    label: 'Data Sphere',            src: resolvePublicAsset('game-assets/targets/target_data_sphere.png'),    fallbackStyle: 'cyber-orb'      },
+  target_sky_stacks:     { id: 'target_sky_stacks',     label: 'Sky Stacks',             src: resolvePublicAsset('game-assets/targets/target_sky_stacks.png'),     fallbackStyle: 'cyber-pylon'    },
+  target_quantum_target: { id: 'target_quantum_target', label: 'Quantum Target',         src: resolvePublicAsset('game-assets/targets/target_quantum_target.png'), fallbackStyle: 'cyber-bullseye' },
 } as const;
 
 export type TargetAssetId = keyof typeof targetAssets;
@@ -158,83 +165,83 @@ export const blasterAssets = {
   blasters_master: {
     id: 'blasters_master',
     label: 'Blasters Master Sheet',
-    src: '/game-assets/blasters/blasters_master.png',
+    src: resolvePublicAsset('game-assets/blasters/blasters_master.png'),
     fallbackType: 'pistol',
   },
   lucky_peacemaster: {
     id: 'lucky_peacemaster',
     label: 'Lucky Peacemaster',
-    src: '/game-assets/blasters/blaster_lucky_peacemaster.png',
+    src: resolvePublicAsset('game-assets/blasters/blaster_lucky_peacemaster.png'),
     fallbackType: 'revolver',
     muzzleOffset: { x: 56, y: 132 },
   },
   plasma_pistol: {
     id: 'plasma_pistol',
     label: 'Plasma Pistol',
-    src: '/game-assets/blasters/blaster_plasma_pistol.png',
+    src: resolvePublicAsset('game-assets/blasters/blaster_plasma_pistol.png'),
     fallbackType: 'pistol',
     muzzleOffset: { x: 50, y: 132 },
   },
   scout_rifle: {
     id: 'scout_rifle',
     label: 'Scout Rifle',
-    src: '/game-assets/blasters/blaster_scout_rifle.png',
+    src: resolvePublicAsset('game-assets/blasters/blaster_scout_rifle.png'),
     fallbackType: 'sniper',
     muzzleOffset: { x: 32, y: 130 },
   },
   double_blaster: {
     id: 'double_blaster',
     label: 'Double Blaster',
-    src: '/game-assets/blasters/blaster_double_blaster.png',
+    src: resolvePublicAsset('game-assets/blasters/blaster_double_blaster.png'),
     fallbackType: 'double',
     muzzleOffset: { x: 38, y: 128 },
   },
   shadow_smg: {
     id: 'shadow_smg',
     label: 'Shadow SMG',
-    src: '/game-assets/blasters/blaster_shadow_smg.png',
+    src: resolvePublicAsset('game-assets/blasters/blaster_shadow_smg.png'),
     fallbackType: 'smg',
     muzzleOffset: { x: 42, y: 130 },
   },
   pulse_pistol: {
     id: 'pulse_pistol',
     label: 'Pulse Pistol',
-    src: '/game-assets/blasters/blaster_pulse_pistol.png',
+    src: resolvePublicAsset('game-assets/blasters/blaster_pulse_pistol.png'),
     fallbackType: 'pistol',
     muzzleOffset: { x: 50, y: 130 },
   },
   dart_shotgun: {
     id: 'dart_shotgun',
     label: 'Dart Shotgun',
-    src: '/game-assets/blasters/blaster_dart_shotgun.png',
+    src: resolvePublicAsset('game-assets/blasters/blaster_dart_shotgun.png'),
     fallbackType: 'shotgun',
     muzzleOffset: { x: 32, y: 128 },
   },
   hyper_carbine: {
     id: 'hyper_carbine',
     label: 'Hyper Carbine',
-    src: '/game-assets/blasters/blaster_hyper_carbine.png',
+    src: resolvePublicAsset('game-assets/blasters/blaster_hyper_carbine.png'),
     fallbackType: 'carbine',
     muzzleOffset: { x: 32, y: 130 },
   },
   glow_launcher: {
     id: 'glow_launcher',
     label: 'Glow Launcher',
-    src: '/game-assets/blasters/blaster_glow_launcher.png',
+    src: resolvePublicAsset('game-assets/blasters/blaster_glow_launcher.png'),
     fallbackType: 'heavy',
     muzzleOffset: { x: 30, y: 130 },
   },
   turbo_pump: {
     id: 'turbo_pump',
     label: 'Turbo Pump',
-    src: '/game-assets/blasters/blaster_turbo_pump.png',
+    src: resolvePublicAsset('game-assets/blasters/blaster_turbo_pump.png'),
     fallbackType: 'shotgun',
     muzzleOffset: { x: 30, y: 130 },
   },
   sniper_scope: {
     id: 'sniper_scope',
     label: 'Sniper Scope',
-    src: '/game-assets/blasters/blaster_sniper_scope.png',
+    src: resolvePublicAsset('game-assets/blasters/blaster_sniper_scope.png'),
     fallbackType: 'sniper',
     muzzleOffset: { x: 22, y: 128 },
   },
@@ -298,7 +305,7 @@ export const dartAssets = {
   darts_tier1_master: {
     id: 'darts_tier1_master',
     label: 'Darts Tier-1 Master',
-    src: '/game-assets/darts/darts_tier1_master.png',
+    src: resolvePublicAsset('game-assets/darts/darts_tier1_master.png'),
     fallbackType: 'dart',
   },
   // Per-shape entries crop from the master sheet; positions are tuned for the
@@ -306,35 +313,35 @@ export const dartAssets = {
   dart_standard: {
     id: 'dart_standard',
     label: 'Elite Dart',
-    src: '/game-assets/darts/darts_tier1_master.png',
+    src: resolvePublicAsset('game-assets/darts/darts_tier1_master.png'),
     fallbackType: 'dart',
     spriteOffset: { x: '0%', y: '0%', size: '400% 300%' },
   },
   dart_mega: {
     id: 'dart_mega',
     label: 'Mega Dart',
-    src: '/game-assets/darts/darts_tier1_master.png',
+    src: resolvePublicAsset('game-assets/darts/darts_tier1_master.png'),
     fallbackType: 'mega',
     spriteOffset: { x: '33.33%', y: '0%', size: '400% 300%' },
   },
   dart_rival: {
     id: 'dart_rival',
     label: 'Rival Round',
-    src: '/game-assets/darts/darts_tier1_master.png',
+    src: resolvePublicAsset('game-assets/darts/darts_tier1_master.png'),
     fallbackType: 'rival',
     spriteOffset: { x: '66.67%', y: '0%', size: '400% 300%' },
   },
   dart_vortex: {
     id: 'dart_vortex',
     label: 'Vortex Disc',
-    src: '/game-assets/darts/darts_tier1_master.png',
+    src: resolvePublicAsset('game-assets/darts/darts_tier1_master.png'),
     fallbackType: 'vortex',
     spriteOffset: { x: '100%', y: '0%', size: '400% 300%' },
   },
   dart_rocket: {
     id: 'dart_rocket',
     label: 'Rocket',
-    src: '/game-assets/darts/darts_tier1_master.png',
+    src: resolvePublicAsset('game-assets/darts/darts_tier1_master.png'),
     fallbackType: 'rocket',
     spriteOffset: { x: '0%', y: '50%', size: '400% 300%' },
   },

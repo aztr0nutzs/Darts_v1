@@ -6,14 +6,23 @@
   "scripts": {
     "dev": "tsx server.ts",
     "start": "node dist/server.cjs",
+<<<<<<< ours
     "build": "npm run build:web && npm run check:android-asset-paths && npm run build:server",
+=======
+    "build": "npm run build:web && npm run check:android-asset-paths && npm run check:no-absolute-game-assets && npm run build:server",
+>>>>>>> theirs
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
     "build:web": "vite build",
     "build:server": "esbuild server.ts --bundle --platform=node --target=node18 --outfile=dist/server.cjs",
     "check:android-asset-paths": "node scripts/check-android-asset-paths.mjs",
+<<<<<<< ours
     "android:sync:web": "cd android && sh gradlew syncWebAssets"
+=======
+    "android:sync:web": "cd android && sh gradlew syncWebAssets",
+    "check:no-absolute-game-assets": "node scripts/check-no-absolute-game-assets.mjs"
+>>>>>>> theirs
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
