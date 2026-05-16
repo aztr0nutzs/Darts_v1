@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { Play, RotateCcw, Home, Settings, ShieldAlert, Cpu } from 'lucide-react';
-import { GunType } from './Gun';
+import type { GunType } from '../lib/guns';
 
 export function PauseOverlay({ 
   onResume, 

@@ -1,8 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import HUD from './components/HUD';
-import Gun, { GUNS, GunType } from './components/Gun';
-import Target, { TargetData } from './components/Target';
-import Dart from './components/Dart';
+import React, { Suspense, useState, useEffect, useCallback, useRef } from 'react';
 import { AnimatePresence, motion, useMotionValue, useSpring, useTransform, useVelocity } from 'motion/react';
 import { 
   Coins, Lock, Unlock, Heart, Target as TargetIcon, Timer, Infinity as InfinityIcon, Zap, Crosshair, Users, Shield, 
@@ -14,23 +10,39 @@ import { NerfReactor, FloatingOrb, ParticleSystem, DamageIndicator, ScanningLase
 import { sounds, HAPTIC, hapticForGun } from './lib/sounds';
 
 import MainMenu from './components/MainMenu';
-import { PauseOverlay } from './components/PauseOverlay';
-import { InGameControls } from './components/InGameControls';
-import { InGameSettingsPanel } from './components/InGameSettingsPanel';
 import BootSequence from './components/BootSequence';
-import CountdownOverlay from './components/CountdownOverlay';
-import MultiplayerLobby from './components/MultiplayerLobby';
-import ResultsOverlay from './components/ResultsOverlay';
 import { GameplayDirector } from './lib/GameplayDirector';
 import { resolveShotHit } from './lib/ShotResolver';
-import ArenaScene, { ArenaId } from './components/ArenaScene';
+import type { ArenaId } from './components/ArenaScene';
+import type { TargetData } from './components/Target';
 import { createBossState, tickBoss, damageBoss, BOSS_DEFINITIONS, type BossState } from './lib/BossEncounter';
-import BossRenderer from './components/BossRenderer';
-import BossHUD from './components/BossHUD';
 import {
   resolveMultiplayerRuntimeConfig,
   type MultiplayerConnectionStatus,
 } from './lib/runtimeConfig';
+import { GUNS, type GunType } from './lib/guns';
+
+const HUD = React.lazy(() => import('./components/HUD'));
+const Gun = React.lazy(() => import('./components/Gun'));
+const Target = React.lazy(() => import('./components/Target'));
+const Dart = React.lazy(() => import('./components/Dart'));
+const ArenaScene = React.lazy(() => import('./components/ArenaScene'));
+const PauseOverlay = React.lazy(() => import('./components/PauseOverlay').then((module) => ({ default: module.PauseOverlay })));
+const InGameControls = React.lazy(() => import('./components/InGameControls').then((module) => ({ default: module.InGameControls })));
+const InGameSettingsPanel = React.lazy(() => import('./components/InGameSettingsPanel').then((module) => ({ default: module.InGameSettingsPanel })));
+const CountdownOverlay = React.lazy(() => import('./components/CountdownOverlay'));
+const MultiplayerLobby = React.lazy(() => import('./components/MultiplayerLobby'));
+const ResultsOverlay = React.lazy(() => import('./components/ResultsOverlay'));
+const BossRenderer = React.lazy(() => import('./components/BossRenderer'));
+const BossHUD = React.lazy(() => import('./components/BossHUD'));
+
+function DeferredModuleFallback({ label = 'LOADING' }: { label?: string }) {
+  return (
+    <div className="absolute inset-0 z-[120] flex items-center justify-center bg-[#050505]/80 text-[10px] font-black uppercase tracking-[0.35em] text-cyan-300">
+      {label}
+    </div>
+  );
+}
 
 export type DartType = {
   id: string;
@@ -2789,7 +2801,11 @@ export default function App() {
              y: bgY
            }}
       >
-        <ArenaScene arenaId={currentArena.id} parallaxX={mouseX} parallaxY={mouseY} />
+        {gameState !== 'menu' && (
+          <Suspense fallback={<div className="absolute inset-0 bg-[#050505]" />}>
+            <ArenaScene arenaId={currentArena.id} parallaxX={mouseX} parallaxY={mouseY} />
+          </Suspense>
+        )}
         <AnimatePresence>
           {arenaLightPulses.map(pulse => (
             <ArenaLightPulse key={pulse.id} pulse={pulse} />
@@ -2844,56 +2860,64 @@ export default function App() {
       )}
 
       {isMultiplayerWaiting && (
-        <MultiplayerLobby 
-          roomId={roomId}
-          multiplayerState={multiplayerState}
-          socket={socket}
-          connectionStatus={connectionStatus}
-          roomError={roomError}
-          socketUrl={multiplayerRuntimeConfig.socketUrl}
-          onRetry={retryMultiplayerConnection}
-          onLeave={() => {
-            socket?.emit('leave-room', roomId);
-            setIsMultiplayerWaiting(false);
-            setRoomError(null);
-          }}
-          onReady={() => socket?.emit('player-ready', roomId)}
-        />
+        <Suspense fallback={<DeferredModuleFallback label="Loading lobby" />}>
+          <MultiplayerLobby
+            roomId={roomId}
+            multiplayerState={multiplayerState}
+            socket={socket}
+            connectionStatus={connectionStatus}
+            roomError={roomError}
+            socketUrl={multiplayerRuntimeConfig.socketUrl}
+            onRetry={retryMultiplayerConnection}
+            onLeave={() => {
+              socket?.emit('leave-room', roomId);
+              setIsMultiplayerWaiting(false);
+              setRoomError(null);
+            }}
+            onReady={() => socket?.emit('player-ready', roomId)}
+          />
+        </Suspense>
       )}
       <AnimatePresence>
         {gameState === 'gameover' && (
-          <ResultsOverlay 
-            gameState={gameState}
-            gameMode={gameMode}
-            score={score}
-            targetsHit={targetsHit}
-            totalShots={totalShots}
-            combo={combo}
-            maxCombo={maxCombo}
-            weakPointHits={weakPointHits}
-            shotsFiredPerWeapon={shotsFiredPerWeapon}
-            earnedCredits={earnedCredits}
-            waveReached={gameMode !== 'multiplayer' ? wave : undefined}
-            onRestart={() => startGame(gameMode)}
-            onMenu={() => setGameState('menu')}
-            multiplayerState={multiplayerState}
-            socketId={socket?.id}
-            isHost={multiplayerState?.players && Object.keys(multiplayerState.players)[0] === socket?.id}
-            onRematch={() => {
-              if (gameMode === 'multiplayer') {
-                socket?.emit('return-to-lobby', roomId);
-                setIsMultiplayerWaiting(true);
-                setGameState('menu');
-              } else {
-                startGame(gameMode);
-              }
-            }}
-          />
+          <Suspense fallback={<DeferredModuleFallback label="Loading results" />}>
+            <ResultsOverlay
+              gameState={gameState}
+              gameMode={gameMode}
+              score={score}
+              targetsHit={targetsHit}
+              totalShots={totalShots}
+              combo={combo}
+              maxCombo={maxCombo}
+              weakPointHits={weakPointHits}
+              shotsFiredPerWeapon={shotsFiredPerWeapon}
+              earnedCredits={earnedCredits}
+              waveReached={gameMode !== 'multiplayer' ? wave : undefined}
+              onRestart={() => startGame(gameMode)}
+              onMenu={() => setGameState('menu')}
+              multiplayerState={multiplayerState}
+              socketId={socket?.id}
+              isHost={multiplayerState?.players && Object.keys(multiplayerState.players)[0] === socket?.id}
+              onRematch={() => {
+                if (gameMode === 'multiplayer') {
+                  socket?.emit('return-to-lobby', roomId);
+                  setIsMultiplayerWaiting(true);
+                  setGameState('menu');
+                } else {
+                  startGame(gameMode);
+                }
+              }}
+            />
+          </Suspense>
         )}
       </AnimatePresence>
 
       <AnimatePresence>
-        {showCountdown && <CountdownOverlay onComplete={() => setShowCountdown(false)} />}
+        {showCountdown && (
+          <Suspense fallback={<DeferredModuleFallback label="Loading mission" />}>
+            <CountdownOverlay onComplete={() => setShowCountdown(false)} />
+          </Suspense>
+        )}
       </AnimatePresence>
 
       {/* Game Area Wrapper for stable coordinates */}
@@ -3061,9 +3085,10 @@ export default function App() {
              setIsADS(false);
           }}
         >
-          {['playing', 'paused'].includes(gameState) && (
-            <>
-              <HUD 
+          <Suspense fallback={<DeferredModuleFallback label="Loading gameplay" />}>
+            {['playing', 'paused'].includes(gameState) && (
+              <>
+                <HUD
                 score={score} 
                 timeLeft={timeLeft} 
                 ammo={ammo} 
@@ -3185,28 +3210,29 @@ export default function App() {
                 muzzleRef={muzzleRef}
                 weaponFeedback={weaponFeedback}
               />
-            </>
-          )}
+              </>
+            )}
 
-          {gameState === 'paused' && (
-            <PauseOverlay
-              onResume={() => setGameState('playing')}
-              onRestart={() => startGame(gameMode)}
-              onMainMenu={() => setGameState('menu')}
-              onSettings={() => setShowSettings(true)}
-              stats={{ score, timeLeft, ammo }}
-              gun={upgradedGun}
-              gameMode={gameMode}
-            />
-          )}
+            {gameState === 'paused' && (
+              <PauseOverlay
+                onResume={() => setGameState('playing')}
+                onRestart={() => startGame(gameMode)}
+                onMainMenu={() => setGameState('menu')}
+                onSettings={() => setShowSettings(true)}
+                stats={{ score, timeLeft, ammo }}
+                gun={upgradedGun}
+                gameMode={gameMode}
+              />
+            )}
 
-          {showSettings && (
-             <InGameSettingsPanel
-               settings={uiSettings}
-               setSettings={setUiSettings}
-               onClose={() => setShowSettings(false)}
-             />
-          )}
+            {showSettings && (
+               <InGameSettingsPanel
+                 settings={uiSettings}
+                 setSettings={setUiSettings}
+                 onClose={() => setShowSettings(false)}
+               />
+            )}
+          </Suspense>
 
         </motion.div>
       </div>

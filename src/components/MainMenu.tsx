@@ -5,7 +5,7 @@ import {
   Terminal, LockOpen, Wifi, ShieldCheck, Coins, Cpu, Lock, Play, Settings, Target as TargetIcon
 } from 'lucide-react';
 import { GameMode, DartType, DART_TYPES } from '../App';
-import { GUNS, GunType } from './Gun';
+import { GUNS, type GunType } from '../lib/guns';
 import { getBlasterAsset, getDartAsset } from '../lib/assetRegistry';
 import type { MultiplayerConnectionStatus, MultiplayerRuntimeConfig } from '../lib/runtimeConfig';
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { GunType } from './Gun';
+import type { GunType } from '../lib/guns';
 import { DartType } from '../App';
 import { 
   Zap, Clock, Shield, Wind, Pause, Users,

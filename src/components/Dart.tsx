@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { motion } from 'motion/react';
-import { AmmoType } from './Gun';
+import type { AmmoType } from '../lib/guns';
 import { getDartAsset } from '../lib/assetRegistry';
 
 // Soft texture sourced from the provided dart sheet. Used as a subtle accent
