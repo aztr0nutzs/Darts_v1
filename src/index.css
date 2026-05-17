@@ -1,8 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;900&family=JetBrains+Mono:wght@400;500;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Antonio:wght@400;600;700&family=Saira:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700;800&family=Inter:wght@400;500;600;900&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Antonio", "Saira Condensed", system-ui, sans-serif;
+  --font-sans: "Saira", "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
@@ -100,6 +101,30 @@
   .animate-spawn-pop { animation: spawn-pop 0.38s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
   .animate-score-pulse { animation: score-pulse 0.45s ease-out forwards; }
   .animate-reload-snap { animation: reload-snap 0.22s ease-out forwards; }
+
+  /* Hero blaster idle bob — purposeful, gentle, NO rotation/glow. */
+  @keyframes hero-bob {
+    0%, 100% { transform: translateY(-3px) rotate(var(--hero-rot, -6deg)); }
+    50%      { transform: translateY(3px)  rotate(var(--hero-rot, -6deg)); }
+  }
+  .animate-hero-bob { animation: hero-bob 4.2s ease-in-out infinite; }
+
+  /* Results: rank slam-in. 60ms hard cut, no easing. */
+  @keyframes rank-slam {
+    0%   { transform: scale(1.18); opacity: 0; filter: brightness(2); }
+    60%  { transform: scale(1.18); opacity: 0; filter: brightness(2); }
+    62%  { transform: scale(1); opacity: 1; filter: brightness(1.6); }
+    72%  { transform: scale(1); opacity: 1; filter: brightness(1); }
+    100% { transform: scale(1); opacity: 1; filter: brightness(1); }
+  }
+  .animate-rank-slam { animation: rank-slam 0.42s linear forwards; }
+
+  /* Results: stat cells fade+rise stagger */
+  @keyframes stat-rise {
+    0%   { transform: translateY(12px); opacity: 0; }
+    100% { transform: translateY(0);    opacity: 1; }
+  }
+  .animate-stat-rise { animation: stat-rise 0.34s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
   .chromatic {
     text-shadow: 2px 0px 4px rgba(255, 0, 0, 0.8), -2px 0px 4px rgba(0, 255, 255, 0.8);

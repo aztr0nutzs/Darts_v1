@@ -1,11 +1,15 @@
+// Results / Mission Summary — Claude Design board 04.
+// Massive rank moment, restrained stat grid, weapon recall strip, one orange
+// primary CTA + one ghost secondary CTA. NO confetti, NO third button,
+// NO continuous animation after reveal.
+
 import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import {
-  Trophy, Target, Zap, Clock, Coins,
-  Home, RefreshCw, ChevronRight, Activity,
-  Terminal, Shield, Users, Crosshair, Award, Layers
-} from 'lucide-react';
-import { GameMode } from '../App';
+import { motion } from 'motion/react';
+import type { GameMode } from '../App';
+import { TOKENS } from '../lib/designTokens';
+import { PrimaryCta, SecondaryCta, Kicker, HazardTape } from './redesign/chrome';
+import { GUNS } from '../lib/guns';
+import { getBlasterAsset } from '../lib/assetRegistry';
 
 interface ResultsOverlayProps {
   gameState: 'menu' | 'playing' | 'gameover' | 'paused';
@@ -27,6 +31,34 @@ interface ResultsOverlayProps {
   onRematch?: () => void;
 }
 
+function rankFor(score: number, accuracy: number, combo: number): { letter: string; pct: string; victory: boolean } {
+  const composite = score * 0.0006 + accuracy * 0.6 + combo * 2;
+  if (composite >= 120) return { letter: 'S', pct: 'TOP 4%', victory: true };
+  if (composite >= 80) return { letter: 'A', pct: 'TOP 12%', victory: true };
+  if (composite >= 50) return { letter: 'B', pct: 'TOP 24%', victory: true };
+  if (composite >= 30) return { letter: 'C', pct: 'TOP 38%', victory: true };
+  if (composite >= 15) return { letter: 'D', pct: 'TOP 55%', victory: false };
+  return { letter: 'E', pct: 'TOP 80%', victory: false };
+}
+
+// Tick the score number from 0 → final over `duration` ms with ease-out.
+function useScoreTick(final: number, duration = 800): number {
+  const [v, setV] = React.useState(0);
+  React.useEffect(() => {
+    const start = performance.now();
+    let raf = 0;
+    const step = (t: number) => {
+      const k = Math.min(1, (t - start) / duration);
+      const ease = 1 - Math.pow(1 - k, 3);
+      setV(Math.round(final * ease));
+      if (k < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [final, duration]);
+  return v;
+}
+
 export default function ResultsOverlay({
   gameMode,
   score,
@@ -42,140 +74,473 @@ export default function ResultsOverlay({
   onMenu,
   multiplayerState,
   socketId,
-  isHost,
-  onRematch
+  onRematch,
 }: ResultsOverlayProps) {
   const accuracy = totalShots > 0 ? Math.round((targetsHit / totalShots) * 100) : 0;
-  
   const isMultiplayer = gameMode === 'multiplayer';
-  const players = multiplayerState?.players ? Object.values(multiplayerState.players).sort((a: any, b: any) => b.score - a.score) : [];
+  const players = multiplayerState?.players
+    ? Object.values(multiplayerState.players).sort((a: any, b: any) => b.score - a.score)
+    : [];
   const localPlayerRank = players.findIndex((p: any) => p.id === socketId) + 1;
-  const isWinner = localPlayerRank === 1;
+  const rank = rankFor(score, accuracy, maxCombo);
+  const isWinner = isMultiplayer ? localPlayerRank === 1 : rank.victory;
+  const tickedScore = useScoreTick(score, 800);
 
-  let favoriteWeaponName = 'N/A';
-  if (Object.keys(shotsFiredPerWeapon).length > 0) {
-     favoriteWeaponName = Object.entries(shotsFiredPerWeapon).sort((a,b) => b[1] - a[1])[0][0].replace('_', ' ').toUpperCase();
-  }
+  // Pick the most-used gun id and map to a real GUN entry for the weapon recall strip.
+  const favWeaponId = Object.entries(shotsFiredPerWeapon).sort((a, b) => b[1] - a[1])[0]?.[0];
+  const favGun = (favWeaponId && Object.values(GUNS).find((g) => g.id === favWeaponId)) || Object.values(GUNS)[0];
+  const favAsset = getBlasterAsset(favGun.id);
+  const favShots = (favWeaponId && shotsFiredPerWeapon[favWeaponId]) || totalShots;
 
-  const StatItem = ({ label, value, icon: Icon, color }: { label: string, value: string | number, icon: any, color: string }) => (
-    <div className="bg-[#050505] border border-white/10 p-4 rounded-md flex flex-col gap-1">
-      <div className="flex items-center gap-2 text-slate-500 mb-1">
-        <Icon className="w-3 h-3" />
-        <span className="text-[10px] font-black uppercase tracking-widest">{label}</span>
-      </div>
-      <div className={`text-2xl font-black italic tracking-tight ${color}`}>{value}</div>
-    </div>
-  );
+  const stats: { l: string; v: string; sub: string; c: string }[] = [
+    { l: 'ACCURACY', v: `${accuracy}%`, sub: `${targetsHit} / ${totalShots || '—'} HITS`, c: TOKENS.cyan },
+    { l: 'CRITS', v: String(weakPointHits), sub: 'WEAK POINTS', c: TOKENS.magenta },
+    { l: 'BEST COMBO', v: `×${maxCombo}`, sub: combo >= 8 ? 'UNSTOPPABLE' : 'STREAK', c: TOKENS.yellow },
+    {
+      l: gameMode === 'endless' ? 'WAVES' : 'TARGETS',
+      v: gameMode === 'endless' ? String(waveReached ?? '—') : String(targetsHit),
+      sub: gameMode === 'endless' ? 'SURVIVED' : 'NEUTRALIZED',
+      c: TOKENS.orange,
+    },
+    { l: 'SHOTS', v: String(totalShots), sub: 'FIRED', c: TOKENS.textHi },
+    { l: 'CACHE', v: `+${earnedCredits.toLocaleString()}`, sub: 'EARNED', c: TOKENS.textHi },
+  ];
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black p-4 md:p-8"
+      transition={{ duration: 0.16 }}
+      className="fixed inset-0 z-[100] overflow-y-auto custom-scrollbar select-none"
+      style={{ background: TOKENS.bg, color: TOKENS.textHi, fontFamily: TOKENS.fontUi }}
     >
-      {/* Black-first debrief shell. No blue full-screen gradient or animated grain. */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className={`absolute inset-x-0 top-0 h-40 ${isWinner ? 'bg-yellow-500/5' : 'bg-white/[0.035]'}`} />
-        <div className="absolute inset-x-0 top-0 h-px bg-white/20" />
+      {/* Background watermark rank — sits behind, no glow */}
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          right: -80,
+          top: 140,
+          font: `900 italic clamp(560px, 100vw, 1100px)/0.78 ${TOKENS.fontDisplay}`,
+          color: isWinner ? TOKENS.orange : TOKENS.magenta,
+          opacity: 0.08,
+          letterSpacing: '-0.08em',
+          whiteSpace: 'nowrap',
+          userSelect: 'none',
+          pointerEvents: 'none',
+        }}
+      >
+        {rank.letter}
       </div>
 
-      <div className="relative w-full max-w-5xl flex flex-col items-center h-[90vh] overflow-y-auto pr-4 custom-scrollbar">
-        
-        {/* Title Section */}
-        <motion.div 
-          initial={{ y: 50, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          className="text-center mb-10 shrink-0"
+      {/* Diagonal hazard tape — only on victory */}
+      {isWinner && (
+        <HazardTape
+          width={460}
+          height={42}
+          rotate={-4}
+          style={{ position: 'absolute', left: -30, top: 110 }}
+        />
+      )}
+
+      <div
+        className="relative mx-auto"
+        style={{
+          maxWidth: 1080,
+          padding: `40px 24px 56px`,
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        {/* TOP BAR */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            font: `500 12px/1 ${TOKENS.fontMono}`,
+            color: TOKENS.textMute,
+            letterSpacing: '.22em',
+            textTransform: 'uppercase',
+          }}
         >
-          <div className="text-[12px] font-black text-cyan-500 tracking-[0.6em] uppercase mb-2">MISSION_DEBRIEFING // 0xAF82</div>
-          <h2 className="text-6xl md:text-8xl font-black text-white italic tracking-tighter uppercase drop-shadow-[0_0_30px_rgba(255,255,255,0.2)]">
-            {isMultiplayer ? (isWinner ? 'CHAMPION' : 'DEFEATED') : 'COMPLETED'}
-          </h2>
-          <div className="h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent w-full mt-4" />
-        </motion.div>
-
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 w-full shrink-0">
-          
-          {/* Main Stats Column */}
-          <div className="md:col-span-7 flex flex-col gap-6">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <StatItem label="Precision_Rate" value={`${accuracy}%`} icon={Target} color="text-white" />
-              <StatItem label="Entities_Neutralized" value={targetsHit} icon={Zap} color="text-cyan-400" />
-              <StatItem label="Max_Sequence" value={`x${maxCombo}`} icon={ChevronRight} color="text-fuchsia-400" />
-              <StatItem label="Combat_Score" value={score.toLocaleString()} icon={Activity} color="text-orange-500" />
-              <StatItem label="Weak_Points" value={weakPointHits} icon={Crosshair} color="text-red-400" />
-              <StatItem label="Shots_Fired" value={totalShots} icon={Terminal} color="text-slate-300" />
-              <StatItem label="Fav_Weapon" value={favoriteWeaponName} icon={Award} color="text-purple-400" />
-              {waveReached != null && (
-                <StatItem label="Wave_Reached" value={waveReached} icon={Layers} color="text-yellow-400" />
-              )}
-            </div>
-
-            <div className="bg-[#050505] border border-yellow-500/30 p-8 rounded-md relative overflow-hidden group">
-               <div className="absolute -top-4 -right-4 bg-yellow-500 text-black px-4 py-1 font-black text-[10px] italic skew-x-[-20deg]">AWARDED</div>
-               <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] font-black text-yellow-500/60 tracking-[0.2em] uppercase block mb-1">RESOURCES_RECOVERED</span>
-                    <div className="flex items-center gap-4">
-                       <Coins className="w-10 h-10 text-yellow-500 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]" />
-                       <span className="text-5xl font-black text-white italic tracking-tighter">+{earnedCredits.toLocaleString()}</span>
-                    </div>
-                  </div>
-                  <Trophy className="w-20 h-20 text-yellow-500/10 absolute -right-2 top-1/2 -translate-y-1/2 group-hover:scale-110 transition-transform" />
-               </div>
-            </div>
-          </div>
-
-          {/* Multiplayer/Social Column */}
-          <div className="md:col-span-5 flex flex-col gap-4">
-             {isMultiplayer ? (
-               <div className="bg-[#050505] border border-white/10 p-6 rounded-md flex-1 flex flex-col">
-                  <div className="flex items-center gap-3 mb-6">
-                    <Users className="w-5 h-5 text-cyan-400" />
-                    <h3 className="text-lg font-black text-white italic tracking-tight uppercase">Squad_Results</h3>
-                  </div>
-                  <div className="space-y-2 flex-1">
-                     {players.map((p: any, idx: number) => (
-                       <div key={p.id} className={`flex items-center justify-between p-3 rounded-md border ${p.id === socketId ? 'bg-cyan-500/10 border-cyan-500/40' : 'bg-black border-white/10'}`}>
-                          <div className="flex items-center gap-3">
-                             <span className="text-xs font-black text-slate-500">#{idx + 1}</span>
-                             <span className="text-xs font-bold text-white uppercase">{p.id.substring(0, 8)}</span>
-                             {p.id === socketId && <span className="text-[8px] bg-cyan-500 text-black px-1 rounded">YOU</span>}
-                          </div>
-                          <span className="text-sm font-black text-orange-500">{p.score.toLocaleString()}</span>
-                       </div>
-                     ))}
-                  </div>
-               </div>
-             ) : (
-               <div className="bg-[#050505] border border-white/10 p-8 rounded-md flex-1 flex flex-col items-center justify-center text-center">
-                  <Shield className="w-16 h-16 text-slate-800 mb-4" />
-                  <p className="text-xs font-black text-slate-500 tracking-widest uppercase mb-2">Training_Complete</p>
-                  <p className="text-[9px] font-bold text-slate-600 max-w-[200px] uppercase">All biometric data successfully uploaded to the central tac-net.</p>
-               </div>
-             )}
-
-             <div className="flex flex-col gap-2 mt-auto pb-8">
-               <button 
-                 onClick={isMultiplayer ? onRematch : onRestart}
-                 className="w-full bg-orange-500 text-black py-4 rounded-md font-black italic text-lg tracking-widest uppercase hover:bg-orange-400 transition-all active:scale-[0.98] flex items-center justify-center gap-3 group"
-               >
-                 <RefreshCw className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" />
-                 {isMultiplayer ? 'REQUEST_REMATCH' : 'RESTART_LEVEL'}
-               </button>
-               <button 
-                 onClick={onMenu}
-                 className="w-full bg-[#050505] border border-white/10 hover:bg-[#111] text-white/60 hover:text-white py-4 rounded-md font-black italic text-xs tracking-[0.5em] uppercase transition-all flex items-center justify-center gap-3"
-               >
-                 <Home className="w-4 h-4" />
-                 RETURN_TO_BASE
-               </button>
-             </div>
-          </div>
-
+          <span>{(gameMode === 'endless' ? 'SURVIVAL' : gameMode === 'timeAttack' ? 'BLITZ' : gameMode === 'targetRush' ? 'ASSAULT' : 'WAREHOUSE RUSH').toUpperCase()}</span>
+          <span>
+            <span style={{ color: isWinner ? TOKENS.orange : TOKENS.magenta }}>●</span>&nbsp;&nbsp;
+            {isWinner ? 'MISSION COMPLETE' : 'MISSION FAILED'}
+          </span>
         </div>
 
+        {/* HEADER */}
+        <div style={{ marginTop: 24 }}>
+          <Kicker color={TOKENS.orange} size={14}>DEBRIEF · RUN</Kicker>
+          <div
+            style={{
+              marginTop: 12,
+              font: `900 italic clamp(72px, 14vw, 132px)/0.88 ${TOKENS.fontDisplay}`,
+              color: isWinner ? TOKENS.textHi : TOKENS.magenta,
+              letterSpacing: '.02em',
+              textTransform: 'uppercase',
+            }}
+          >
+            {isWinner ? 'VICTORY.' : 'DOWN.'}
+          </div>
+        </div>
+
+        {/* RANK + SCORE — hero moment */}
+        <div
+          style={{
+            marginTop: 28,
+            display: 'grid',
+            gridTemplateColumns: 'auto 1fr',
+            gap: 24,
+            alignItems: 'flex-start',
+          }}
+        >
+          {/* Rank — slam in */}
+          <div style={{ position: 'relative' }}>
+            <div
+              key={`rank-${rank.letter}`}
+              className="animate-rank-slam"
+              style={{
+                font: `900 italic clamp(180px, 32vw, 360px)/0.82 ${TOKENS.fontDisplay}`,
+                color: isWinner ? TOKENS.orange : TOKENS.magenta,
+                letterSpacing: '-0.05em',
+                textShadow: '0 10px 0 #000',
+                lineHeight: 0.82,
+              }}
+            >
+              {rank.letter}
+            </div>
+            <div
+              style={{
+                marginTop: 6,
+                display: 'inline-block',
+                padding: '6px 12px',
+                background: isWinner ? TOKENS.orange : TOKENS.magenta,
+                color: TOKENS.textOnOrange,
+                font: `700 14px/1 ${TOKENS.fontMono}`,
+                letterSpacing: '.28em',
+                textTransform: 'uppercase',
+              }}
+            >
+              RANK · {rank.pct}
+            </div>
+          </div>
+
+          {/* Score */}
+          <div style={{ paddingTop: 18 }}>
+            <div
+              style={{
+                font: `500 13px/1 ${TOKENS.fontMono}`,
+                color: TOKENS.textMute,
+                letterSpacing: '.28em',
+                textTransform: 'uppercase',
+              }}
+            >
+              FINAL SCORE
+            </div>
+            <div
+              style={{
+                marginTop: 14,
+                font: `700 clamp(80px, 18vw, 160px)/0.9 ${TOKENS.fontMono}`,
+                color: TOKENS.textHi,
+                letterSpacing: '-0.01em',
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              {tickedScore.toLocaleString()}
+            </div>
+          </div>
+        </div>
+
+        {/* STAT GRID — 3×2 */}
+        <div
+          style={{
+            marginTop: 32,
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: 10,
+          }}
+        >
+          {stats.map((s, i) => (
+            <div
+              key={s.l}
+              className="animate-stat-rise"
+              style={{
+                position: 'relative',
+                background: 'rgba(255,255,255,0.02)',
+                border: `1px solid ${TOKENS.hairline}`,
+                padding: '16px 18px 18px',
+                animationDelay: `${i * 60 + 420}ms`,
+              }}
+            >
+              <span
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: -1,
+                  height: 3,
+                  width: 38,
+                  background: s.c,
+                }}
+              />
+              <div
+                style={{
+                  font: `500 12px/1 ${TOKENS.fontUi}`,
+                  color: TOKENS.textMute,
+                  letterSpacing: '.24em',
+                  textTransform: 'uppercase',
+                }}
+              >
+                {s.l}
+              </div>
+              <div
+                style={{
+                  marginTop: 10,
+                  font: `700 clamp(36px, 6vw, 56px)/1 ${TOKENS.fontMono}`,
+                  color: s.c,
+                  letterSpacing: '.02em',
+                  fontVariantNumeric: 'tabular-nums',
+                }}
+              >
+                {s.v}
+              </div>
+              <div
+                style={{
+                  marginTop: 8,
+                  font: `500 11px/1 ${TOKENS.fontMono}`,
+                  color: TOKENS.textMute,
+                  letterSpacing: '.20em',
+                  textTransform: 'uppercase',
+                }}
+              >
+                {s.sub}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* WEAPON RECALL STRIP */}
+        <div
+          style={{
+            position: 'relative',
+            marginTop: 28,
+            height: 200,
+            background: 'rgba(255,255,255,0.015)',
+            border: `1px solid ${TOKENS.hairline}`,
+            overflow: 'hidden',
+          }}
+        >
+          <span
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: -1,
+              height: 3,
+              width: 64,
+              background: TOKENS.orange,
+            }}
+          />
+          <div style={{ position: 'absolute', left: 24, top: 20, width: '52%' }}>
+            <div
+              style={{
+                font: `500 12px/1 ${TOKENS.fontMono}`,
+                color: TOKENS.textMute,
+                letterSpacing: '.28em',
+                textTransform: 'uppercase',
+              }}
+            >
+              WEAPON USED
+            </div>
+            <div
+              style={{
+                marginTop: 8,
+                font: `900 italic 34px/1 ${TOKENS.fontDisplay}`,
+                color: TOKENS.textHi,
+                letterSpacing: '.04em',
+                textTransform: 'uppercase',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {favGun.name.toUpperCase()}
+            </div>
+            <div
+              style={{
+                marginTop: 10,
+                display: 'grid',
+                gridTemplateColumns: 'auto 1fr',
+                gap: '4px 12px',
+                font: `500 13px/1 ${TOKENS.fontMono}`,
+                color: TOKENS.textMute,
+                letterSpacing: '.16em',
+                textTransform: 'uppercase',
+              }}
+            >
+              <span>SHOTS</span>
+              <span style={{ color: TOKENS.textHi }}>{favShots}</span>
+              <span>DARTS</span>
+              <span style={{ color: TOKENS.textHi }}>{favGun.dartType.name.toUpperCase()}</span>
+              <span>XP</span>
+              <span style={{ color: TOKENS.cyan }}>+{Math.round(earnedCredits * 0.7).toLocaleString()}</span>
+            </div>
+          </div>
+          <img
+            src={favAsset.src}
+            alt=""
+            aria-hidden
+            draggable={false}
+            style={{
+              position: 'absolute',
+              right: -30,
+              top: -10,
+              width: '52%',
+              maxWidth: 460,
+              height: 'auto',
+              transform: 'rotate(-4deg)',
+              filter: 'drop-shadow(0 14px 0 rgba(0,0,0,0.6))',
+              pointerEvents: 'none',
+            }}
+          />
+        </div>
+
+        {/* REWARDS ROW */}
+        <div
+          style={{
+            marginTop: 16,
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: 10,
+          }}
+        >
+          {[
+            { l: 'XP', v: `+${Math.round(earnedCredits * 0.7).toLocaleString()}`, c: TOKENS.cyan },
+            { l: 'CACHE', v: `+${earnedCredits.toLocaleString()}`, c: TOKENS.yellow },
+            { l: 'STREAK', v: isWinner ? '+1 WIN' : 'BROKEN', c: TOKENS.orange },
+          ].map((r) => (
+            <div
+              key={r.l}
+              style={{
+                background: TOKENS.bgTranslucent,
+                border: `1px solid ${TOKENS.hairline}`,
+                padding: '12px 16px',
+              }}
+            >
+              <div
+                style={{
+                  font: `500 11px/1 ${TOKENS.fontMono}`,
+                  color: TOKENS.textMute,
+                  letterSpacing: '.26em',
+                  textTransform: 'uppercase',
+                }}
+              >
+                {r.l}
+              </div>
+              <div
+                style={{
+                  marginTop: 6,
+                  font: `700 26px/1 ${TOKENS.fontMono}`,
+                  color: r.c,
+                  letterSpacing: '.02em',
+                }}
+              >
+                {r.v}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Squad results (multiplayer only) */}
+        {isMultiplayer && players.length > 0 && (
+          <div
+            style={{
+              marginTop: 16,
+              background: TOKENS.bgTranslucent,
+              border: `1px solid ${TOKENS.hairline}`,
+              padding: '14px 18px',
+            }}
+          >
+            <span
+              aria-hidden
+              style={{ position: 'absolute', left: 0, top: -1, height: 3, width: 38, background: TOKENS.cyan }}
+            />
+            <div
+              style={{
+                font: `500 11px/1 ${TOKENS.fontMono}`,
+                color: TOKENS.cyan,
+                letterSpacing: '.28em',
+                textTransform: 'uppercase',
+              }}
+            >
+              SQUAD RESULTS
+            </div>
+            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {players.map((p: any, i: number) => (
+                <div
+                  key={p.id}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    padding: '6px 0',
+                    borderTop: i === 0 ? 'none' : `1px solid ${TOKENS.hairline}`,
+                    font: `700 14px/1 ${TOKENS.fontMono}`,
+                    color: p.id === socketId ? TOKENS.textHi : TOKENS.text,
+                    fontVariantNumeric: 'tabular-nums',
+                  }}
+                >
+                  <span>
+                    #{i + 1}&nbsp;&nbsp;{String(p.id).substring(0, 8)}
+                    {p.id === socketId && (
+                      <span
+                        style={{
+                          marginLeft: 8,
+                          background: TOKENS.cyan,
+                          color: TOKENS.bg,
+                          padding: '2px 6px',
+                          font: `700 10px/1 ${TOKENS.fontMono}`,
+                          letterSpacing: '.18em',
+                        }}
+                      >
+                        YOU
+                      </span>
+                    )}
+                  </span>
+                  <span style={{ color: TOKENS.orange }}>{p.score.toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* CTAs — one orange primary, one ghost secondary. NO third button. */}
+        <div
+          style={{
+            marginTop: 28,
+            display: 'grid',
+            gridTemplateColumns: '2fr 1fr',
+            gap: 10,
+            marginBottom: 16,
+          }}
+        >
+          <PrimaryCta
+            label={isMultiplayer ? 'REMATCH' : 'NEXT MISSION'}
+            sub={isMultiplayer ? 'SAME SQUAD · SAME ARENA' : `RESTART · ${(gameMode === 'endless' ? 'SURVIVAL' : gameMode === 'timeAttack' ? 'BLITZ' : 'STANDARD').toUpperCase()}`}
+            onClick={isMultiplayer ? (onRematch ?? onRestart) : onRestart}
+            height={120}
+            notch={22}
+          />
+          <SecondaryCta
+            label="MENU"
+            sub="EXIT TO BASE"
+            onClick={onMenu}
+            height={120}
+            notch={22}
+          />
+        </div>
       </div>
     </motion.div>
   );

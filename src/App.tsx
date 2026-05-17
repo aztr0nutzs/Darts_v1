@@ -6,7 +6,7 @@ import {
   Trophy, RefreshCw, Home, ShieldPlus, Wind, Cpu
 } from 'lucide-react';
 import type { Socket } from 'socket.io-client';
-import { DamageIndicator, ScanningLaser, CyberGridBackground, CRTOverlay } from './components/BackgroundElements';
+import { DamageIndicator, ScanningLaser, CRTOverlay } from './components/BackgroundElements';
 import { sounds, HAPTIC, hapticForGun } from './lib/sounds';
 
 import MainMenu from './components/MainMenu';
@@ -2824,10 +2824,14 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Background Arena — fully layered CSS scene, no external URLs */}
+      {/* Background Arena — fully layered CSS scene, no external URLs.
+          Filter strips the cyan haze (saturate 0.55 + brightness 0.42 + contrast 1.05)
+          so the gameplay plate matches the redesign board's restrained black look. */}
       <motion.div className="absolute inset-0 scale-110"
            style={{
-             filter: 'brightness(0.78) contrast(1.08)',
+             filter: gameState === 'playing'
+               ? 'saturate(0.55) brightness(0.55) contrast(1.05)'
+               : 'brightness(0.4) saturate(0.6)',
              x: bgX,
              y: bgY
            }}
@@ -2846,8 +2850,12 @@ export default function App() {
            <DustParticles />
         </motion.div>
       </motion.div>
-      <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-transparent to-[#050505]/80 pointer-events-none z-10" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_50%,rgba(0,0,0,0.8)_120%)] pointer-events-none z-10" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/80 pointer-events-none z-10" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_55%,rgba(0,0,0,0.85)_120%)] pointer-events-none z-10" />
+      {/* Flat black tint over the arena while playing — redesign board "kills the blue cast" */}
+      {gameState === 'playing' && (
+        <div className="absolute inset-0 bg-black/55 pointer-events-none z-10" />
+      )}
 
       {gameState === 'menu' && (
         <>
@@ -3003,12 +3011,9 @@ export default function App() {
                  perspective: '1000px'
                }}
             >
-              {uiSettings.screenEffects !== false && (
-                <>
-                  <CyberGridBackground />
-                  <ScanningLaser />
-                </>
-              )}
+              {/* CyberGridBackground intentionally removed — the redesign board
+                  forbids cyan circuit-board / blue full-screen cast over gameplay. */}
+              {uiSettings.screenEffects !== false && <ScanningLaser />}
             </motion.div>
             
             <DamageIndicator direction={damageDirection} />
