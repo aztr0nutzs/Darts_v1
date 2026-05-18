@@ -131,7 +131,7 @@ function feedbackForHit(quality: string | undefined, isCrit: boolean, isDestroye
   return 'body_hit';
 }
 
-function CombatText({ text, x, y, color, isCritical }: { key?: React.Key; text: string; x: number; y: number; color: string; isCritical?: boolean }) {
+const CombatText = React.memo(function CombatText({ text, x, y, color, isCritical }: { key?: React.Key; text: string; x: number; y: number; color: string; isCritical?: boolean }) {
   return (
     <motion.div
       className={`absolute pointer-events-none z-50 font-black tracking-widest whitespace-nowrap ${isCritical ? 'chromatic' : ''}`}
@@ -145,7 +145,7 @@ function CombatText({ text, x, y, color, isCritical }: { key?: React.Key; text: 
       </span>
     </motion.div>
   );
-}
+});
 
 function surfaceForImpact(arena: ArenaId, x: number, y: number, context: 'miss' | 'hit' | 'armor' | 'weak' | 'kill' | 'boss'): SurfaceType {
   if (context === 'boss') return 'boss_structure';
@@ -166,7 +166,7 @@ function impactKindForSurface(surface: SurfaceType, arena: ArenaId, quality?: Hi
   return 'dust_puff';
 }
 
-function EnvironmentImpactEffect({ effect }: { key?: React.Key; effect: EnvironmentEffectData }) {
+const EnvironmentImpactEffect = React.memo(function EnvironmentImpactEffect({ effect }: { key?: React.Key; effect: EnvironmentEffectData }) {
   const isSpark = effect.kind === 'spark';
   const isSnap = effect.kind === 'weak_snap';
   const isDebris = effect.kind === 'debris_burst';
@@ -225,9 +225,9 @@ function EnvironmentImpactEffect({ effect }: { key?: React.Key; effect: Environm
       })}
     </div>
   );
-}
+});
 
-function ArenaLightPulse({ pulse }: { key?: React.Key; pulse: ArenaLightPulseData }) {
+const ArenaLightPulse = React.memo(function ArenaLightPulse({ pulse }: { key?: React.Key; pulse: ArenaLightPulseData }) {
   const color = pulse.arena === 'warehouse'
     ? 'rgba(168,85,247,0.22)'
     : pulse.arena === 'rooftop'
@@ -252,9 +252,9 @@ function ArenaLightPulse({ pulse }: { key?: React.Key; pulse: ArenaLightPulseDat
       }}
     />
   );
-}
+});
 
-function HitEffect({ x, y, color, isDestroy, isMiss, isExplosion, quality, originX, originY }: { key?: React.Key; x: number; y: number; color: string; isDestroy?: boolean; isMiss?: boolean; isExplosion?: boolean; quality?: 'graze' | 'armor' | 'body' | 'center' | 'weak_point'; originX?: number; originY?: number }) {
+const HitEffect = React.memo(function HitEffect({ x, y, color, isDestroy, isMiss, isExplosion, quality, originX, originY }: { key?: React.Key; x: number; y: number; color: string; isDestroy?: boolean; isMiss?: boolean; isExplosion?: boolean; quality?: 'graze' | 'armor' | 'body' | 'center' | 'weak_point'; originX?: number; originY?: number }) {
   if (isMiss) {
     const particleCount = 8;
     const spread = 50;
@@ -565,7 +565,7 @@ function HitEffect({ x, y, color, isDestroy, isMiss, isExplosion, quality, origi
       />
     </div>
   );
-}
+});
 
 const ARENAS: { id: ArenaId; name: string; level: number; targetScore: number }[] = [
   { id: 'training',  name: "TRAINING BAY",     level: 1, targetScore: 25000 },
@@ -990,62 +990,78 @@ function UpgradeMenu({ credits, upgrades, onUpgrade, onClose, currentGun, curren
   );
 }
 
-function EnemyProjectile({ proj, onFinish }: { key?: React.Key, proj: any, onFinish: () => void }) {
-  const [now, setNow] = useState(Date.now());
-  
+// Enemy projectile — drives its own rAF tick instead of a per-instance
+// setInterval(16ms). With 10+ incoming projectiles the old approach spawned
+// 10+ timers and 10+ setState calls per frame; this version drives one rAF
+// per projectile and only re-renders when the position actually changes.
+const EnemyProjectile = React.memo(function EnemyProjectile({
+  proj,
+  onFinish,
+}: {
+  key?: React.Key;
+  proj: any;
+  onFinish: () => void;
+}) {
+  const [progress, setProgress] = useState(0);
+  const finishedRef = useRef(false);
+
   useEffect(() => {
-    const start = Date.now();
-    const interval = setInterval(() => {
-      const elapsed = Date.now() - start;
-      if (elapsed >= proj.duration) {
-        clearInterval(interval);
-        onFinish();
+    const start = performance.now();
+    let raf = 0;
+    const tick = (t: number) => {
+      const elapsed = t - start;
+      const p = Math.min(1, elapsed / proj.duration);
+      setProgress(p);
+      if (p >= 1) {
+        if (!finishedRef.current) {
+          finishedRef.current = true;
+          onFinish();
+        }
+        return;
       }
-      setNow(Date.now());
-    }, 16);
-    return () => clearInterval(interval);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
   }, [proj.duration, onFinish]);
 
-  const elapsed = now - proj.createdAt;
-  const progress = Math.min(1, elapsed / proj.duration);
-  
   const currentX = proj.x + (proj.targetX - proj.x) * progress;
   const currentY = proj.y + (proj.targetY - proj.y) * progress;
   const currentScale = 0.5 + progress * 2.5;
 
   return (
-    <div 
+    <div
       className="absolute pointer-events-none z-[100]"
-      style={{ 
-        left: `${currentX}%`, 
+      style={{
+        left: `${currentX}%`,
         top: `${currentY}%`,
-        transform: `translate(-50%, -50%) scale(${currentScale})`
+        transform: `translate(-50%, -50%) scale(${currentScale})`,
       }}
     >
-      <div className="w-4 h-4 bg-orange-500 rounded-full shadow-[0_0_15px_#f97316] animate-pulse" />
-      <div className="absolute inset-0 bg-white/40 rounded-full scale-150 blur-sm" />
+      <div className="w-3.5 h-3.5 bg-orange-500 rounded-full shadow-[0_0_8px_rgba(249,115,22,0.65)]" />
     </div>
   );
-}
+});
 
-// Sparse neutral arena dust — no cyan tint, no glow halos. Replaces the old
-// 40-particle cyan haze with a restrained 16-particle drift that adds depth
-// without staining the arena blue.
+// Sparse neutral arena dust — no cyan tint, no glow halos. Particle field is
+// deterministic and computed once at module load (not per render) so the
+// component is essentially free; each particle is a single Framer Motion
+// subscription on x/y/opacity.
+const DUST_PARTICLES = Array.from({ length: 14 }).map((_, i) => ({
+  id: i,
+  top: `${(i * 67) % 100}%`,
+  left: `${(i * 41) % 100}%`,
+  duration: 14 + ((i * 7) % 12),
+  delay: -((i * 1.8) % 18),
+  size: 1.5 + ((i * 3) % 3),
+  opacity: 0.08 + ((i * 5) % 8) / 100,
+  drift: ((i % 2 === 0 ? 1 : -1) * (8 + (i * 3) % 18)),
+}));
+
 function DustParticles() {
-  const particles = Array.from({ length: 16 }).map((_, i) => ({
-    id: i,
-    top: `${(i * 67) % 100}%`,
-    left: `${(i * 41) % 100}%`,
-    duration: 14 + ((i * 7) % 12),
-    delay: -((i * 1.8) % 18),
-    size: 1.5 + ((i * 3) % 3),
-    opacity: 0.08 + ((i * 5) % 8) / 100,
-    drift: ((i % 2 === 0 ? 1 : -1) * (8 + (i * 3) % 18)),
-  }));
-
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden z-10">
-      {particles.map(p => (
+      {DUST_PARTICLES.map(p => (
         <motion.div
           key={p.id}
           className="absolute rounded-full"
@@ -1190,11 +1206,12 @@ export default function App() {
   }, [currentArena.id, currentGun.dartType.color, triggerArenaLightPulse]);
 
   const [uiSettings, setUiSettings] = useState(() => {
+    const defaults = { leftHanded: false, hudScale: 'normal', crosshairStyle: 'tactical', hitMarkers: true, showFireButton: true, controlScale: 1.0, soundVolume: 0.7, hapticsEnabled: true, screenEffects: true, reducedEffects: false };
     try {
       const saved = localStorage.getItem('dart_uiSettings');
-      return saved ? JSON.parse(saved) : { leftHanded: false, hudScale: 'normal', crosshairStyle: 'tactical', hitMarkers: true, showFireButton: true, controlScale: 1.0, soundVolume: 0.7, hapticsEnabled: true, screenEffects: true };
+      return saved ? { ...defaults, ...JSON.parse(saved) } : defaults;
     } catch {
-      return { leftHanded: false, hudScale: 'normal', crosshairStyle: 'tactical', hitMarkers: true, showFireButton: true, controlScale: 1.0, soundVolume: 0.7, hapticsEnabled: true, screenEffects: true };
+      return defaults;
     }
   });
 
@@ -2709,7 +2726,7 @@ export default function App() {
 
   return (
     <div 
-      className={`relative w-full h-screen overflow-hidden bg-[#050505] select-none touch-none ${uiSettings.screenEffects !== false ? 'film-grain' : ''}`}
+      className={`relative w-full h-screen overflow-hidden bg-[#050505] select-none touch-none ${uiSettings.screenEffects !== false && !uiSettings.reducedEffects ? 'film-grain' : ''}`}
       onMouseMove={handleMouseMove}
     >
       <AnimatePresence>
@@ -2850,9 +2867,11 @@ export default function App() {
             <ArenaLightPulse key={pulse.id} pulse={pulse} />
           ))}
         </AnimatePresence>
-        <motion.div className="absolute inset-0" style={{ x: tiltX, y: tiltY }}>
-           <DustParticles />
-        </motion.div>
+        {!uiSettings.reducedEffects && (
+          <motion.div className="absolute inset-0" style={{ x: tiltX, y: tiltY }}>
+             <DustParticles />
+          </motion.div>
+        )}
       </motion.div>
       <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/80 pointer-events-none z-10" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_55%,rgba(0,0,0,0.85)_120%)] pointer-events-none z-10" />
@@ -3201,7 +3220,7 @@ export default function App() {
               </AnimatePresence>
 
               {/* Boss HUD */}
-              <BossHUD boss={activeBoss} bossDefeated={bossDefeated} />
+              <BossHUD boss={activeBoss} bossDefeated={bossDefeated} reducedEffects={uiSettings.reducedEffects} />
 
               {hitEffects.map(effect => (
                 <HitEffect key={effect.id} x={effect.x} y={effect.y} color={effect.color} isDestroy={effect.isDestroy} isMiss={effect.isMiss} isExplosion={effect.isExplosion} quality={effect.quality} originX={effect.originX} originY={effect.originY} />

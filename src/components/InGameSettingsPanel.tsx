@@ -18,6 +18,7 @@ interface SettingsShape {
   soundVolume?: number;
   hapticsEnabled?: boolean;
   hudScale?: string;
+  reducedEffects?: boolean;
 }
 
 interface InGameSettingsPanelProps {
@@ -225,6 +226,17 @@ export function InGameSettingsPanel({ settings, setSettings, onClose }: InGameSe
               ]}
               value={settings.hudScale ?? 'normal'}
               onChange={(v) => updateSetting('hudScale', v)}
+              activeColor={TOKENS.magenta}
+            />
+            <SegmentRow
+              label="EFFECTS"
+              hint="Reduced disables HUD blur, dust drift, and film grain"
+              options={[
+                { v: false, label: 'HIGH'    },
+                { v: true,  label: 'REDUCED' },
+              ]}
+              value={Boolean(settings.reducedEffects)}
+              onChange={(v) => updateSetting('reducedEffects', v)}
               activeColor={TOKENS.magenta}
             />
           </Section>
