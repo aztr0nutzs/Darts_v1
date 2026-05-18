@@ -163,10 +163,43 @@ if (!resultsCaptured) {
 }
 
 // Boss HUD is intentionally not driven from this script. Boss encounters
-// trigger via GameplayDirector wave progression which is non-deterministic
-// inside a 30 s BLITZ match. The BossHUD redesign is validated by static
-// review of its source under src/components/BossHUD.tsx and the rendered
-// boss dock matches the spec there. We do not fabricate a screenshot.
+// Deterministic Boss HUD capture (DEV-only QA trigger):
+//   ?qaBoss=training | ?qaBoss=warehouse | ?qaBoss=rooftop
+// The app gates this path behind import.meta.env.DEV and auto-spawns the
+// real boss state in active gameplay so we can capture proof screenshots.
+async function captureBossHudShot(arenaId, filename) {
+  const ctx = await browser.newContext({
+    viewport: { width: 1440, height: 900 },
+    deviceScaleFactor: 1,
+  });
+  const p = await ctx.newPage();
+  p.on('console', (m) => {
+    if (m.type() === 'error') consoleErrors.push(`[boss-${arenaId}] ${m.text()}`);
+  });
+  p.on('pageerror', (e) => pageErrors.push(`[boss-${arenaId}] ${String(e)}`));
+  p.on('requestfailed', (r) =>
+    failedRequests.push(`[boss-${arenaId}] ${r.url()} :: ${r.failure()?.errorText ?? 'unknown'}`)
+  );
+
+  await p.goto(`${URL}?qaBoss=${arenaId}`, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(900);
+  const bypass = p.getByText('BYPASS', { exact: false }).first();
+  if (await bypass.count()) await bypass.click().catch(() => {});
+  await p.waitForTimeout(900);
+
+  const deploy = p.getByText('DEPLOY', { exact: false }).first();
+  if (await deploy.count()) await deploy.click().catch(() => {});
+  await p.waitForTimeout(5600); // countdown + boss spawn effect
+
+  await p.waitForSelector('text=BOSS', { timeout: 6000 });
+  await p.screenshot({ path: path.join(OUT, filename), fullPage: false });
+  console.log(`captured ${path.join(OUT, filename)}`);
+  await ctx.close();
+}
+
+await captureBossHudShot('training', '11_boss_hud_training.png');
+await captureBossHudShot('warehouse', '12_boss_hud_warehouse.png');
+await captureBossHudShot('rooftop', '13_boss_hud_rooftop.png');
 
 // ── 10 MOBILE CONTROLS ───────────────────────────────────────────────────
 const mobile = await browser.newContext({

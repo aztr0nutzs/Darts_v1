@@ -120,7 +120,7 @@ export default function Dart({ id, startX, startY, endX, endY, dartType, onCompl
         {dartType.shape === 'dart' && (
           <div className="flex flex-col items-center animate-[wobble_0.1s_ease-in-out_infinite]">
              <div className="w-3 h-4 rounded-t-full" style={{ backgroundColor: dartType.color }} />
-             <div className="w-3 h-10 bg-blue-600 rounded-b-sm border-x border-blue-800" />
+             <div className="w-3 h-10 rounded-b-sm border-x border-stone-700" style={{ backgroundColor: '#44403c' }} />
           </div>
         )}
         
