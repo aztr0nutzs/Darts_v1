@@ -1,87 +1,81 @@
 # Android Packaged Runtime QA Report
 
 **Date:** 2026-05-18 (UTC)
-**Branch / HEAD:** `claude/black-first-ui-redesign-Adsw7` (synced to `main` at `4b973a8`)
-**Scope:** Android-packaged WebView runtime verification of the redesigned
-build after the black-first / performance-budget passes (PRs #18 – #21).
+**Scope:** Current-cycle Android packaged runtime verification attempt for the
+latest Darts build.
 
-## Status
+## Executive status
 
-⚠️ **Android runtime was NOT executed for this commit.** The current
-managed remote-execution environment does not provide:
+⚠️ **Android runtime launch is still blocked in this environment.**
 
-- Android SDK / build tools
-- An Android emulator
-- A physical Android device with `adb` access
-- The ability to launch a system service such as `qemu-system-x86_64`
+What was completed:
+- Web build, lint, and packaging checks succeeded.
+- Android web-asset sync task succeeded.
 
-This report does **not** claim Android visual verification. It explicitly
-flags the gap so a reader does not mistake browser evidence for
-Android-packaged-WebView evidence. To regenerate Android evidence later,
-follow the procedure in the next section on a machine that does provide
-those tools.
+What failed:
+- Android debug APK compile failed because no Android SDK is installed/configured.
+- No `adb` binary and no emulator binary are present, so install/launch/logcat
+  runtime validation could not be executed.
 
-The previous Android QA report (pre-redesign, 2026-05-16) and its
-emulator-captured screenshots are now stale because they were captured
-against a build with the old blue/cyan UI. They have been moved to
-`qa-archive/outdated-before-redesign/` and labelled there. They must not
-be referenced as evidence for the current build.
+No Android screenshots are claimed in this run.
 
-## Procedure (when an Android host is available)
+## Commands run and outcomes
 
 ```bash
-# 1. Web build + path checks
-npm install
+npm ci
 npm run lint
 npm run build
-
-# 2. Sync the freshly built web assets into the Android app
-cd android
-./gradlew syncWebAssets   # on Windows: .\gradlew.bat syncWebAssets
-
-# 3. Build the debug APK
-./gradlew assembleDebug
-
-# 4. Boot an emulator (or attach a device) and install
-emulator -avd <your-avd-name> &
-adb wait-for-device
-adb install -r app/build/outputs/apk/debug/app-debug.apk
-
-# 5. Launch + capture
-adb shell am start -n com.darts.app/.MainActivity   # adjust package if it differs
-# Then use `adb exec-out screencap -p > qa-android-screenshots/01_android_launch.png`
-# while stepping through the redesigned surfaces.
-
-# 6. Logcat (capture during the same session)
-adb logcat -d > qa-android-startup-logcat.txt
+npm run android:sync:web
+cd android && sh gradlew assembleDebug
+which adb
+which emulator
 ```
 
-Once the run completes, replace this report with the captured commands,
-emulator/device identifiers, screenshots, logcat excerpts, and a final
-verdict — and remove this "not executed" notice.
+Results:
+- `npm ci` ✅
+- `npm run lint` ✅
+- `npm run build` ✅
+- `npm run android:sync:web` ✅ (including Gradle `:app:syncWebAssets`)
+- `sh gradlew assembleDebug` ❌
+  - Failure: `SDK location not found. Define a valid SDK location with an ANDROID_HOME environment variable or by setting the sdk.dir path ...`
+- `which adb` ❌ (not found)
+- `which emulator` ❌ (not found)
 
-## Surfaces to capture
+## Required runtime questions (truthful answers)
 
-When the run is performed, capture (at minimum):
+- **Did the app launch on Android?** No.
+- **Was the white-screen issue absent?** Not verifiable (app did not launch).
+- **Did JS render on Android runtime?** Not verifiable.
+- **Did CSS apply on Android runtime?** Not verifiable.
+- **Did core visuals load on Android runtime?** Not verifiable.
+- **Did screenshots reflect the current build?** No Android screenshots captured in this environment.
+- **Any remaining Android-specific issues?** Primary blocker is missing Android SDK + no adb/emulator tools in environment.
 
-- `01_android_launch.png` — initial boot sequence on Android
-- `02_android_main_menu.png` — redesigned main menu after boot completes
-- `03_android_gameplay.png` — gameplay HUD with the mobile control overlay
-- `04_android_settings.png` — in-game settings panel via pause → SETTINGS
-- `05_android_multiplayer.png` — Multiplayer entry sub-view from main menu
-  (or the post-join lobby if a peer is available)
+## Runtime logs / logcat
 
-## Why this is here even though it could not be run
+- No device/emulator runtime session was available.
+- No logcat output exists for this cycle in this environment.
 
-The strict rule for this task is: do **not** claim Android runtime was
-verified unless it was actually launched. This document records that
-**fact** rather than silently omitting it. Browser-side runtime evidence
-for the redesigned UI is still recorded in `QA_LIVE_TEST_REPORT.md` and
-in `qa-screenshots-current/`.
+## Screenshot status
 
-## Related artifacts
+Target folder for successful runs remains:
+- `qa-android-screenshots-current/`
 
-- Current browser QA: `QA_LIVE_TEST_REPORT.md`, `qa-screenshots-current/`
-- Previous (pre-redesign, stale) Android evidence:
-  `qa-archive/outdated-before-redesign/screenshots/android/` and
-  `qa-archive/outdated-before-redesign/logs/qa-android-*.txt`.
+Expected captures when Android host is available:
+- `01_android_launch.png`
+- `02_android_main_menu.png`
+- `03_android_loadout.png`
+- `04_android_gameplay_hud.png`
+- `05_android_settings.png`
+- `06_android_multiplayer_lobby_or_unavailable.png`
+- `07_android_boss_hud.png` (if deterministic trigger path is used)
+
+## Remaining release blockers (Android)
+
+1. Install/configure Android SDK and set `ANDROID_HOME` (or `sdk.dir` in
+   `android/local.properties`).
+2. Provision emulator or physical device with `adb` access.
+3. Re-run APK build/install/launch and capture fresh current-cycle screenshots.
+4. Capture and attach logcat for startup/render/runtime networking validation.
+
+Until those are complete, Android runtime confidence remains **blocked**.
