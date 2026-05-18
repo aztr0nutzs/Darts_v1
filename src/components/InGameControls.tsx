@@ -1,61 +1,178 @@
-import React from 'react';
-import { motion } from 'motion/react';
-import { Crosshair, RefreshCw, Hand, Shield, Settings, Focus, Crosshair as AimCircle, Target, ArrowRight } from 'lucide-react';
+// In-Game Controls — Claude Design board (tactical mobile controls).
+// Black-first hard-edged touch controls. Octagon FIRE is the dominant action
+// (orange). RELOAD / SWAP are secondary ghost octagons with hairline borders.
+// No round soft cyan glass buttons, no glow halos. Hit targets preserved.
 
-export function InGameControls({ 
-  onFire, 
-  onReload, 
-  onPause, 
+import React from 'react';
+import { TOKENS, octagonClipPath } from '../lib/designTokens';
+
+interface InGameControlsProps {
+  onFire: () => void;
+  onReload: () => void;
+  onPause: () => void;
+  onWeaponSwap: () => void;
+  leftHanded?: boolean;
+  buttonScale?: number;
+  opacity?: number;
+  showFireButton?: boolean;
+}
+
+export function InGameControls({
+  onFire,
+  onReload,
   onWeaponSwap,
-  leftHanded,
-  buttonScale,
-  opacity,
-  showFireButton = false
-}: any) {
-  
-  const layoutClass = leftHanded ? 'left-4 sm:left-8 flex-row-reverse' : 'right-4 sm:right-8 flex-row';
-  const sideClass = leftHanded ? 'flex-row-reverse left-4 sm:left-8' : 'flex-row right-4 sm:right-8';
+  leftHanded = false,
+  buttonScale = 1,
+  opacity = 1,
+  showFireButton = false,
+}: InGameControlsProps) {
+  // FIRE button sizing — large enough to be a confident touch target even on
+  // small phones (96px @ scale 1). Octagon clip preserves a hit-friendly hitbox
+  // because pointer events fall back to the underlying button rect.
+  const FIRE_SIZE = 108;
+  const SECONDARY_SIZE = 76;
+  const SWAP_SIZE = 64;
 
   return (
-    <div 
-      className="absolute bottom-4 sm:bottom-8 pointer-events-none z-50 flex items-end justify-between w-full px-4 sm:px-8"
-      style={{ opacity, transform: `scale(${buttonScale})`, transformOrigin: 'bottom' }}
+    <div
+      className="absolute inset-x-0 bottom-0 pointer-events-none z-50 select-none"
+      style={{
+        opacity,
+        paddingBottom: 16,
+        paddingLeft: 16,
+        paddingRight: 16,
+      }}
     >
-      <div className={`pointer-events-auto flex items-end gap-2 sm:gap-4 ${leftHanded ? 'order-1' : 'order-1'}`}>
-         {/* Movement / Assist Area (left or right depending on handedness) */}
-         {/* If Left-handed, this is on the right. If Right-handed, this is on the left. */}
-      </div>
+      <div
+        className="flex items-end justify-between"
+        style={{
+          transform: `scale(${buttonScale})`,
+          transformOrigin: leftHanded ? 'bottom left' : 'bottom right',
+          flexDirection: leftHanded ? 'row-reverse' : 'row',
+        }}
+      >
+        {/* Spacer left — reserved for movement / aim assist module */}
+        <div className="pointer-events-none" style={{ width: 1 }} />
 
-      <div className={`pointer-events-auto flex items-end gap-2 sm:gap-4 ${leftHanded ? 'order-0' : 'order-2'}`}>
-        {!showFireButton && (
-           <button 
-             onPointerDown={(e) => { e.stopPropagation(); onReload(); }}
-             className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-slate-800/80 border-2 border-slate-600 flex items-center justify-center hover:bg-slate-700 active:scale-90 shadow-lg backdrop-blur-sm transition-transform"
-           >
-             <RefreshCw className="w-6 h-6 sm:w-8 sm:h-8 text-blue-400" />
-           </button>
-        )}
-
-        <button 
-           onPointerDown={(e) => { e.stopPropagation(); onWeaponSwap(); }}
-           className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-slate-800/80 border-2 border-slate-600 flex items-center justify-center hover:bg-slate-700 active:scale-90 shadow-lg backdrop-blur-sm transition-transform mb-2 sm:mb-4"
+        {/* Action cluster — RELOAD + SWAP + FIRE */}
+        <div
+          className="pointer-events-auto flex items-end"
+          style={{
+            gap: 12,
+            flexDirection: leftHanded ? 'row-reverse' : 'row',
+          }}
         >
-           <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6 text-orange-400" />
-        </button>
+          {!showFireButton && (
+            <TacticalButton
+              label="RELOAD"
+              size={SECONDARY_SIZE}
+              accent={TOKENS.cyan}
+              onPress={onReload}
+              variant="ghost"
+            />
+          )}
 
-        {showFireButton && (
-          <button 
-            onPointerDown={(e) => { e.stopPropagation(); onFire(); }}
-            className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-cyan-600/80 border-4 border-cyan-400 flex items-center justify-center hover:bg-cyan-500 active:scale-95 shadow-[0_0_20px_rgba(34,211,238,0.5)] backdrop-blur-sm transition-transform"
-          >
-            <Target className="w-10 h-10 sm:w-12 sm:h-12 text-black" />
-          </button>
-        )}
-      </div>
+          <TacticalButton
+            label="SWAP"
+            size={SWAP_SIZE}
+            accent={TOKENS.yellow}
+            onPress={onWeaponSwap}
+            variant="ghost"
+            style={{ marginBottom: SECONDARY_SIZE > 0 ? 6 : 0 }}
+          />
 
-      <div className={`absolute top-4 sm:top-8 pointer-events-auto ${leftHanded ? 'right-4 sm:right-8' : 'left-4 sm:left-8'}`}>
-        {/* Pause Button was moved to HUD, we can have settings quick toggle here if needed */}
+          {showFireButton && (
+            <TacticalButton
+              label="FIRE"
+              size={FIRE_SIZE}
+              accent={TOKENS.orange}
+              onPress={onFire}
+              variant="solid"
+            />
+          )}
+        </div>
       </div>
     </div>
+  );
+}
+
+// ── TacticalButton ─────────────────────────────────────────────────────────
+// Hard-edge octagon button. Solid orange (FIRE) or hairline-bordered ghost
+// (RELOAD/SWAP). Inner numeric/text label sits centered. No glow shadow.
+function TacticalButton({
+  label,
+  size,
+  accent,
+  onPress,
+  variant,
+  style,
+}: {
+  label: string;
+  size: number;
+  accent: string;
+  onPress: () => void;
+  variant: 'solid' | 'ghost';
+  style?: React.CSSProperties;
+}) {
+  const isSolid = variant === 'solid';
+  return (
+    <button
+      type="button"
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        onPress();
+      }}
+      aria-label={label}
+      className="block select-none active:translate-y-[2px]"
+      style={{
+        position: 'relative',
+        width: size,
+        height: size,
+        padding: 0,
+        border: 'none',
+        cursor: 'pointer',
+        background: 'transparent',
+        ...style,
+      }}
+    >
+      {/* Outer octagon */}
+      <span
+        aria-hidden
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: isSolid ? accent : 'rgba(0,0,0,0.62)',
+          clipPath: octagonClipPath(18),
+        }}
+      />
+      {/* Inner octagon (hairline ring) */}
+      <span
+        aria-hidden
+        style={{
+          position: 'absolute',
+          inset: 4,
+          background: isSolid ? accent : 'transparent',
+          border: isSolid ? `2px solid ${TOKENS.textOnOrange}33` : `1.5px solid ${accent}`,
+          clipPath: octagonClipPath(18),
+        }}
+      />
+      {/* Centered label */}
+      <span
+        style={{
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          font: `900 italic ${Math.max(11, Math.round(size * 0.18))}px/1 ${TOKENS.fontDisplay}`,
+          color: isSolid ? TOKENS.textOnOrange : accent,
+          letterSpacing: '.12em',
+          textTransform: 'uppercase',
+          textShadow: isSolid ? '0 1px 0 rgba(0,0,0,0.25)' : 'none',
+        }}
+      >
+        {label}
+      </span>
+    </button>
   );
 }

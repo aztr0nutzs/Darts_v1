@@ -1,14 +1,12 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// BossHUD.tsx — Boss encounter HUD overlay
-//
-// Shows boss intro banner, HP bar, phase indicator, phase transition alerts,
-// and boss name during an active boss encounter.
-// ─────────────────────────────────────────────────────────────────────────────
+// Boss HUD — Claude Design board (event-grade overlay).
+// Black-first dramatic boss presentation. Sharp hairlines, segmented HP bar,
+// magenta as the designated danger color. No soft blur, no glow clouds, no
+// gradient pulsing. Intro/phase/victory are short, hard-cut events.
 
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Skull, Shield, AlertTriangle } from 'lucide-react';
 import type { BossState } from '../lib/BossEncounter';
+import { TOKENS } from '../lib/designTokens';
 
 interface BossHUDProps {
   boss: BossState | null;
@@ -16,150 +14,199 @@ interface BossHUDProps {
   bossDefeated: boolean;
 }
 
+// ── Intro Banner ─────────────────────────────────────────────────────────
 function BossIntroBanner({ name }: { name: string }) {
   return (
     <motion.div
-      initial={{ scaleX: 0, opacity: 0 }}
-      animate={{ scaleX: 1, opacity: 1 }}
-      exit={{ scaleX: 0, opacity: 0 }}
-      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      className="fixed inset-x-0 top-[30%] z-[80] flex items-center justify-center pointer-events-none"
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.22, ease: 'easeOut' }}
+      className="fixed inset-x-0 top-[28%] z-[80] flex items-center justify-center pointer-events-none"
     >
-      <div className="relative flex flex-col items-center">
-        {/* Decorative lines */}
-        <motion.div
-          initial={{ width: 0 }}
-          animate={{ width: '80vw' }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="h-[2px] bg-gradient-to-r from-transparent via-red-500 to-transparent mb-3"
+      <div
+        style={{
+          position: 'relative',
+          minWidth: 'min(82vw, 720px)',
+          background: TOKENS.bgTranslucentHi,
+          border: `1px solid ${TOKENS.magenta}`,
+          borderLeft: `4px solid ${TOKENS.magenta}`,
+          padding: '20px 28px 22px',
+          backdropFilter: 'blur(6px)',
+          WebkitBackdropFilter: 'blur(6px)',
+        }}
+      >
+        <span
+          aria-hidden
+          style={{ position: 'absolute', left: -1, top: -1, height: 4, width: 96, background: TOKENS.magenta }}
         />
-
-        <div className="flex items-center gap-4">
-          <Skull className="w-8 h-8 text-red-500 drop-shadow-[0_0_10px_red]" />
-          <div className="flex flex-col items-center">
-            <span className="text-[10px] font-black tracking-[0.5em] uppercase text-red-400/80 mb-1">
-              BOSS ENCOUNTER
-            </span>
-            <motion.span
-              initial={{ letterSpacing: '0.5em', opacity: 0 }}
-              animate={{ letterSpacing: '0.15em', opacity: 1 }}
-              transition={{ duration: 0.8, delay: 0.3 }}
-              className="text-3xl sm:text-5xl font-black text-white italic tracking-[0.15em] drop-shadow-[0_0_20px_rgba(239,68,68,0.5)]"
-            >
-              {name}
-            </motion.span>
-          </div>
-          <Skull className="w-8 h-8 text-red-500 drop-shadow-[0_0_10px_red]" />
+        <div
+          style={{
+            font: `700 12px/1 ${TOKENS.fontMono}`,
+            color: TOKENS.magenta,
+            letterSpacing: '.42em',
+            textTransform: 'uppercase',
+            marginBottom: 8,
+          }}
+        >
+          ⚠ THREAT DETECTED · BOSS ENCOUNTER
         </div>
-
-        <motion.div
-          initial={{ width: 0 }}
-          animate={{ width: '80vw' }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="h-[2px] bg-gradient-to-r from-transparent via-red-500 to-transparent mt-3"
-        />
-
-        {/* Sub-text */}
-        <motion.span
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-          className="text-[10px] font-black text-red-300/60 tracking-[0.3em] uppercase mt-2"
+        <div
+          style={{
+            font: `900 italic clamp(36px, 6vw, 64px)/0.9 ${TOKENS.fontDisplay}`,
+            color: TOKENS.textHi,
+            letterSpacing: '.06em',
+            textTransform: 'uppercase',
+            textShadow: '0 4px 0 #000',
+          }}
+        >
+          {name}
+        </div>
+        <div
+          style={{
+            marginTop: 10,
+            font: `500 11px/1 ${TOKENS.fontMono}`,
+            color: TOKENS.text,
+            letterSpacing: '.28em',
+            textTransform: 'uppercase',
+          }}
         >
           DESTROY THE WEAK POINTS
-        </motion.span>
+        </div>
       </div>
     </motion.div>
   );
 }
 
+// ── Victory Banner ───────────────────────────────────────────────────────
 function BossVictoryBanner() {
   return (
     <motion.div
-      initial={{ scaleX: 0, opacity: 0 }}
-      animate={{ scaleX: 1, opacity: 1 }}
-      exit={{ scaleX: 0, opacity: 0 }}
-      transition={{ duration: 0.4 }}
-      className="fixed inset-x-0 top-[35%] z-[80] flex items-center justify-center pointer-events-none"
+      initial={{ opacity: 0, y: -6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className="fixed inset-x-0 top-[32%] z-[80] flex items-center justify-center pointer-events-none"
     >
-      <div className="flex flex-col items-center">
-        <motion.div
-          initial={{ width: 0 }}
-          animate={{ width: '60vw' }}
-          transition={{ duration: 0.5 }}
-          className="h-[2px] bg-gradient-to-r from-transparent via-emerald-400 to-transparent mb-3"
+      <div
+        style={{
+          position: 'relative',
+          minWidth: 'min(70vw, 560px)',
+          background: TOKENS.bgTranslucentHi,
+          border: `1px solid ${TOKENS.green}`,
+          borderLeft: `4px solid ${TOKENS.green}`,
+          padding: '18px 24px 20px',
+          textAlign: 'center',
+          backdropFilter: 'blur(6px)',
+          WebkitBackdropFilter: 'blur(6px)',
+        }}
+      >
+        <span
+          aria-hidden
+          style={{ position: 'absolute', left: -1, top: -1, height: 4, width: 96, background: TOKENS.green }}
         />
-        <motion.span
-          initial={{ scale: 0.5, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 15, delay: 0.2 }}
-          className="text-4xl sm:text-6xl font-black text-emerald-400 italic tracking-wider drop-shadow-[0_0_20px_rgba(52,211,153,0.6)]"
+        <div
+          style={{
+            font: `700 12px/1 ${TOKENS.fontMono}`,
+            color: TOKENS.green,
+            letterSpacing: '.42em',
+            textTransform: 'uppercase',
+            marginBottom: 8,
+          }}
         >
-          BOSS DEFEATED
-        </motion.span>
-        <motion.div
-          initial={{ width: 0 }}
-          animate={{ width: '60vw' }}
-          transition={{ duration: 0.5 }}
-          className="h-[2px] bg-gradient-to-r from-transparent via-emerald-400 to-transparent mt-3"
-        />
+          ✓ TARGET NEUTRALISED
+        </div>
+        <div
+          style={{
+            font: `900 italic clamp(36px, 6vw, 56px)/0.9 ${TOKENS.fontDisplay}`,
+            color: TOKENS.textHi,
+            letterSpacing: '.06em',
+            textTransform: 'uppercase',
+            textShadow: '0 4px 0 #000',
+          }}
+        >
+          BOSS DOWN
+        </div>
       </div>
     </motion.div>
   );
 }
 
+// ── Phase Transition Alert ───────────────────────────────────────────────
 function PhaseTransitionAlert({ phase }: { phase: number }) {
   return (
     <motion.div
-      initial={{ y: -40, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      exit={{ y: -40, opacity: 0 }}
-      transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-      className="fixed top-[18%] left-1/2 -translate-x-1/2 z-[75] flex items-center gap-2 bg-red-600/90 border border-red-400 px-6 py-2 shadow-[0_0_20px_red] backdrop-blur pointer-events-none"
+      initial={{ opacity: 0, y: -12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.18 }}
+      className="fixed top-[18%] left-1/2 -translate-x-1/2 z-[75] pointer-events-none"
     >
-      <AlertTriangle className="w-5 h-5 text-white animate-pulse" />
-      <span className="text-sm font-black tracking-[0.3em] uppercase text-white">
-        PHASE {phase} ENGAGED
-      </span>
-      <AlertTriangle className="w-5 h-5 text-white animate-pulse" />
+      <div
+        style={{
+          position: 'relative',
+          background: TOKENS.bgTranslucentHi,
+          border: `1px solid ${TOKENS.magenta}`,
+          borderLeft: `3px solid ${TOKENS.magenta}`,
+          padding: '10px 18px',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 12,
+          backdropFilter: 'blur(6px)',
+          WebkitBackdropFilter: 'blur(6px)',
+        }}
+      >
+        <span
+          aria-hidden
+          style={{ width: 8, height: 8, background: TOKENS.magenta }}
+        />
+        <span
+          style={{
+            font: `700 12px/1 ${TOKENS.fontMono}`,
+            color: TOKENS.magenta,
+            letterSpacing: '.34em',
+            textTransform: 'uppercase',
+          }}
+        >
+          PHASE {String(phase).padStart(2, '0')} ENGAGED
+        </span>
+      </div>
     </motion.div>
   );
 }
 
+// ── BossHUD Root ─────────────────────────────────────────────────────────
 export default function BossHUD({ boss, bossDefeated }: BossHUDProps) {
   const [showIntro, setShowIntro] = useState(false);
   const [showPhaseAlert, setShowPhaseAlert] = useState(false);
   const [showVictory, setShowVictory] = useState(false);
   const [phaseAlertNum, setPhaseAlertNum] = useState(1);
 
-  // Intro banner
   useEffect(() => {
     if (boss && !boss.introShown) {
       setShowIntro(true);
       const timer = setTimeout(() => {
         setShowIntro(false);
         if (boss) boss.introShown = true;
-      }, 3000);
+      }, 2400);
       return () => clearTimeout(timer);
     }
   }, [boss?.id]);
 
-  // Phase transition alert
   useEffect(() => {
     if (boss?.phaseTransitionAlert) {
       setPhaseAlertNum(boss.phase);
       setShowPhaseAlert(true);
       boss.phaseTransitionAlert = false;
-      const timer = setTimeout(() => setShowPhaseAlert(false), 2000);
+      const timer = setTimeout(() => setShowPhaseAlert(false), 1500);
       return () => clearTimeout(timer);
     }
   }, [boss?.phaseTransitionAlert, boss?.phase]);
 
-  // Victory banner
   useEffect(() => {
     if (bossDefeated) {
       setShowVictory(true);
-      const timer = setTimeout(() => setShowVictory(false), 3000);
+      const timer = setTimeout(() => setShowVictory(false), 2400);
       return () => clearTimeout(timer);
     }
   }, [bossDefeated]);
@@ -167,92 +214,195 @@ export default function BossHUD({ boss, bossDefeated }: BossHUDProps) {
   if (!boss && !showVictory) return null;
 
   const hpRatio = boss ? boss.currentHp / boss.maxHp : 0;
-  const hpColor = hpRatio > 0.5 ? '#ef4444' : hpRatio > 0.25 ? '#f97316' : '#fbbf24';
+  const hpPct = Math.max(0, hpRatio * 100);
+  const hpColor =
+    hpRatio > 0.6
+      ? TOKENS.magenta
+      : hpRatio > 0.3
+      ? TOKENS.orange
+      : TOKENS.yellow;
+
+  const weakPointExposed = boss?.weakPoints?.some((wp) => wp.exposed) ?? false;
+  const segments = 12;
 
   return (
     <>
-      {/* Intro Banner */}
       <AnimatePresence>
         {showIntro && boss && <BossIntroBanner name={boss.displayName} />}
       </AnimatePresence>
-
-      {/* Phase Alert */}
       <AnimatePresence>
         {showPhaseAlert && <PhaseTransitionAlert phase={phaseAlertNum} />}
       </AnimatePresence>
-
-      {/* Victory Banner */}
       <AnimatePresence>
         {showVictory && <BossVictoryBanner />}
       </AnimatePresence>
 
-      {/* Boss HP Bar — persistent at top-center during encounter */}
+      {/* Persistent BOSS dock — top-center during encounter */}
       {boss && boss.behaviorState !== 'defeated' && (
-        <div className="fixed top-14 sm:top-16 left-1/2 -translate-x-1/2 z-[70] pointer-events-none w-[70vw] max-w-[500px]">
-          <div className="bg-black/85 border border-red-500/40 backdrop-blur-md px-4 py-2 rounded-lg shadow-[0_0_20px_rgba(239,68,68,0.2)]">
-            {/* Header row */}
-            <div className="flex items-center justify-between mb-1.5">
-              <div className="flex items-center gap-2">
-                <Skull className="w-4 h-4 text-red-500" />
-                <span className="text-[10px] font-black text-red-400 tracking-[0.2em] uppercase">
+        <div
+          className="fixed top-14 sm:top-16 left-1/2 -translate-x-1/2 z-[70] pointer-events-none"
+          style={{ width: 'min(72vw, 560px)' }}
+        >
+          <div
+            style={{
+              position: 'relative',
+              background: TOKENS.bgTranslucentHi,
+              border: `1px solid ${TOKENS.magenta}55`,
+              borderLeft: `3px solid ${TOKENS.magenta}`,
+              padding: '12px 16px 14px',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+            }}
+          >
+            {/* Top-tick magenta accent */}
+            <span
+              aria-hidden
+              style={{ position: 'absolute', left: -1, top: -1, height: 3, width: 56, background: TOKENS.magenta }}
+            />
+
+            {/* Header row — name + phase ticks */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: 10,
+                gap: 12,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, minWidth: 0 }}>
+                <span
+                  style={{
+                    font: `700 10px/1 ${TOKENS.fontMono}`,
+                    color: TOKENS.magenta,
+                    letterSpacing: '.36em',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  BOSS
+                </span>
+                <span
+                  style={{
+                    font: `900 italic 18px/1 ${TOKENS.fontDisplay}`,
+                    color: TOKENS.textHi,
+                    letterSpacing: '.04em',
+                    textTransform: 'uppercase',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
                   {boss.displayName}
                 </span>
               </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[9px] font-black text-zinc-500 tracking-widest">PHASE</span>
-                {[1, 2, 3].map(p => (
-                  <div
-                    key={p}
-                    className={`w-3 h-3 rounded-sm ${
-                      p <= boss.phase
-                        ? 'bg-red-500 border border-red-400 shadow-[0_0_6px_red]'
-                        : 'bg-zinc-800 border border-zinc-700'
-                    }`}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span
+                  style={{
+                    font: `500 10px/1 ${TOKENS.fontMono}`,
+                    color: TOKENS.textMute,
+                    letterSpacing: '.28em',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  PHASE
+                </span>
+                {[1, 2, 3].map((p) => {
+                  const active = p <= boss.phase;
+                  const current = p === boss.phase;
+                  return (
+                    <span
+                      key={p}
+                      aria-hidden
+                      style={{
+                        width: 12,
+                        height: 12,
+                        background: active ? TOKENS.magenta : 'transparent',
+                        border: `1px solid ${active ? TOKENS.magenta : TOKENS.hairlineHi}`,
+                        outline: current ? `1px solid ${TOKENS.textHi}` : 'none',
+                        outlineOffset: 1,
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Segmented HP bar */}
+            <div
+              style={{
+                position: 'relative',
+                height: 18,
+                background: 'rgba(255,255,255,0.04)',
+                border: `1px solid ${TOKENS.hairlineHi}`,
+                overflow: 'hidden',
+              }}
+            >
+              <motion.div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  bottom: 0,
+                  background: hpColor,
+                }}
+                initial={false}
+                animate={{ width: `${hpPct}%` }}
+                transition={{ duration: 0.25, ease: 'easeOut' }}
+              />
+              {/* Segment dividers */}
+              <div style={{ position: 'absolute', inset: 0, display: 'flex' }}>
+                {Array.from({ length: segments - 1 }).map((_, i) => (
+                  <span
+                    key={i}
+                    aria-hidden
+                    style={{
+                      flex: 1,
+                      borderRight: `1px solid rgba(0,0,0,0.6)`,
+                    }}
                   />
                 ))}
+                <span style={{ flex: 1 }} />
               </div>
-            </div>
-
-            {/* HP Bar */}
-            <div className="relative w-full h-4 bg-zinc-900 border border-zinc-700 rounded-sm overflow-hidden">
-              <motion.div
-                className="absolute top-0 left-0 bottom-0 rounded-sm"
+              {/* HP read */}
+              <div
                 style={{
-                  background: `linear-gradient(90deg, ${hpColor}, ${hpColor}dd)`,
-                  boxShadow: `0 0 12px ${hpColor}80`,
+                  position: 'absolute',
+                  inset: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  font: `700 11px/1 ${TOKENS.fontMono}`,
+                  color: TOKENS.textHi,
+                  letterSpacing: '.18em',
+                  fontVariantNumeric: 'tabular-nums',
+                  textShadow: '0 1px 0 #000',
                 }}
-                initial={{ width: '100%' }}
-                animate={{ width: `${Math.max(0, hpRatio * 100)}%` }}
-                transition={{ duration: 0.3, ease: 'easeOut' }}
-              />
-              {/* Section dividers */}
-              <div className="absolute inset-0 flex justify-evenly pointer-events-none">
-                {Array.from({ length: 9 }).map((_, i) => (
-                  <div key={i} className="w-px h-full bg-black/40" />
-                ))}
-              </div>
-              {/* HP text */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-[10px] font-black text-white/90 tracking-wider drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
-                  {boss.currentHp} / {boss.maxHp}
-                </span>
+              >
+                {boss.currentHp} / {boss.maxHp}
               </div>
             </div>
 
-            {/* Sub-info */}
-            <div className="flex items-center justify-between mt-1">
-              <span className="text-[8px] font-black text-zinc-600 tracking-widest uppercase">
+            {/* Sub-info row */}
+            <div
+              style={{
+                marginTop: 8,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                font: `500 10px/1 ${TOKENS.fontMono}`,
+                color: TOKENS.textMute,
+                letterSpacing: '.24em',
+                textTransform: 'uppercase',
+              }}
+            >
+              <span>
+                <span style={{ color: TOKENS.magenta, marginRight: 8 }}>▣</span>
                 {boss.behaviorState.replace(/_/g, ' ')}
               </span>
-              {boss.weakPoints.some(wp => wp.exposed) && (
-                <motion.span
-                  animate={{ opacity: [0.5, 1, 0.5] }}
-                  transition={{ duration: 1, repeat: Infinity }}
-                  className="text-[8px] font-black text-yellow-400 tracking-widest uppercase flex items-center gap-1"
-                >
-                  <Shield className="w-3 h-3" />
-                  WEAK POINT EXPOSED
-                </motion.span>
+              {weakPointExposed && (
+                <span style={{ color: TOKENS.yellow }}>
+                  ◆ WEAK POINT EXPOSED
+                </span>
               )}
             </div>
           </div>
