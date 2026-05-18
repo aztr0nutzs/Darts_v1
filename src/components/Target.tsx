@@ -93,12 +93,13 @@ function TargetImageOverlay({
           }}
         />
       )}
-      {/* Optional shield ring for shielded types */}
+      {/* Optional shield ring for shielded types — restrained glow so the
+          actual target asset reads clearly underneath. */}
       {shielded && (
         <motion.div
           animate={{ rotate: 360 }}
-          transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
-          className="absolute inset-[-12%] rounded-full border-2 border-cyan-300/60 shadow-[0_0_22px_rgba(34,211,238,0.45)]"
+          transition={{ duration: 14, repeat: Infinity, ease: 'linear' }}
+          className="absolute inset-[-12%] rounded-full border border-cyan-300/45 shadow-[0_0_10px_rgba(34,211,238,0.22)]"
           style={{ mixBlendMode: 'screen' }}
         />
       )}
@@ -294,8 +295,9 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
     transitionProps = { ...transitionProps, opacity: { duration: 0.3 } };
   }
 
-  // Visual Theme mapping 
-  const nerdBlue = 'text-cyan-400 border-cyan-400 shadow-[0_0_20px_#22d3ee]';
+  // Visual Theme mapping — cyan kept as the data/system accent but with the
+  // outer-shadow halo dialed back so the target reads first.
+  const nerdBlue = 'text-cyan-400 border-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.4)]';
 
   const renderInner = () => {
     switch (target.type) {
@@ -480,18 +482,18 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
               <div className="absolute inset-5 rounded-full bg-red-600" />
               <div className="absolute inset-[42%] rounded-full bg-amber-50" data-hit-zone="weak_point" />
             </div>
-            {/* Shield ring (transparent with shimmer) */}
+            {/* Shield ring — sharper hairline, restrained glow */}
             <motion.div
               animate={{ rotate: 360 }}
-              transition={{ duration: 12, repeat: Infinity, ease: 'linear' }}
-              className="absolute inset-0 rounded-full border-4 border-cyan-400/60 bg-cyan-300/10 backdrop-blur-[1px] shadow-[0_0_25px_rgba(34,211,238,0.4)]"
+              transition={{ duration: 16, repeat: Infinity, ease: 'linear' }}
+              className="absolute inset-0 rounded-full border-2 border-cyan-400/55 bg-cyan-400/5 shadow-[0_0_12px_rgba(34,211,238,0.22)]"
               data-hit-zone="armor"
             >
-              <div className="absolute inset-1 rounded-full border border-cyan-200/40" />
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-cyan-300 shadow-[0_0_10px_#67e8f9]" />
-              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-cyan-300 shadow-[0_0_10px_#67e8f9]" />
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-cyan-300 shadow-[0_0_10px_#67e8f9]" />
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-cyan-300 shadow-[0_0_10px_#67e8f9]" />
+              <div className="absolute inset-1 rounded-full border border-cyan-200/35" />
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-cyan-300" />
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-cyan-300" />
+              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-cyan-300" />
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-cyan-300" />
             </motion.div>
           </div>
         );

@@ -6,7 +6,7 @@ import {
   Trophy, RefreshCw, Home, ShieldPlus, Wind, Cpu
 } from 'lucide-react';
 import type { Socket } from 'socket.io-client';
-import { DamageIndicator, ScanningLaser, CRTOverlay } from './components/BackgroundElements';
+import { DamageIndicator } from './components/BackgroundElements';
 import { sounds, HAPTIC, hapticForGun } from './lib/sounds';
 
 import MainMenu from './components/MainMenu';
@@ -38,7 +38,7 @@ const BossHUD = React.lazy(() => import('./components/BossHUD'));
 
 function DeferredModuleFallback({ label = 'LOADING' }: { label?: string }) {
   return (
-    <div className="absolute inset-0 z-[120] flex items-center justify-center bg-[#050505]/80 text-[10px] font-black uppercase tracking-[0.35em] text-cyan-300">
+    <div className="absolute inset-0 z-[120] flex items-center justify-center bg-black/85 text-[10px] font-black uppercase tracking-[0.35em] text-zinc-400">
       {label}
     </div>
   );
@@ -1028,41 +1028,45 @@ function EnemyProjectile({ proj, onFinish }: { key?: React.Key, proj: any, onFin
   );
 }
 
+// Sparse neutral arena dust — no cyan tint, no glow halos. Replaces the old
+// 40-particle cyan haze with a restrained 16-particle drift that adds depth
+// without staining the arena blue.
 function DustParticles() {
-  const particles = Array.from({ length: 40 }).map((_, i) => ({
+  const particles = Array.from({ length: 16 }).map((_, i) => ({
     id: i,
-    top: `${Math.random() * 100}%`,
-    left: `${Math.random() * 100}%`,
-    duration: 10 + Math.random() * 20,
-    delay: Math.random() * -20,
-    size: 2 + Math.random() * 4,
-    opacity: 0.1 + Math.random() * 0.3
+    top: `${(i * 67) % 100}%`,
+    left: `${(i * 41) % 100}%`,
+    duration: 14 + ((i * 7) % 12),
+    delay: -((i * 1.8) % 18),
+    size: 1.5 + ((i * 3) % 3),
+    opacity: 0.08 + ((i * 5) % 8) / 100,
+    drift: ((i % 2 === 0 ? 1 : -1) * (8 + (i * 3) % 18)),
   }));
 
   return (
-    <div className="absolute inset-0 pointer-events-none overflow-hidden z-10" style={{ mixBlendMode: 'screen' }}>
+    <div className="absolute inset-0 pointer-events-none overflow-hidden z-10">
       {particles.map(p => (
         <motion.div
           key={p.id}
-          className="absolute rounded-full bg-cyan-200/50"
+          className="absolute rounded-full"
           style={{
             top: p.top,
             left: p.left,
             width: p.size,
             height: p.size,
+            background: 'rgba(220,220,225,0.55)',
             opacity: p.opacity,
-            boxShadow: `0 0 ${p.size * 2}px rgba(6,182,212,0.4)`
           }}
           animate={{
-            y: [-20, -100],
-            x: [0, Math.random() * 50 - 25],
-            opacity: [0, p.opacity, 0]
+            y: [-12, -88],
+            x: [0, p.drift],
+            opacity: [0, p.opacity, 0],
           }}
           transition={{
             duration: p.duration,
             repeat: Infinity,
             delay: p.delay,
-            ease: "linear"
+            ease: 'linear',
           }}
         />
       ))}
@@ -3003,21 +3007,11 @@ export default function App() {
 
         {gameState === 'playing' && (
           <>
-            <motion.div 
-               className="absolute inset-0 z-0 pointer-events-none"
-               style={{
-                 rotateX: tiltY,
-                 rotateY: tiltX,
-                 perspective: '1000px'
-               }}
-            >
-              {/* CyberGridBackground intentionally removed — the redesign board
-                  forbids cyan circuit-board / blue full-screen cast over gameplay. */}
-              {uiSettings.screenEffects !== false && <ScanningLaser />}
-            </motion.div>
-            
+            {/* CyberGridBackground / ScanningLaser / CRTOverlay intentionally
+                removed — the redesign forbids always-on cyan top-to-bottom
+                sweeps, full-screen chroma scanlines, or any continuous tinted
+                wash over gameplay. Hit/boss flashes still play below. */}
             <DamageIndicator direction={damageDirection} />
-            {uiSettings.screenEffects !== false && <CRTOverlay />}
             
             {/* Enemy Projectiles */}
             {enemyDarts.map(proj => (
