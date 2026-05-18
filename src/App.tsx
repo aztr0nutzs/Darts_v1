@@ -577,6 +577,17 @@ function arenaById(id: unknown) {
   return ARENAS.find(arena => arena.id === id) ?? ARENAS[0];
 }
 
+function resolveQaBossArenaFromQuery(): ArenaId | null {
+  if (!import.meta.env.DEV) return null;
+  try {
+    const value = new URLSearchParams(window.location.search).get('qaBoss');
+    if (value === 'training' || value === 'warehouse' || value === 'rooftop') return value;
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 function CustomCrosshair({ x, y, isShooting, hitMarkerTime, hitMarkerType, ammo, maxAmmo, isReloading, scale, gun, buffs, settings }: { x: any, y: any, isShooting: boolean, hitMarkerTime: number, hitMarkerType: HitMarkerType, ammo: number, maxAmmo: number, isReloading: boolean, scale: any, gun: GunType, buffs: { damage: number, rapidFire: number, shield: number }, settings: any }) {
   // Extended flash window — 220ms for normal, 300ms for crit/kill so they read clearly
   const elapsed = Date.now() - hitMarkerTime;
@@ -1091,6 +1102,7 @@ function DustParticles() {
 }
 
 export default function App() {
+  const qaBossArenaRef = useRef<ArenaId | null>(resolveQaBossArenaFromQuery());
   const [hasBooted, setHasBooted] = useState(false);
   const [gameState, setGameState] = useState<'menu' | 'playing' | 'gameover' | 'paused'>('menu');
   const [showCountdown, setShowCountdown] = useState(false);
@@ -1728,6 +1740,22 @@ export default function App() {
   useEffect(() => {
     activeBossRef.current = activeBoss;
   }, [activeBoss]);
+
+  // DEV-only deterministic QA trigger for Boss HUD evidence capture.
+  // Enabled via URL query: ?qaBoss=training|warehouse|rooftop
+  // This path is intentionally excluded from production builds.
+  useEffect(() => {
+    const qaArena = qaBossArenaRef.current;
+    if (!qaArena || gameState !== 'playing' || showCountdown) return;
+    if (gameMode === 'multiplayer') return;
+    if (activeBoss || bossDefeated) return;
+
+    const qaBoss = createBossState(qaArena);
+    setCurrentArena(arenaById(qaArena));
+    directorRef.current.setArena(qaArena);
+    directorRef.current.setBossActive(true);
+    setActiveBoss(qaBoss);
+  }, [activeBoss, bossDefeated, gameMode, gameState, showCountdown]);
 
   // ── Boss encounter tick loop ──────────────────────────────────────────
   useEffect(() => {
