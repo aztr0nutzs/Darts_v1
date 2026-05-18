@@ -24,7 +24,7 @@ npm run lint         # ✅ tsc --noEmit clean
 npm run build        # ✅ web + Android-path checks + server bundle
 npx playwright install chromium   # downloaded chromium headless shell
 npm run dev          # backgrounded, healthcheck returned HTTP 200
-node qa_runtime_test.mjs          # captured 9/10 screenshots
+node qa_runtime_test.mjs          # attempted full run incl. deterministic BossHUD captures
 ```
 
 ## 3. Screens covered
@@ -46,17 +46,32 @@ copy doesn't change.
 | `qa-screenshots-current/08_results_screen.png` | Results / mission summary | Wait BLITZ timer to 0, capture after rank-slam |
 | `qa-screenshots-current/10_mobile_controls.png` | Mobile gameplay HUD + controls | New mobile context, DEPLOY, wait full countdown |
 
-### Surface I could not capture deterministically
+### Deterministic Boss HUD QA path (implemented)
 
-`09_boss_hud.png` — the canonical `BossHUD` component intro / persistent
-HP dock only appears once the `GameplayDirector` decides to spawn a boss,
-which is wave-based and non-deterministic inside a 30 s BLITZ run.
-**I deliberately did not fabricate or stage this screenshot.** The
-BossHUD design is verifiable via source review (`src/components/BossHUD.tsx`)
-and was visually validated in the merged PR #19 review. The mobile
-gameplay shot `10_mobile_controls.png` does happen to show the in-HUD
-boss dock (the `bossActive` chrome from `HUD.tsx`) triggered by a generic
-"boss" warning string, but that is not the full BossHUD overlay.
+The app now includes a **DEV-only** query-param trigger for deterministic
+Boss HUD verification:
+
+- `?qaBoss=training`
+- `?qaBoss=warehouse`
+- `?qaBoss=rooftop`
+
+Implementation notes:
+- Trigger is gated behind `import.meta.env.DEV` and does not run in
+  production builds.
+- Trigger only applies during active solo gameplay, after countdown, and
+  injects a real boss state via `createBossState(<arena>)` so the canonical
+  `BossHUD` component is rendered without changing normal player flows.
+
+### Current capture status for Boss HUD screenshots
+
+Intended screenshot outputs:
+- `qa-screenshots-current/11_boss_hud_training.png`
+- `qa-screenshots-current/12_boss_hud_warehouse.png`
+- `qa-screenshots-current/13_boss_hud_rooftop.png`
+
+In this managed container, Playwright Chromium could not launch due a
+missing shared library (`libatk-1.0.so.0`), so fresh boss screenshots could
+not be generated **in this environment**. No fabricated evidence is claimed.
 
 ## 4. Visual acceptance evidence
 
@@ -114,18 +129,22 @@ truth-of-record for the runtime visual structure.
 - Typography fallback (Section 5) is an environment limitation, not a
   product issue. If the in-container DNS allowed Google Fonts CDN cert
   validation, the fonts would load.
-- Boss HUD evidence is source-reviewed, not screenshot-reviewed for the
-  reasons in Section 3.
+- Deterministic BossHUD trigger exists and is dev-only, but fresh boss
+  screenshots still require a host where Chromium can launch.
 
 ## 7. Final verdict
 
-✅ **Pass.** The redesigned black-first UI loads cleanly on desktop and
+⚠️ **Pass with environment limitation.** The redesigned black-first UI loads cleanly on desktop and
 mobile viewports through the full happy-path: Boot → Main Menu →
 Loadout → Multiplayer entry → BLITZ gameplay → Pause → Settings →
 Results. Zero uncaught page errors. No old blue/cyan menu wash reappeared.
 HUD reads compactly and on-mobile the octagon FIRE + ghost SWAP layout
 is in place. All artifacts referenced in this report exist under
 `qa-screenshots-current/`.
+
+Boss HUD deterministic capture path is now implemented, but evidence capture
+for `11/12/13` remains pending on a machine with Playwright runtime
+dependencies available.
 
 Stale pre-redesign artifacts have been archived under
 `qa-archive/outdated-before-redesign/` (see that folder's README).

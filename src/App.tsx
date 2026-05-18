@@ -176,7 +176,7 @@ const EnvironmentImpactEffect = React.memo(function EnvironmentImpactEffect({ ef
     : effect.arena === 'rooftop'
     ? { dust: '#dbeafe', spark: '#93c5fd' }
     : { dust: '#f5f5f4', spark: '#fde68a' };
-  const particleCount = isDebris ? 8 : isSpark ? 6 : isSnap ? 5 : 4;
+  const particleCount = isDebris ? 6 : isSpark ? 4 : isSnap ? 4 : 3;
   const spread = isDebris ? 34 : isSpark ? 26 : isSnap ? 24 : 18;
 
   return (
@@ -192,7 +192,7 @@ const EnvironmentImpactEffect = React.memo(function EnvironmentImpactEffect({ ef
           background: isSpark || isSnap
             ? `radial-gradient(circle, rgba(255,255,255,0.9) 0%, ${palette.spark}aa 38%, transparent 70%)`
             : `radial-gradient(circle, ${palette.dust}aa 0%, transparent 72%)`,
-          filter: isSpark ? 'blur(1px)' : 'blur(3px)',
+          filter: isSpark ? 'blur(0.5px)' : 'blur(1.5px)',
           mixBlendMode: 'screen',
         }}
       />
@@ -256,7 +256,7 @@ const ArenaLightPulse = React.memo(function ArenaLightPulse({ pulse }: { key?: R
 
 const HitEffect = React.memo(function HitEffect({ x, y, color, isDestroy, isMiss, isExplosion, quality, originX, originY }: { key?: React.Key; x: number; y: number; color: string; isDestroy?: boolean; isMiss?: boolean; isExplosion?: boolean; quality?: 'graze' | 'armor' | 'body' | 'center' | 'weak_point'; originX?: number; originY?: number }) {
   if (isMiss) {
-    const particleCount = 8;
+    const particleCount = 6;
     const spread = 50;
     // Trajectory direction (from muzzle to impact) drives debris spray so misses
     // feel directionally consistent with the shot. Falls back to bottom-center
@@ -392,7 +392,7 @@ const HitEffect = React.memo(function HitEffect({ x, y, color, isDestroy, isMiss
 
   // Weak-point hit — golden burst + crit indicator
   if (!isExplosion && quality === 'weak_point') {
-    const particleCount = isDestroy ? 26 : 12;
+    const particleCount = isDestroy ? 18 : 9;
     const spread = isDestroy ? 135 : 70;
     return (
       <div className="absolute pointer-events-none z-40" style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)' }}>
@@ -471,7 +471,7 @@ const HitEffect = React.memo(function HitEffect({ x, y, color, isDestroy, isMiss
           animate={{ scale: 1.4, opacity: 0 }}
           transition={{ duration: 0.3 }}
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 rounded-full"
-          style={{ backgroundColor: color, filter: 'blur(3px)', opacity: 0.5 }}
+          style={{ backgroundColor: color, filter: 'blur(2px)', opacity: 0.42 }}
         />
         <motion.div
           className="absolute w-2 h-1 rounded-sm"
@@ -485,7 +485,7 @@ const HitEffect = React.memo(function HitEffect({ x, y, color, isDestroy, isMiss
   }
 
   if (isExplosion) {
-    const particleCount = 24;
+    const particleCount = 16;
     const spread = 200;
     return (
       <div className="absolute pointer-events-none z-40" style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)' }}>
@@ -533,7 +533,7 @@ const HitEffect = React.memo(function HitEffect({ x, y, color, isDestroy, isMiss
     );
   }
 
-  const particleCount = isDestroy ? 16 : 6;
+  const particleCount = isDestroy ? 12 : 5;
   const spread = isDestroy ? 100 : 50;
   
   return (
@@ -558,7 +558,7 @@ const HitEffect = React.memo(function HitEffect({ x, y, color, isDestroy, isMiss
       </AnimatePresence>
       <motion.div
         className="absolute rounded-full"
-        style={{ backgroundColor: '#ffffff', filter: 'blur(4px)', width: isDestroy ? '60px' : '30px', height: isDestroy ? '60px' : '30px' }}
+        style={{ backgroundColor: '#ffffff', filter: 'blur(2px)', width: isDestroy ? '50px' : '24px', height: isDestroy ? '50px' : '24px' }}
         initial={{ scale: 0.5, opacity: 0.8, x: '-50%', y: '-50%' }}
         animate={{ scale: isDestroy ? 2 : 1.5, opacity: 0, x: '-50%', y: '-50%' }}
         transition={{ duration: 0.3, ease: "easeOut" }}
@@ -575,6 +575,17 @@ const ARENAS: { id: ArenaId; name: string; level: number; targetScore: number }[
 
 function arenaById(id: unknown) {
   return ARENAS.find(arena => arena.id === id) ?? ARENAS[0];
+}
+
+function resolveQaBossArenaFromQuery(): ArenaId | null {
+  if (!import.meta.env.DEV) return null;
+  try {
+    const value = new URLSearchParams(window.location.search).get('qaBoss');
+    if (value === 'training' || value === 'warehouse' || value === 'rooftop') return value;
+  } catch {
+    return null;
+  }
+  return null;
 }
 
 function CustomCrosshair({ x, y, isShooting, hitMarkerTime, hitMarkerType, ammo, maxAmmo, isReloading, scale, gun, buffs, settings }: { x: any, y: any, isShooting: boolean, hitMarkerTime: number, hitMarkerType: HitMarkerType, ammo: number, maxAmmo: number, isReloading: boolean, scale: any, gun: GunType, buffs: { damage: number, rapidFire: number, shield: number }, settings: any }) {
@@ -611,11 +622,11 @@ function CustomCrosshair({ x, y, isShooting, hitMarkerTime, hitMarkerType, ammo,
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{
-              scale: [1, 1.2, 1],
-              opacity: [0.3, 0.6, 0.3],
+              scale: [1, 1.12, 1],
+              opacity: [0.18, 0.34, 0.18],
             }}
             transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-            className="absolute w-32 h-32 rounded-full border-2 border-cyan-400/30 bg-cyan-400/5 blur-md"
+            className="absolute w-28 h-28 rounded-full border border-stone-200/35 bg-stone-100/[0.03]"
           />
         )}
 
@@ -642,21 +653,21 @@ function CustomCrosshair({ x, y, isShooting, hitMarkerTime, hitMarkerType, ammo,
               <motion.div
                 key="kill-ring"
                 initial={{ scale: 0.55, opacity: 1 }}
-                animate={{ scale: 3.6, opacity: 0 }}
+                animate={{ scale: 3.2, opacity: 0 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: hitMarkerType === 'critKill' ? 0.48 : 0.42, ease: 'easeOut' }}
                 className="absolute w-16 h-16 rounded-full border-[3px] pointer-events-none"
                 style={{
                   borderColor: hitMarkerType === 'critKill' ? '#fef08a' : '#ef4444',
                   boxShadow: hitMarkerType === 'critKill'
-                    ? '0 0 34px rgba(253,224,71,1), 0 0 54px rgba(239,68,68,0.55), inset 0 0 16px rgba(255,255,255,0.5)'
-                    : '0 0 26px rgba(239,68,68,0.8), inset 0 0 14px rgba(239,68,68,0.4)',
+                    ? '0 0 18px rgba(253,224,71,0.8), 0 0 24px rgba(239,68,68,0.35), inset 0 0 10px rgba(255,255,255,0.35)'
+                    : '0 0 14px rgba(239,68,68,0.65), inset 0 0 8px rgba(239,68,68,0.28)',
                 }}
               />
               <motion.div
                 key="kill-halo"
                 initial={{ scale: 0.4, opacity: 0.7 }}
-                animate={{ scale: 5.2, opacity: 0 }}
+                animate={{ scale: 4.4, opacity: 0 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.55, ease: 'easeOut' }}
                 className="absolute w-16 h-16 rounded-full border border-red-300/70 pointer-events-none"
@@ -676,7 +687,7 @@ function CustomCrosshair({ x, y, isShooting, hitMarkerTime, hitMarkerType, ammo,
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.34, ease: 'easeOut' }}
                 className="absolute w-16 h-16 rounded-full border-[3px] border-yellow-300 pointer-events-none"
-                style={{ boxShadow: '0 0 22px rgba(253,224,71,0.9), 0 0 44px rgba(253,224,71,0.4)' }}
+                style={{ boxShadow: '0 0 12px rgba(253,224,71,0.6), 0 0 20px rgba(253,224,71,0.25)' }}
               />
               {/* Secondary ring — reads as shockwave doubling */}
               <motion.div
@@ -698,7 +709,7 @@ function CustomCrosshair({ x, y, isShooting, hitMarkerTime, hitMarkerType, ammo,
                   className="absolute w-[2px] h-6 bg-yellow-200 pointer-events-none origin-bottom"
                   style={{
                     transform: `rotate(${angle}deg) translateY(-22px)`,
-                    boxShadow: '0 0 8px #fde047, 0 0 16px rgba(253,224,71,0.3)',
+                    boxShadow: '0 0 6px rgba(253,224,71,0.65)',
                   }}
                 />
               ))}
@@ -710,7 +721,7 @@ function CustomCrosshair({ x, y, isShooting, hitMarkerTime, hitMarkerType, ammo,
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.20, ease: 'easeOut' }}
                 className="absolute w-4 h-4 rounded-full bg-yellow-100 pointer-events-none"
-                style={{ boxShadow: '0 0 12px rgba(255,255,240,0.9)' }}
+                style={{ boxShadow: '0 0 8px rgba(255,255,240,0.6)' }}
               />
             </>
           )}
@@ -730,7 +741,7 @@ function CustomCrosshair({ x, y, isShooting, hitMarkerTime, hitMarkerType, ammo,
                   className="absolute w-[3px] h-9 bg-red-400 pointer-events-none origin-bottom"
                   style={{
                     transform: `rotate(${angle}deg) translateY(-28px)`,
-                    boxShadow: '0 0 10px #f87171, 0 0 18px rgba(253,224,71,0.75)',
+                    boxShadow: '0 0 8px rgba(248,113,113,0.7)',
                   }}
                 />
               ))}
@@ -741,7 +752,7 @@ function CustomCrosshair({ x, y, isShooting, hitMarkerTime, hitMarkerType, ammo,
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.32, ease: 'easeOut' }}
                 className="absolute w-10 h-10 border-[3px] border-yellow-100 pointer-events-none"
-                style={{ boxShadow: '0 0 18px rgba(255,255,255,0.95), 0 0 34px rgba(253,224,71,0.9)' }}
+                style={{ boxShadow: '0 0 12px rgba(255,255,255,0.7), 0 0 18px rgba(253,224,71,0.45)' }}
               />
             </>
           )}
@@ -766,18 +777,18 @@ function CustomCrosshair({ x, y, isShooting, hitMarkerTime, hitMarkerType, ammo,
         </AnimatePresence>
 
         {/* Clean Center Dot & Outline */}
-        <div className={`absolute w-1.5 h-1.5 rounded-full z-30 ${showHit ? '' : 'bg-orange-500 shadow-[0_0_8px_#f97316]'}`}
-             style={showHit ? { backgroundColor: hmColor, boxShadow: `0 0 14px ${hmShadow}` } : {}}
+        <div className={`absolute w-1.5 h-1.5 rounded-full z-30 ${showHit ? '' : 'bg-orange-500 shadow-[0_0_5px_#f97316]'}`}
+             style={showHit ? { backgroundColor: hmColor, boxShadow: `0 0 8px ${hmShadow}` } : {}}
         />
-        <div className={`absolute w-3 h-3 rounded-full border border-cyan-400 opacity-60 ${!isShooting && !showHit ? 'animate-pulse' : ''} z-20`} />
+        <div className={`absolute w-3 h-3 rounded-full border border-stone-200/70 opacity-65 ${!isShooting && !showHit ? 'animate-pulse' : ''} z-20`} />
 
         {settings.crosshairStyle === 'tactical' && (
           <>
             {/* 4 Brackets */}
-            <div className={`absolute top-0 left-0 w-3 h-3 border-t-[1.5px] border-l-[1.5px] transition-all duration-100 ${isReloading ? 'border-red-500' : 'border-cyan-400 opacity-90'} shadow-[0_0_8px_rgba(34,211,238,0.4)] ${isShooting ? '-translate-x-1 -translate-y-1' : ''}`} />
-            <div className={`absolute top-0 right-0 w-3 h-3 border-t-[1.5px] border-r-[1.5px] transition-all duration-100 ${isReloading ? 'border-red-500' : 'border-cyan-400 opacity-90'} shadow-[0_0_8px_rgba(34,211,238,0.4)] ${isShooting ? 'translate-x-1 -translate-y-1' : ''}`} />
-            <div className={`absolute bottom-0 left-0 w-3 h-3 border-b-[1.5px] border-l-[1.5px] transition-all duration-100 ${isReloading ? 'border-red-500' : 'border-cyan-400 opacity-90'} shadow-[0_0_8px_rgba(34,211,238,0.4)] ${isShooting ? '-translate-x-1 translate-y-1' : ''}`} />
-            <div className={`absolute bottom-0 right-0 w-3 h-3 border-b-[1.5px] border-r-[1.5px] transition-all duration-100 ${isReloading ? 'border-red-500' : 'border-cyan-400 opacity-90'} shadow-[0_0_8px_rgba(34,211,238,0.4)] ${isShooting ? 'translate-x-1 translate-y-1' : ''}`} />
+            <div className={`absolute top-0 left-0 w-3 h-3 border-t-[1.5px] border-l-[1.5px] transition-all duration-100 ${isReloading ? 'border-red-500' : 'border-stone-100/90'} ${isShooting ? '-translate-x-1 -translate-y-1' : ''}`} />
+            <div className={`absolute top-0 right-0 w-3 h-3 border-t-[1.5px] border-r-[1.5px] transition-all duration-100 ${isReloading ? 'border-red-500' : 'border-stone-100/90'} ${isShooting ? 'translate-x-1 -translate-y-1' : ''}`} />
+            <div className={`absolute bottom-0 left-0 w-3 h-3 border-b-[1.5px] border-l-[1.5px] transition-all duration-100 ${isReloading ? 'border-red-500' : 'border-stone-100/90'} ${isShooting ? '-translate-x-1 translate-y-1' : ''}`} />
+            <div className={`absolute bottom-0 right-0 w-3 h-3 border-b-[1.5px] border-r-[1.5px] transition-all duration-100 ${isReloading ? 'border-red-500' : 'border-stone-100/90'} ${isShooting ? 'translate-x-1 translate-y-1' : ''}`} />
 
             {/* Hit Marker Lines — thicker and more vivid */}
             <AnimatePresence>
@@ -788,16 +799,16 @@ function CustomCrosshair({ x, y, isShooting, hitMarkerTime, hitMarkerType, ammo,
                   exit={{ opacity: 0, scale: 1.8, transition: { duration: 0.12 } }}
                   className="absolute inset-0 flex items-center justify-center -rotate-45 pointer-events-none z-50"
                 >
-                  <div className="absolute top-0 left-1/2 w-[2.5px] h-4 -translate-x-1/2" style={{ backgroundColor: hmColor, boxShadow: `0 0 8px ${hmShadow}` }} />
-                  <div className="absolute bottom-0 left-1/2 w-[2.5px] h-4 -translate-x-1/2" style={{ backgroundColor: hmColor, boxShadow: `0 0 8px ${hmShadow}` }} />
-                  <div className="absolute left-0 top-1/2 h-[2.5px] w-4 -translate-y-1/2" style={{ backgroundColor: hmColor, boxShadow: `0 0 8px ${hmShadow}` }} />
-                  <div className="absolute right-0 top-1/2 h-[2.5px] w-4 -translate-y-1/2" style={{ backgroundColor: hmColor, boxShadow: `0 0 8px ${hmShadow}` }} />
+                  <div className="absolute top-0 left-1/2 w-[2.5px] h-4 -translate-x-1/2" style={{ backgroundColor: hmColor }} />
+                  <div className="absolute bottom-0 left-1/2 w-[2.5px] h-4 -translate-x-1/2" style={{ backgroundColor: hmColor }} />
+                  <div className="absolute left-0 top-1/2 h-[2.5px] w-4 -translate-y-1/2" style={{ backgroundColor: hmColor }} />
+                  <div className="absolute right-0 top-1/2 h-[2.5px] w-4 -translate-y-1/2" style={{ backgroundColor: hmColor }} />
                 </motion.div>
               )}
             </AnimatePresence>
 
             {/* Quick Tech Labels */}
-            <div className="absolute top-8 text-[8px] font-black tracking-[0.2em] text-cyan-400 opacity-50 uppercase whitespace-nowrap">
+            <div className="absolute top-8 text-[8px] font-black tracking-[0.2em] text-stone-200/65 uppercase whitespace-nowrap">
               {gun.fireMode} // {ammo}
             </div>
 
@@ -831,11 +842,11 @@ function CustomCrosshair({ x, y, isShooting, hitMarkerTime, hitMarkerType, ammo,
               {/* Thicker stroke + double-glow on kill/crit so they pop. */}
               <div
                 className={`${hitMarkerType === 'critKill' ? 'w-14 h-1' : hitMarkerType === 'kill' ? 'w-12 h-[3.5px]' : hitMarkerType === 'crit' ? 'w-11 h-[3px]' : 'w-10 h-[2.5px]'} rounded-full absolute origin-center left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2`}
-                style={{ backgroundColor: hmColor, boxShadow: `0 0 14px ${hmShadow}, 0 0 28px ${hmShadow}` }}
+                style={{ backgroundColor: hmColor, boxShadow: `0 0 8px ${hmShadow}` }}
               />
               <div
                 className={`${hitMarkerType === 'critKill' ? 'h-14 w-1' : hitMarkerType === 'kill' ? 'h-12 w-[3.5px]' : hitMarkerType === 'crit' ? 'h-11 w-[3px]' : 'h-10 w-[2.5px]'} rounded-full absolute origin-center left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2`}
-                style={{ backgroundColor: hmColor, boxShadow: `0 0 14px ${hmShadow}, 0 0 28px ${hmShadow}` }}
+                style={{ backgroundColor: hmColor, boxShadow: `0 0 8px ${hmShadow}` }}
               />
               {/* Kill gets an extra diagonal cross under the X to read as a double-snap */}
               {isKillMarker && (
@@ -1091,6 +1102,7 @@ function DustParticles() {
 }
 
 export default function App() {
+  const qaBossArenaRef = useRef<ArenaId | null>(resolveQaBossArenaFromQuery());
   const [hasBooted, setHasBooted] = useState(false);
   const [gameState, setGameState] = useState<'menu' | 'playing' | 'gameover' | 'paused'>('menu');
   const [showCountdown, setShowCountdown] = useState(false);
@@ -1728,6 +1740,22 @@ export default function App() {
   useEffect(() => {
     activeBossRef.current = activeBoss;
   }, [activeBoss]);
+
+  // DEV-only deterministic QA trigger for Boss HUD evidence capture.
+  // Enabled via URL query: ?qaBoss=training|warehouse|rooftop
+  // This path is intentionally excluded from production builds.
+  useEffect(() => {
+    const qaArena = qaBossArenaRef.current;
+    if (!qaArena || gameState !== 'playing' || showCountdown) return;
+    if (gameMode === 'multiplayer') return;
+    if (activeBoss || bossDefeated) return;
+
+    const qaBoss = createBossState(qaArena);
+    setCurrentArena(arenaById(qaArena));
+    directorRef.current.setArena(qaArena);
+    directorRef.current.setBossActive(true);
+    setActiveBoss(qaBoss);
+  }, [activeBoss, bossDefeated, gameMode, gameState, showCountdown]);
 
   // ── Boss encounter tick loop ──────────────────────────────────────────
   useEffect(() => {
@@ -3026,10 +3054,10 @@ export default function App() {
 
         {gameState === 'playing' && (
           <>
-            {/* CyberGridBackground / ScanningLaser / CRTOverlay intentionally
-                removed — the redesign forbids always-on cyan top-to-bottom
-                sweeps, full-screen chroma scanlines, or any continuous tinted
-                wash over gameplay. Hit/boss flashes still play below. */}
+            {/* Legacy neon/cyber backgrounds are quarantined in
+                src/components/legacy/LegacyBackgroundElements.tsx and are
+                intentionally excluded from active gameplay. Redesign forbids
+                always-on cyan sweeps / chroma scanlines / full-screen tint. */}
             <DamageIndicator direction={damageDirection} />
             
             {/* Enemy Projectiles */}
