@@ -70,7 +70,7 @@ export default function MultiplayerLobby({
   const totalSlots = 4;
 
   const copyRoomCode = () => {
-    try { navigator.clipboard?.writeText(roomId); } catch { /* ignore */ }
+    navigator.clipboard?.writeText(roomId).catch(() => {});
   };
 
   const canReady = isConnected && !localPlayer?.ready;

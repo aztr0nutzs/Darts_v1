@@ -225,6 +225,7 @@ export function InGameSettingsPanel({ settings, setSettings, onClose }: InGameSe
               ]}
               value={settings.hudScale ?? 'normal'}
               onChange={(v) => updateSetting('hudScale', v)}
+              activeColor={TOKENS.magenta}
             />
           </Section>
         </div>

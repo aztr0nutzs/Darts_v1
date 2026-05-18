@@ -9,7 +9,6 @@ import { TOKENS, octagonClipPath } from '../lib/designTokens';
 interface InGameControlsProps {
   onFire: () => void;
   onReload: () => void;
-  onPause: () => void;
   onWeaponSwap: () => void;
   leftHanded?: boolean;
   buttonScale?: number;
@@ -78,7 +77,7 @@ export function InGameControls({
             accent={TOKENS.yellow}
             onPress={onWeaponSwap}
             variant="ghost"
-            style={{ marginBottom: SECONDARY_SIZE > 0 ? 6 : 0 }}
+            style={{ marginBottom: !showFireButton ? 6 : 0 }}
           />
 
           {showFireButton && (
