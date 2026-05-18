@@ -47,7 +47,7 @@ export default function CountdownOverlay({ onComplete }: CountdownOverlayProps) 
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none select-none overflow-hidden">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/55" />
       
       <AnimatePresence mode="wait">
         <motion.div
@@ -64,26 +64,26 @@ export default function CountdownOverlay({ onComplete }: CountdownOverlayProps) 
         >
           {count > 0 ? (
             <div className="flex flex-col items-center">
-              <span className="text-9xl md:text-[200px] font-black italic text-white drop-shadow-[0_0_50px_rgba(255,255,255,0.8)] leading-none">
+              <span className="text-9xl md:text-[200px] font-black italic text-[#f5f5f4] leading-none">
                 {count}
               </span>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="text-cyan-400 font-black tracking-[0.5em] text-xl mt-4 uppercase drop-shadow-[0_0_10px_rgba(34,211,238,0.5)]"
+                className="text-amber-300/90 font-black tracking-[0.45em] text-xl mt-4 uppercase"
               >
                 Get Ready
               </motion.div>
             </div>
           ) : (
             <div className="flex flex-col items-center">
-              <span className="text-9xl md:text-[200px] font-black italic text-orange-500 drop-shadow-[0_0_80px_rgba(249,115,22,0.8)] leading-none uppercase">
+              <span className="text-9xl md:text-[200px] font-black italic text-orange-500 leading-none uppercase">
                 GO!
               </span>
               <motion.div
                  initial={{ opacity: 0, scale: 0.5 }}
                  animate={{ opacity: 1, scale: 1.2 }}
-                 className="text-white font-black tracking-[1em] text-2xl mt-4 uppercase drop-shadow-[0_0_15px_white]"
+                 className="text-[#fafaf9] font-black tracking-[0.9em] text-2xl mt-4 uppercase"
               >
                 STRIKE NOW
               </motion.div>
@@ -93,15 +93,15 @@ export default function CountdownOverlay({ onComplete }: CountdownOverlayProps) 
       </AnimatePresence>
       
       {/* Decorative lines */}
-      <motion.div 
+      <motion.div
         initial={{ width: 0 }}
         animate={{ width: '100vw' }}
-        className="absolute h-1 bg-white/20 top-1/2 -translate-y-1/2"
+        className="absolute h-[2px] bg-orange-500/35 top-1/2 -translate-y-1/2"
       />
-      <motion.div 
+      <motion.div
         initial={{ height: 0 }}
         animate={{ height: '100vh' }}
-        className="absolute w-1 bg-white/20 left-1/2 -translate-x-1/2"
+        className="absolute w-[2px] bg-stone-200/20 left-1/2 -translate-x-1/2"
       />
     </div>
   );
