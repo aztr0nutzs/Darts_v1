@@ -3164,7 +3164,6 @@ export default function App() {
               <InGameControls
                   onFire={() => handleShoot()}
                   onReload={reload}
-                  onPause={() => setGameState('paused')}
                   onWeaponSwap={() => {
                       const currentIndex = unlockedGuns.indexOf(currentGun.id);
                       if (currentIndex !== -1) {
