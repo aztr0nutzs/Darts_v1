@@ -12,13 +12,15 @@ function ArenaArtPlate({ arenaId }: { arenaId: ArenaId }) {
   const { primary, detail } = React.useMemo(() => getArenaSceneAssets(arenaId), [arenaId]);
 
   // Per-arena tone — masks blend the photographic concept into the CSS scene
-  // rather than pasting one full-screen still that swallows everything.
+  // rather than pasting one full-screen still that swallows everything. Every
+  // arena now lands on a darker, desaturated plate so the world reads as
+  // black-first rather than soft / cinematic / blue-washed.
   const tint =
     arenaId === 'warehouse'
-      ? 'sepia(0.25) saturate(0.9) brightness(0.85)'
+      ? 'saturate(0.55) brightness(0.65) contrast(1.1)'
       : arenaId === 'rooftop'
-      ? 'hue-rotate(-12deg) saturate(1.15) brightness(0.9)'
-      : 'saturate(1.05) brightness(0.95)';
+      ? 'saturate(0.5) brightness(0.6) contrast(1.05)'
+      : 'saturate(0.6) brightness(0.7) contrast(1.05)';
 
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -35,7 +37,7 @@ function ArenaArtPlate({ arenaId }: { arenaId: ArenaId }) {
           style={{
             objectFit: 'cover',
             objectPosition: 'center 35%',
-            opacity: 0.32,
+            opacity: 0.22,
             filter: tint,
             mixBlendMode: 'screen',
           }}
@@ -54,18 +56,19 @@ function ArenaArtPlate({ arenaId }: { arenaId: ArenaId }) {
           style={{
             objectFit: 'cover',
             objectPosition: 'center top',
-            opacity: 0.18,
-            filter: `${tint} blur(2px)`,
+            opacity: 0.12,
+            filter: `${tint} blur(1.5px)`,
             mixBlendMode: 'lighten',
           }}
         />
       )}
-      {/* Vignette to fade the art into the CSS midground */}
+      {/* Vignette pulls the art into the CSS midground without leaving any
+          full-screen colored wash. */}
       <div
         className="absolute inset-0"
         style={{
           background:
-            'radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,0.55) 75%, rgba(0,0,0,0.85) 100%)',
+            'radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.65) 75%, rgba(0,0,0,0.92) 100%)',
         }}
       />
     </div>
@@ -109,17 +112,18 @@ export default function ArenaScene({ arenaId, parallaxX, parallaxY }: ArenaScene
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {/* Concept-art plate (warehouse rush) */}
         <ArenaArtPlate arenaId="warehouse" />
-        {/* Lighting identity: neon blue / purple, strong contrast */}
+        {/* Lighting identity: black-first industrial with a single warm key
+            light overhead. No dual cyan + magenta radial bloom clouds. */}
         <ArenaLighting arenaId="warehouse" />
-        {/* Background: dim warehouse wall */}
+        {/* Background: deep black warehouse wall — no warm-brown wash */}
         <motion.div className="absolute inset-0" style={{ x: bgX, y: bgY }}>
-          <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a0a] via-[#171615] to-[#0c0a08]" />
-          {/* Corrugated roof beams */}
-          <div className="absolute top-0 left-0 right-0 h-1/3 bg-[repeating-linear-gradient(90deg,rgba(0,0,0,0)_0,rgba(0,0,0,0)_60px,rgba(255,255,255,0.04)_60px,rgba(255,255,255,0.04)_62px)]" />
-          {/* High-bay light cones */}
-          <div className="absolute top-2 left-1/4 w-1.5 h-1.5 rounded-full bg-amber-200 shadow-[0_0_50px_30px_rgba(254,243,199,0.18)]" />
-          <div className="absolute top-2 right-1/4 w-1.5 h-1.5 rounded-full bg-amber-200 shadow-[0_0_50px_30px_rgba(254,243,199,0.18)]" />
-          <div className="absolute top-2 left-1/2 w-1.5 h-1.5 rounded-full bg-amber-200 shadow-[0_0_60px_36px_rgba(254,243,199,0.20)]" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#040405] via-[#0c0c0d] to-[#020203]" />
+          {/* Corrugated roof beams — fainter so they read as structure not stripes */}
+          <div className="absolute top-0 left-0 right-0 h-1/3 bg-[repeating-linear-gradient(90deg,rgba(0,0,0,0)_0,rgba(0,0,0,0)_60px,rgba(255,255,255,0.03)_60px,rgba(255,255,255,0.03)_62px)]" />
+          {/* High-bay lights — pinpoints with restrained warm halo */}
+          <div className="absolute top-2 left-1/4 w-1 h-1 rounded-full bg-amber-100 shadow-[0_0_18px_8px_rgba(254,243,199,0.10)]" />
+          <div className="absolute top-2 right-1/4 w-1 h-1 rounded-full bg-amber-100 shadow-[0_0_18px_8px_rgba(254,243,199,0.10)]" />
+          <div className="absolute top-2 left-1/2 w-1 h-1 rounded-full bg-amber-100 shadow-[0_0_22px_10px_rgba(254,243,199,0.12)]" />
         </motion.div>
 
         {/* Midground: storage racks + pallets along the back wall */}
@@ -175,14 +179,15 @@ export default function ArenaScene({ arenaId, parallaxX, parallaxY }: ArenaScene
           <div className="absolute bottom-1 right-[5%] w-24 h-14 bg-zinc-700 border-2 border-zinc-900 rounded-sm shadow-[0_4px_8px_rgba(0,0,0,0.7)]">
             <div className="absolute inset-1 border border-zinc-600" />
           </div>
-          {/* Industrial control panels + machinery (warehouse identity) */}
+          {/* Industrial control panels + machinery — single cyan data accent,
+              orange warning accent. No neon magenta club lighting. */}
           <IndustrialPanel x="22%" y="78%" tone="cyan" />
-          <IndustrialPanel x="68%" y="80%" tone="magenta" />
+          <IndustrialPanel x="68%" y="80%" tone="amber" />
           <Machinery x="38%" y="82%" />
-          {/* Neon rails along the lane and side rails */}
-          <NeonRail orientation="horizontal" left="6%" right="6%" top="58%" color="#22d3ee" />
-          <NeonRail orientation="vertical"   leftPx="3%" topPx="42%" length="22%" color="#a855f7" />
-          <NeonRail orientation="vertical"   leftPx="97%" topPx="42%" length="22%" color="#a855f7" />
+          {/* Thin accent rails — hard-edge hairlines, no blur halos */}
+          <NeonRail orientation="horizontal" left="6%" right="6%" top="58%" color="#19E0FF" />
+          <NeonRail orientation="vertical"   leftPx="3%" topPx="42%" length="22%" color="#FF6A1A" />
+          <NeonRail orientation="vertical"   leftPx="97%" topPx="42%" length="22%" color="#FF6A1A" />
         </motion.div>
 
         <FloorPerspective tone="warehouse" />
@@ -195,23 +200,24 @@ export default function ArenaScene({ arenaId, parallaxX, parallaxY }: ArenaScene
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {/* Concept-art plate (skyline rooftop) */}
         <ArenaArtPlate arenaId="rooftop" />
-        {/* Lighting identity: cool night, directional moonlight from upper-left */}
+        {/* Lighting identity: dark night, sharp directional moon, no blue fog */}
         <ArenaLighting arenaId="rooftop" />
-        {/* Background: dusk sky + distant skyline */}
+        {/* Background: black night sky, hairline horizon, no soft purple/navy */}
         <motion.div className="absolute inset-0" style={{ x: bgX, y: bgY }}>
-          <div className="absolute inset-0 bg-gradient-to-b from-[#1a0d2e] via-[#3a1b3d] to-[#0a0a14]" />
-          {/* Stars / city haze */}
-          <div className="absolute inset-0 opacity-80">
-            {Array.from({ length: 30 }).map((_, i) => (
+          <div className="absolute inset-0 bg-gradient-to-b from-[#050507] via-[#0a0a0c] to-[#000000]" />
+          {/* Stars — sparse pinpoints */}
+          <div className="absolute inset-0 opacity-70">
+            {Array.from({ length: 28 }).map((_, i) => (
               <div
                 key={i}
-                className="absolute w-px h-px bg-white/70 rounded-full"
-                style={{ left: `${(i * 37) % 100}%`, top: `${(i * 53) % 40}%`, opacity: 0.3 + ((i * 7) % 7) / 10 }}
+                className="absolute w-px h-px bg-white rounded-full"
+                style={{ left: `${(i * 37) % 100}%`, top: `${(i * 53) % 40}%`, opacity: 0.28 + ((i * 7) % 7) / 14 }}
               />
             ))}
           </div>
-          {/* Distant horizon glow */}
-          <div className="absolute inset-x-0 top-[55%] h-12 bg-gradient-to-t from-orange-600/40 via-fuchsia-700/20 to-transparent blur-xl" />
+          {/* Distant horizon — restrained warm sliver, no fuchsia blur */}
+          <div className="absolute inset-x-0 top-[55%] h-6 bg-gradient-to-t from-orange-700/25 to-transparent" />
+          <div className="absolute inset-x-0 top-[55%] h-px bg-white/10" />
         </motion.div>
 
         {/* Midground: city skyline silhouettes */}
@@ -289,44 +295,44 @@ export default function ArenaScene({ arenaId, parallaxX, parallaxY }: ArenaScene
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
       {/* Concept-art plate (training bay) */}
       <ArenaArtPlate arenaId="training" />
-      {/* Lighting identity: neutral white, soft shadows */}
+      {/* Lighting identity: restrained neutral overhead, no cyan wash */}
       <ArenaLighting arenaId="training" />
-      {/* Background: training-bay wall with safety stripes */}
+      {/* Background: industrial training wall, near-black with hairline grid */}
       <motion.div className="absolute inset-0" style={{ x: bgX, y: bgY }}>
-        <div className="absolute inset-0 bg-gradient-to-b from-[#101418] via-[#1a1f24] to-[#0a0d11]" />
-        {/* Hex pattern wall */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#050507] via-[#0c0e11] to-[#020203]" />
+        {/* Neutral hairline grid — replaces the cyan dot pattern wall */}
         <div
-          className="absolute inset-0 opacity-[0.10]"
+          className="absolute inset-0 opacity-[0.06]"
           style={{
             backgroundImage:
-              'radial-gradient(circle at 1px 1px, rgba(34,211,238,0.6) 1px, transparent 1px)',
-            backgroundSize: '32px 32px',
+              'linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)',
+            backgroundSize: '48px 48px',
           }}
         />
-        {/* Hazard banner across top */}
-        <div className="absolute top-0 left-0 right-0 h-6 bg-[repeating-linear-gradient(45deg,#facc15_0,#facc15_18px,#0a0a0a_18px,#0a0a0a_36px)] opacity-70 border-b-2 border-yellow-600" />
-        {/* Cyan floodlight */}
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-cyan-200 shadow-[0_0_60px_40px_rgba(165,243,252,0.18)]" />
+        {/* Hazard banner across top — kept as a deliberate orange/black tape */}
+        <div className="absolute top-0 left-0 right-0 h-5 bg-[repeating-linear-gradient(45deg,#FF6A1A_0,#FF6A1A_18px,#0a0a0a_18px,#0a0a0a_36px)] opacity-65 border-b border-[#FF6A1A]/40" />
+        {/* Overhead floodlight — pinpoint, no large halo */}
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-white/90 shadow-[0_0_18px_6px_rgba(255,255,255,0.10)]" />
       </motion.div>
 
-      {/* Midground: range markers + signage */}
+      {/* Midground: range markers + signage — neutral chrome, single orange call-out */}
       <motion.div className="absolute inset-0" style={{ x: midX, y: midY }}>
-        <div className="absolute left-[5%] top-[34%] px-3 py-1 bg-cyan-900/60 border border-cyan-400/60 backdrop-blur-sm">
-          <div className="text-[9px] font-black text-cyan-300 tracking-[0.3em]">RANGE-A</div>
+        <div className="absolute left-[5%] top-[34%] px-3 py-1 bg-black/60 border border-zinc-600/70">
+          <div className="text-[9px] font-black text-zinc-300 tracking-[0.3em]">RANGE-A</div>
         </div>
-        <div className="absolute right-[5%] top-[34%] px-3 py-1 bg-amber-900/60 border border-amber-400/60 backdrop-blur-sm">
-          <div className="text-[9px] font-black text-amber-300 tracking-[0.3em]">BAY-04</div>
+        <div className="absolute right-[5%] top-[34%] px-3 py-1 bg-black/60 border border-[#FF6A1A]/60">
+          <div className="text-[9px] font-black text-[#FF8A3A] tracking-[0.3em]">BAY-04</div>
         </div>
         {/* Distance markers on back wall */}
         <div className="absolute left-1/2 top-[36%] -translate-x-1/2 flex gap-12 opacity-60">
           {['10m', '20m', '30m'].map(d => (
-            <div key={d} className="px-2 py-0.5 border border-zinc-500 text-[8px] font-mono text-zinc-300">{d}</div>
+            <div key={d} className="px-2 py-0.5 border border-zinc-600 text-[8px] font-mono text-zinc-400">{d}</div>
           ))}
         </div>
-        {/* Lane numbers strip */}
-        <div className="absolute inset-x-0 top-[44%] flex justify-around text-cyan-400/60 text-[10px] font-black tracking-widest">
+        {/* Lane numbers strip — neutral hairline chips */}
+        <div className="absolute inset-x-0 top-[44%] flex justify-around text-zinc-400 text-[10px] font-black tracking-widest">
           {[1, 2, 3, 4, 5].map(n => (
-            <div key={n} className="px-2 py-0.5 border border-cyan-400/30 bg-black/40">L{n}</div>
+            <div key={n} className="px-2 py-0.5 border border-zinc-700 bg-black/50">L{n}</div>
           ))}
         </div>
       </motion.div>
@@ -342,13 +348,13 @@ export default function ArenaScene({ arenaId, parallaxX, parallaxY }: ArenaScene
 
       {/* Foreground: target rails, lane stands, sandbags */}
       <motion.div className="absolute inset-0" style={{ x: fgX, y: fgY }}>
-        {/* Sliding rail */}
-        <div className="absolute left-[5%] right-[5%] top-[60%] h-[3px] rounded-full bg-gradient-to-r from-cyan-900 via-cyan-300 to-cyan-900 shadow-[0_0_8px_rgba(34,211,238,0.4)]" />
+        {/* Sliding rail — neutral brushed steel, no cyan glow */}
+        <div className="absolute left-[5%] right-[5%] top-[60%] h-[2px] bg-gradient-to-r from-zinc-900 via-zinc-400 to-zinc-900" />
         {/* Per-lane stands and floor pads */}
         {[12, 30, 50, 70, 88].map(x => (
           <div key={x} className="absolute" style={{ left: `${x}%`, top: '74%' }}>
-            <div className="w-1 h-10 bg-cyan-900 mx-auto" />
-            <div className="w-12 h-2 -mt-0.5 bg-zinc-900 border border-cyan-500/40 rounded-sm" />
+            <div className="w-1 h-10 bg-zinc-700 mx-auto" />
+            <div className="w-12 h-2 -mt-0.5 bg-zinc-900 border border-zinc-600 rounded-sm" />
           </div>
         ))}
         {/* Sandbag platform / boss spawn */}
@@ -381,117 +387,91 @@ export default function ArenaScene({ arenaId, parallaxX, parallaxY }: ArenaScene
 
 function ShutterDoor({ active = false }: { active?: boolean }) {
   return (
-    <div className={`relative w-24 h-28 border-2 rounded-md overflow-hidden ${active ? 'border-cyan-400/70 shadow-[0_0_18px_rgba(34,211,238,0.4)]' : 'border-zinc-700'}`}>
-      <div className="absolute inset-0 bg-zinc-900" />
-      <div className="absolute inset-0 bg-[repeating-linear-gradient(0deg,rgba(255,255,255,0.05)_0,rgba(255,255,255,0.05)_4px,transparent_4px,transparent_8px)]" />
-      <div className="absolute bottom-1 left-1 right-1 h-1 bg-zinc-700 rounded-sm" />
+    <div className={`relative w-24 h-28 border rounded-sm overflow-hidden ${active ? 'border-[#FF6A1A]/50' : 'border-zinc-800'}`}>
+      <div className="absolute inset-0 bg-zinc-950" />
+      <div className="absolute inset-0 bg-[repeating-linear-gradient(0deg,rgba(255,255,255,0.04)_0,rgba(255,255,255,0.04)_4px,transparent_4px,transparent_8px)]" />
+      <div className="absolute bottom-1 left-1 right-1 h-1 bg-zinc-800 rounded-sm" />
+      {/* Top-tick orange accent — static, no infinite scan band */}
       {active && (
-        <motion.div
-          animate={{ y: ['100%', '-100%'] }}
-          transition={{ duration: 2.5, repeat: Infinity, ease: 'linear' }}
-          className="absolute inset-x-0 h-2 bg-cyan-300/40 blur-sm"
-        />
+        <span className="absolute left-0 top-0 h-[2px] w-8 bg-[#FF6A1A]" />
       )}
-      <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+      <div className={`absolute top-1 right-1 w-1.5 h-1.5 rounded-full ${active ? 'bg-[#FF6A1A]' : 'bg-zinc-700'}`} />
     </div>
   );
 }
 
 function RooftopVent({ active = false }: { active?: boolean }) {
   return (
-    <div className={`relative w-20 h-16 border-2 rounded-sm bg-zinc-800 ${active ? 'border-fuchsia-400/70 shadow-[0_0_15px_rgba(232,121,249,0.4)]' : 'border-zinc-700'}`}>
+    <div className={`relative w-20 h-16 border rounded-sm bg-zinc-900 ${active ? 'border-[#FF6A1A]/50' : 'border-zinc-800'}`}>
       <div className="absolute inset-1 grid grid-cols-3 gap-0.5">
-        {Array.from({ length: 9 }).map((_, i) => (<div key={i} className="bg-zinc-900 border border-zinc-700/70" />))}
+        {Array.from({ length: 9 }).map((_, i) => (<div key={i} className="bg-zinc-950 border border-zinc-800" />))}
       </div>
+      {/* Static orange accent — no infinite fuchsia pulse */}
       {active && (
-        <motion.div
-          animate={{ opacity: [0.2, 0.7, 0.2] }}
-          transition={{ duration: 1.6, repeat: Infinity }}
-          className="absolute inset-0 bg-fuchsia-400/20"
-        />
+        <span className="absolute left-0 top-0 h-[2px] w-6 bg-[#FF6A1A]" />
       )}
-      <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-10 h-2 bg-zinc-700 rounded-t-sm" />
+      <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-10 h-2 bg-zinc-800 rounded-t-sm" />
     </div>
   );
 }
 
 function SpawnPanel({ active = false }: { active?: boolean }) {
   return (
-    <div className={`relative w-16 h-20 border-2 rounded-sm ${active ? 'border-cyan-400/70 shadow-[0_0_15px_rgba(34,211,238,0.4)]' : 'border-zinc-700'}`}>
+    <div className={`relative w-16 h-20 border rounded-sm ${active ? 'border-[#19E0FF]/45' : 'border-zinc-800'}`}>
       <div className="absolute inset-0 bg-zinc-950" />
-      <div className="absolute inset-1 border border-cyan-400/30" />
+      <div className="absolute inset-1 border border-zinc-800" />
       <div className="absolute top-1 left-1 right-1 flex justify-between">
-        <div className="w-1 h-1 rounded-full bg-cyan-400 animate-pulse" />
-        <div className={`w-1 h-1 rounded-full ${active ? 'bg-amber-400 animate-pulse' : 'bg-zinc-700'}`} />
+        <div className={`w-1 h-1 rounded-full ${active ? 'bg-[#19E0FF]' : 'bg-zinc-700'}`} />
+        <div className={`w-1 h-1 rounded-full ${active ? 'bg-[#FF6A1A]' : 'bg-zinc-700'}`} />
       </div>
+      {/* Top-tick cyan accent for active lanes — no infinite scan blur */}
       {active && (
-        <motion.div
-          animate={{ y: ['100%', '-100%'] }}
-          transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-          className="absolute inset-x-1 h-1 bg-cyan-300/60 blur-[1px]"
-        />
+        <span className="absolute left-0 top-0 h-[2px] w-6 bg-[#19E0FF]" />
       )}
-      <div className="absolute bottom-0 left-0 right-0 text-center text-[7px] font-black text-cyan-300/60">SPAWN</div>
+      <div className="absolute bottom-0 left-0 right-0 text-center text-[7px] font-black text-zinc-500">SPAWN</div>
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Per-arena lighting overlay
-// Layered above the CSS scene but below targets / HUD.  Adds the colored light
-// bath that sells each arena's identity:
-//   training  → neutral white wash + soft top-down shadows
-//   warehouse → neon blue + magenta cones, strong vignette contrast
-//   rooftop   → cool moonlight directional light from upper-left
-// Targets read clearly against each because the wash is `mixBlendMode: screen`
-// (lifts mid-tones without washing out saturated target colours).
+// Layered above the CSS scene but below targets / HUD. Black-first now — each
+// arena keeps just enough directional accent to preserve identity without
+// painting a screen-wide cyan/blue wash.
+//   training  → restrained neutral overhead, single orange accent
+//   warehouse → low-saturation amber key from above, hairline cyan rim
+//   rooftop   → small sharp moon disc + strong vignette, no blue fog
+// All washes are kept under ~0.10 alpha and ≤ 40% radius so targets remain
+// the brightest object on screen.
 // ─────────────────────────────────────────────────────────────────────────────
 function ArenaLighting({ arenaId }: { arenaId: ArenaId }) {
   if (arenaId === 'warehouse') {
     return (
       <div className="absolute inset-0 pointer-events-none z-[1]">
-        {/* Cyan rim from upper-left */}
+        {/* Single warm key from above — replaces the dual cyan + magenta wash */}
         <div
           className="absolute inset-0"
           style={{
             background:
-              'radial-gradient(ellipse 50% 40% at 18% 12%, rgba(34,211,238,0.32), transparent 70%)',
+              'radial-gradient(ellipse 40% 28% at 50% 8%, rgba(254,243,199,0.12), transparent 70%)',
             mixBlendMode: 'screen',
           }}
         />
-        {/* Magenta rim from upper-right */}
+        {/* Hairline cyan rim along the back wall — data/system accent only */}
         <div
           className="absolute inset-0"
           style={{
             background:
-              'radial-gradient(ellipse 55% 45% at 82% 10%, rgba(217,70,239,0.30), transparent 72%)',
+              'radial-gradient(ellipse 60% 12% at 50% 36%, rgba(25,224,255,0.08), transparent 75%)',
             mixBlendMode: 'screen',
           }}
         />
-        {/* Center spill (high-bay floods) */}
+        {/* Strong vignette so edges fall to true black */}
         <div
           className="absolute inset-0"
           style={{
             background:
-              'radial-gradient(ellipse 35% 30% at 50% 28%, rgba(168,85,247,0.18), transparent 75%)',
-            mixBlendMode: 'screen',
-          }}
-        />
-        {/* Strong contrast vignette */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              'radial-gradient(ellipse at center, transparent 25%, rgba(0,0,0,0.55) 80%, rgba(0,0,0,0.85) 100%)',
-          }}
-        />
-        {/* Subtle scanlines for industrial feel */}
-        <div
-          className="absolute inset-0 opacity-[0.08]"
-          style={{
-            backgroundImage:
-              'repeating-linear-gradient(0deg, rgba(255,255,255,0.6) 0, rgba(255,255,255,0.6) 1px, transparent 1px, transparent 3px)',
-            mixBlendMode: 'overlay',
+              'radial-gradient(ellipse at center, transparent 20%, rgba(0,0,0,0.65) 80%, rgba(0,0,0,0.92) 100%)',
           }}
         />
       </div>
@@ -500,84 +480,66 @@ function ArenaLighting({ arenaId }: { arenaId: ArenaId }) {
   if (arenaId === 'rooftop') {
     return (
       <div className="absolute inset-0 pointer-events-none z-[1]">
-        {/* Cool moonlight wash, biased to upper-left as a directional source */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              'linear-gradient(135deg, rgba(186,230,253,0.22) 0%, rgba(99,102,241,0.10) 35%, rgba(0,0,0,0) 65%)',
-            mixBlendMode: 'screen',
-          }}
-        />
-        {/* Sharper directional disc — the "moon" */}
+        {/* Small sharp moon disc — no big blue halo, no linear gradient sweep */}
         <div
           className="absolute"
           style={{
-            top: '4%',
+            top: '5%',
             left: '14%',
-            width: '120px',
-            height: '120px',
+            width: '64px',
+            height: '64px',
             borderRadius: '9999px',
             background:
-              'radial-gradient(circle, rgba(241,245,249,0.85) 0%, rgba(186,230,253,0.35) 40%, rgba(186,230,253,0) 75%)',
-            filter: 'blur(2px)',
+              'radial-gradient(circle, rgba(241,245,249,0.78) 0%, rgba(241,245,249,0.18) 55%, rgba(241,245,249,0) 80%)',
             mixBlendMode: 'screen',
           }}
         />
-        {/* Cool tint over the whole frame */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background: 'rgba(30,58,138,0.10)',
-            mixBlendMode: 'multiply',
-          }}
-        />
-        {/* Cool vignette */}
+        {/* Cool vignette — no blue multiply on the whole frame */}
         <div
           className="absolute inset-0"
           style={{
             background:
-              'radial-gradient(ellipse at 30% 10%, transparent 30%, rgba(8,8,18,0.55) 80%, rgba(0,0,0,0.85) 100%)',
+              'radial-gradient(ellipse at 30% 12%, transparent 22%, rgba(0,0,0,0.65) 80%, rgba(0,0,0,0.92) 100%)',
           }}
         />
       </div>
     );
   }
-  // training — neutral white, soft shadows
+  // training — neutral with a single restrained orange accent
   return (
     <div className="absolute inset-0 pointer-events-none z-[1]">
-      {/* Soft overhead key light — broad, neutral */}
+      {/* Soft overhead key light — broad, neutral, lower intensity */}
       <div
         className="absolute inset-0"
         style={{
           background:
-            'radial-gradient(ellipse 70% 55% at 50% 14%, rgba(255,255,255,0.22), transparent 75%)',
+            'radial-gradient(ellipse 60% 40% at 50% 12%, rgba(255,255,255,0.14), transparent 75%)',
           mixBlendMode: 'screen',
         }}
       />
-      {/* Cyan accent so it doesn't read as flat hospital white */}
+      {/* Tactical orange accent above the lane line (replaces cyan accent) */}
       <div
         className="absolute inset-0"
         style={{
           background:
-            'radial-gradient(ellipse 40% 30% at 50% 18%, rgba(165,243,252,0.16), transparent 75%)',
+            'radial-gradient(ellipse 30% 18% at 50% 22%, rgba(255,106,26,0.10), transparent 78%)',
           mixBlendMode: 'screen',
         }}
       />
-      {/* Soft ground shadow — diffuses onto the floor */}
+      {/* Floor shadow diffuses onto the ground */}
       <div
         className="absolute inset-x-0 bottom-0 h-1/3"
         style={{
           background:
-            'linear-gradient(to top, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.18) 50%, transparent 100%)',
+            'linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.22) 50%, transparent 100%)',
         }}
       />
-      {/* Gentle vignette — keep edges from blowing out */}
+      {/* Vignette so edges remain black */}
       <div
         className="absolute inset-0"
         style={{
           background:
-            'radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,0.35) 90%)',
+            'radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,0.55) 92%)',
         }}
       />
     </div>
@@ -650,22 +612,23 @@ function SimpleStand({ x, bottom }: { x: string; bottom: string }) {
 // Warehouse props
 // ─────────────────────────────────────────────────────────────────────────────
 
-function IndustrialPanel({ x, y, tone }: { x: string; y: string; tone: 'cyan' | 'magenta' }) {
+function IndustrialPanel({ x, y, tone }: { x: string; y: string; tone: 'cyan' | 'amber' }) {
   const palette = tone === 'cyan'
-    ? { border: 'border-cyan-400/60',    glow: '0 0 14px rgba(34,211,238,0.45)',  led: 'bg-cyan-400'    }
-    : { border: 'border-fuchsia-400/60', glow: '0 0 14px rgba(217,70,239,0.45)',  led: 'bg-fuchsia-400' };
+    ? { border: 'border-[#19E0FF]/40',  led: 'bg-[#19E0FF]' }
+    : { border: 'border-[#FF6A1A]/45',  led: 'bg-[#FF6A1A]' };
   return (
     <div
-      className={`absolute w-20 h-14 bg-zinc-900/90 border-2 ${palette.border} rounded-sm`}
-      style={{ left: x, top: y, transform: 'translateX(-50%)', boxShadow: palette.glow }}
+      className={`absolute w-20 h-14 bg-zinc-950/90 border ${palette.border} rounded-sm`}
+      style={{ left: x, top: y, transform: 'translateX(-50%)' }}
     >
       <div className="absolute inset-1 grid grid-cols-3 gap-0.5">
         {Array.from({ length: 9 }).map((_, i) => (
-          <div key={i} className="bg-zinc-800 border border-zinc-700/70" />
+          <div key={i} className="bg-zinc-900 border border-zinc-800" />
         ))}
       </div>
-      <div className={`absolute top-1 right-1 w-1.5 h-1.5 rounded-full ${palette.led} animate-pulse`} />
-      <div className="absolute bottom-1 left-1 right-1 h-[2px] bg-zinc-700" />
+      {/* Hard-edge LED — no infinite animate-pulse */}
+      <div className={`absolute top-1 right-1 w-1.5 h-1.5 rounded-full ${palette.led}`} />
+      <div className="absolute bottom-1 left-1 right-1 h-[2px] bg-zinc-800" />
     </div>
   );
 }
@@ -686,6 +649,8 @@ function Machinery({ x, y }: { x: string; y: string }) {
   );
 }
 
+// Thin accent rail — hard-edge hairline, no blur halo. Color from the token
+// palette (cyan = data/system, orange = action). Used sparingly.
 function NeonRail({
   orientation, left, right, top, leftPx, topPx, length, color,
 }: {
@@ -696,22 +661,14 @@ function NeonRail({
 }) {
   if (orientation === 'horizontal') {
     return (
-      <div className="absolute" style={{ left, right, top, height: '2px' }}>
-        <div className="absolute inset-0" style={{ background: color, opacity: 0.85 }} />
-        <div
-          className="absolute inset-0"
-          style={{ filter: `blur(6px)`, background: color, opacity: 0.7 }}
-        />
+      <div className="absolute" style={{ left, right, top, height: '1px' }}>
+        <div className="absolute inset-0" style={{ background: color, opacity: 0.55 }} />
       </div>
     );
   }
   return (
-    <div className="absolute" style={{ left: leftPx, top: topPx, width: '2px', height: length }}>
-      <div className="absolute inset-0" style={{ background: color, opacity: 0.8 }} />
-      <div
-        className="absolute inset-0"
-        style={{ filter: `blur(6px)`, background: color, opacity: 0.6 }}
-      />
+    <div className="absolute" style={{ left: leftPx, top: topPx, width: '1px', height: length }}>
+      <div className="absolute inset-0" style={{ background: color, opacity: 0.5 }} />
     </div>
   );
 }
@@ -808,17 +765,19 @@ function DistantSkylineRow() {
 }
 
 function FloorPerspective({ tone }: { tone: 'training' | 'warehouse' | 'rooftop' }) {
+  // Floor lines neutralised to a hairline white — each arena keeps its
+  // identity via its props/lighting, not via a tinted grid wash.
   const palette = {
-    training:  { line: 'rgba(34,211,238,0.18)', floor: 'linear-gradient(to top, #0a0d11 0%, #131820 60%, transparent 100%)' },
-    warehouse: { line: 'rgba(180,83,9,0.18)',   floor: 'linear-gradient(to top, #0a0a08 0%, #181612 60%, transparent 100%)' },
-    rooftop:   { line: 'rgba(217,70,239,0.16)', floor: 'linear-gradient(to top, #08070d 0%, #1a1326 60%, transparent 100%)' },
+    training:  { line: 'rgba(255,255,255,0.10)', floor: 'linear-gradient(to top, #050507 0%, #0c0e11 60%, transparent 100%)' },
+    warehouse: { line: 'rgba(255,255,255,0.08)', floor: 'linear-gradient(to top, #040405 0%, #0c0c0d 60%, transparent 100%)' },
+    rooftop:   { line: 'rgba(255,255,255,0.08)', floor: 'linear-gradient(to top, #030305 0%, #0a0a0c 60%, transparent 100%)' },
   }[tone];
   return (
     <div className="absolute inset-x-0 bottom-0 h-[55%] pointer-events-none">
       <div className="absolute inset-0" style={{ background: palette.floor }} />
-      {/* Perspective grid */}
+      {/* Perspective grid — neutral hairline, no colored wash */}
       <div
-        className="absolute inset-0 opacity-70"
+        className="absolute inset-0 opacity-60"
         style={{
           backgroundImage: `linear-gradient(${palette.line} 1px, transparent 1px), linear-gradient(90deg, ${palette.line} 1px, transparent 1px)`,
           backgroundSize: '60px 60px',

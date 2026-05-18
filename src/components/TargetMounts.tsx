@@ -178,16 +178,17 @@ function StandMount({
         className="absolute left-1/2 -translate-x-1/2 rounded-full bg-black/85 blur-[1.5px]"
         style={{ top: 0, width: reinforced ? 32 : 22, height: reinforced ? 4 : 3 }}
       />
-      {/* Optional shield glow ring around the base plate */}
+      {/* Optional shield glow ring around the base plate — dialed back so it
+          reads as a ground shimmer, not a halo. */}
       {shielded && (
         <div
           className="absolute left-1/2 -translate-x-1/2 rounded-full"
           style={{
             top: 8,
-            width: 100,
-            height: 16,
+            width: 90,
+            height: 12,
             background:
-              'radial-gradient(ellipse at center, rgba(34,211,238,0.32) 0%, rgba(34,211,238,0) 70%)',
+              'radial-gradient(ellipse at center, rgba(34,211,238,0.18) 0%, rgba(34,211,238,0) 70%)',
           }}
         />
       )}
@@ -353,7 +354,8 @@ function DroneAnchor({ hitTier, flash, settling, reactionProfile = REACTION_PROF
       style={{ top: '100%', zIndex: 0 }}
       aria-hidden
     >
-      {/* Stabilizer beam: target → ground (sits above the shadow) */}
+      {/* Stabilizer beam: target → ground (sits above the shadow). Neutral
+          dashed line — no cyan tint. */}
       <div
         className="absolute left-1/2 -translate-x-1/2"
         style={{
@@ -361,10 +363,10 @@ function DroneAnchor({ hitTier, flash, settling, reactionProfile = REACTION_PROF
           width: 1,
           height: 22,
           backgroundImage:
-            'linear-gradient(to bottom, rgba(34,211,238,0.55) 0 2px, transparent 2px 5px)',
+            'linear-gradient(to bottom, rgba(220,220,225,0.45) 0 2px, transparent 2px 5px)',
           backgroundSize: '1px 5px',
           backgroundRepeat: 'repeat-y',
-          opacity: 0.55,
+          opacity: 0.5,
         }}
       />
       {/* Hover shadow drifts under stabilization wobble on hit */}
@@ -380,8 +382,8 @@ function DroneAnchor({ hitTier, flash, settling, reactionProfile = REACTION_PROF
         {/* Inner darker shadow (focused contact point) */}
         <div className="absolute left-1/2 -translate-x-1/2 rounded-full bg-black/70 blur-[2px]"
              style={{ width: 38, height: 5, top: 2 }} />
-        {/* Small floor mark */}
-        <div className="absolute left-1/2 -translate-x-1/2 rounded-full bg-cyan-300/30 blur-[1px]"
+        {/* Small floor mark — neutral, no cyan tint */}
+        <div className="absolute left-1/2 -translate-x-1/2 rounded-full bg-white/15 blur-[1px]"
              style={{ width: 10, height: 1.5, top: 4 }} />
       </motion.div>
     </div>
