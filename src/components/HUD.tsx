@@ -105,7 +105,9 @@ export default function HUD({
   // the three top modules, the objective bar, the multiplayer squad strip,
   // and the weapon callout. The backgrounds stay translucent so the layout
   // is identical; the blur pass is just skipped.
-  const enableBlur = settings.reducedEffects !== true;
+  // Default to crisp panels. Blur can be opt-in via settings.hudBlur=true and
+  // is always disabled by reducedEffects.
+  const enableBlur = settings.reducedEffects !== true && settings.hudBlur === true;
 
   const scaleMap: Record<string, string> = {
     small: 'scale-90 origin-top',
