@@ -3026,10 +3026,10 @@ export default function App() {
 
         {gameState === 'playing' && (
           <>
-            {/* CyberGridBackground / ScanningLaser / CRTOverlay intentionally
-                removed — the redesign forbids always-on cyan top-to-bottom
-                sweeps, full-screen chroma scanlines, or any continuous tinted
-                wash over gameplay. Hit/boss flashes still play below. */}
+            {/* Legacy neon/cyber backgrounds are quarantined in
+                src/components/legacy/LegacyBackgroundElements.tsx and are
+                intentionally excluded from active gameplay. Redesign forbids
+                always-on cyan sweeps / chroma scanlines / full-screen tint. */}
             <DamageIndicator direction={damageDirection} />
             
             {/* Enemy Projectiles */}
