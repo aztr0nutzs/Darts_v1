@@ -163,7 +163,7 @@ export default function ArenaScene({ arenaId, parallaxX, parallaxY }: ArenaScene
         <motion.div className="absolute inset-0" style={{ x: fgX, y: fgY }}>
           {/* Long rail across mid-stage where moving targets glide */}
           <div className="absolute left-[6%] right-[6%] top-[58%] h-[4px] rounded-full bg-gradient-to-r from-zinc-900 via-zinc-400 to-zinc-900 shadow-[0_2px_6px_rgba(0,0,0,0.6)]" />
-          <div className="absolute left-[6%] right-[6%] top-[58%] h-1 -translate-y-[2px] bg-gradient-to-r from-transparent via-white/30 to-transparent blur-sm" />
+          <div className="absolute left-[6%] right-[6%] top-[58%] h-px -translate-y-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
           {/* Target stands at lane positions */}
           {[12, 30, 50, 70, 88].map(x => (
             <div key={x} className="absolute" style={{ left: `${x}%`, top: '74%' }}>

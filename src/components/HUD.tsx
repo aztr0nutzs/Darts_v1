@@ -101,6 +101,12 @@ export default function HUD({
   const isLowAmmo = ammo > 0 && ammo <= gun.maxAmmo * 0.2;
   const isEmpty = ammo === 0;
 
+  // Reduced-effects mode disables every backdrop-filter blur in this HUD —
+  // the three top modules, the objective bar, the multiplayer squad strip,
+  // and the weapon callout. The backgrounds stay translucent so the layout
+  // is identical; the blur pass is just skipped.
+  const enableBlur = settings.reducedEffects !== true;
+
   const scaleMap: Record<string, string> = {
     small: 'scale-90 origin-top',
     normal: 'scale-100 origin-top',
@@ -237,6 +243,7 @@ export default function HUD({
             accent={TOKENS.textHi}
             tickColor={TOKENS.yellow}
             valueSize={36}
+            enableBlur={enableBlur}
           />
         </motion.div>
         <HudModule
@@ -247,6 +254,7 @@ export default function HUD({
           accent={lowTime ? TOKENS.magenta : TOKENS.textHi}
           tickColor={TOKENS.cyan}
           valueSize={36}
+          enableBlur={enableBlur}
         />
         <HudModule
           label="DARTS"
@@ -256,6 +264,7 @@ export default function HUD({
           accent={isEmpty ? TOKENS.magenta : isLowAmmo ? TOKENS.orange : TOKENS.orange}
           tickColor={TOKENS.orange}
           valueSize={36}
+          enableBlur={enableBlur}
         />
       </div>
 
@@ -274,8 +283,8 @@ export default function HUD({
             alignItems: 'center',
             gap: 12,
             pointerEvents: 'none',
-            backdropFilter: 'blur(6px)',
-            WebkitBackdropFilter: 'blur(6px)',
+            backdropFilter: enableBlur ? 'blur(6px)' : undefined,
+            WebkitBackdropFilter: enableBlur ? 'blur(6px)' : undefined,
           }}
         >
           <span
@@ -441,8 +450,8 @@ export default function HUD({
             padding: '10px 14px',
             minWidth: 200,
             pointerEvents: 'none',
-            backdropFilter: 'blur(6px)',
-            WebkitBackdropFilter: 'blur(6px)',
+            backdropFilter: enableBlur ? 'blur(6px)' : undefined,
+            WebkitBackdropFilter: enableBlur ? 'blur(6px)' : undefined,
           }}
         >
           <span
@@ -565,8 +574,8 @@ export default function HUD({
           border: `1px solid ${TOKENS.hairline}`,
           padding: '12px 16px',
           pointerEvents: 'none',
-          backdropFilter: 'blur(6px)',
-          WebkitBackdropFilter: 'blur(6px)',
+          backdropFilter: enableBlur ? 'blur(6px)' : undefined,
+          WebkitBackdropFilter: enableBlur ? 'blur(6px)' : undefined,
         }}
       >
         <span

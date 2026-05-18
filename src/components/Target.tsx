@@ -138,7 +138,7 @@ function HexNode({ color, score, active }: { color: string, score: number, activ
   );
 }
 
-export default function Target({ target, onHit, cursorPos }: TargetProps) {
+function TargetImpl({ target, onHit, cursorPos }: TargetProps) {
   // Target type checks (kept minimal — most behavior is keyed off target.type directly)
   const isErratic = target.type === 'erratic';
   const isMoving = target.type === 'moving';
@@ -605,8 +605,8 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
             />
             <motion.div
               animate={{ rotate: 360 }}
-              transition={{ duration: 6, repeat: Infinity, ease: 'linear' }}
-              className="absolute inset-2 rounded-[55%] bg-[conic-gradient(from_0deg,#7e22ce,#d946ef,#a855f7,#7e22ce)] opacity-60 blur-md"
+              transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
+              className="absolute inset-2 rounded-[55%] bg-[conic-gradient(from_0deg,#7e22ce,#d946ef,#a855f7,#7e22ce)] opacity-55"
             />
             {/* Bullseye core */}
             <div className="relative w-16 h-16 rounded-full bg-gradient-to-br from-amber-100 to-amber-50 border-4 border-fuchsia-700 z-10 shadow-[0_4px_10px_rgba(0,0,0,0.5)]" data-hit-zone="body">
@@ -660,8 +660,8 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
             <div className="relative w-24 h-24 rounded-md bg-gradient-to-br from-slate-100 via-slate-300 to-slate-500 border-4 border-slate-600 shadow-[0_0_18px_rgba(148,163,184,0.6)] overflow-hidden" data-hit-zone="armor">
               <motion.div
                 animate={{ x: ['-100%', '120%'] }}
-                transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-                className="absolute inset-y-0 w-1/3 bg-white/60 blur-md skew-x-12"
+                transition={{ duration: 2.4, repeat: Infinity, ease: 'linear' }}
+                className="absolute inset-y-0 w-1/3 bg-white/45 skew-x-12"
               />
               <div className="absolute inset-2 border-2 border-slate-200/70 rounded-sm" />
               {/* Center bullseye still hittable */}
@@ -709,7 +709,7 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
       case 'phantom':
         return (
           <div className={`relative w-24 h-32 flex flex-col items-center transition-opacity duration-300 ${isRevealed ? 'opacity-100' : 'opacity-30'}`}>
-            <div className="relative w-20 h-20 rounded-full border-2 border-cyan-200/70 bg-cyan-200/10 backdrop-blur-[2px] shadow-[0_0_18px_rgba(165,243,252,0.3)]" data-hit-zone="body">
+            <div className="relative w-20 h-20 rounded-full border-2 border-cyan-200/70 bg-cyan-200/10 shadow-[0_0_10px_rgba(165,243,252,0.22)]" data-hit-zone="body">
               <div className="absolute inset-2 rounded-full border-2 border-cyan-300/60" />
               <div className="absolute inset-5 rounded-full border-2 border-cyan-300/60" />
               <div className="absolute inset-[42%] rounded-full bg-cyan-200/60 shadow-[0_0_8px_#67e8f9]" data-hit-zone="weak_point" />
@@ -768,10 +768,10 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
           <div className="relative w-44 h-44 flex items-center justify-center">
              <div className="absolute inset-0 rounded-full border-8 border-blue-600 shadow-[0_0_40px_rgba(37,99,235,0.6)]" />
              <div className="absolute inset-4 rounded-full overflow-hidden">
-                <motion.div 
-                  animate={{ rotate: 360, scale: [1, 1.2, 1] }} 
-                  transition={{ rotate: { duration: 5, repeat: Infinity, ease: "linear" }, scale: { duration: 3, repeat: Infinity } }}
-                  className="absolute inset-0 bg-[conic-gradient(from_0deg,#1e1b4b,#3b82f6,#60a5fa,#1e1b4b)] opacity-80 blur-xl" 
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
+                  className="absolute inset-0 bg-[conic-gradient(from_0deg,#1e1b4b,#3b82f6,#60a5fa,#1e1b4b)] opacity-65"
                 />
              </div>
              <div className="absolute bottom-[-10px] w-24 h-12 bg-slate-800 border-t-4 border-blue-500 rounded-t-2xl flex items-center justify-center">
@@ -800,10 +800,10 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
           <div className="relative w-28 h-56 flex flex-col items-center">
              <div className="w-full h-8 bg-orange-500 rounded-xl rounded-b-none border-b-2 border-slate-900" data-hit-zone="armor" />
              <div className="w-3/4 flex-1 bg-slate-900 border-x-4 border-blue-500 relative overflow-hidden" data-hit-zone="weak_point">
-                <motion.div 
-                  animate={{ y: [-100, 100], opacity: [0.2, 0.6, 0.2] }} 
-                  transition={{ duration: 1, repeat: Infinity }}
-                  className="absolute inset-0 bg-blue-400 blur-2xl" 
+                <motion.div
+                  animate={{ y: [-100, 100], opacity: [0.2, 0.5, 0.2] }}
+                  transition={{ duration: 1.4, repeat: Infinity }}
+                  className="absolute inset-0 bg-blue-500/40"
                 />
                 <div className="absolute inset-4 border border-blue-400/30 flex items-center justify-center">
                    <div className="text-3xl font-black text-blue-400 drop-shadow-[0_0_10px_#60a5fa] animate-pulse">300</div>
@@ -916,7 +916,7 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
              <div className="w-32 h-28 bg-slate-800 border-4 border-blue-500 rounded-xl relative flex items-center justify-center" data-hit-zone="armor">
                 <div className="absolute -top-4 w-20 h-4 bg-orange-600 rounded-full flex items-center justify-center">
                    <div className="flex gap-1" data-hit-zone="weak_point">
-                      <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-ping" />
+                      <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
                       <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
                       <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
                    </div>
@@ -996,10 +996,10 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
           animate={{ x: recoilX, y: recoilY }}
           transition={{ type: 'spring', stiffness: 600, damping: 14 }}
         >
-          <div className={`relative flex items-center justify-center w-16 h-16 rounded-xl shadow-[0_0_30px_rgba(255,255,255,0.2)] border-2 backdrop-blur-sm animate-pulse overflow-hidden
-            ${isPowerupDamage ? 'bg-red-950/90 border-red-500 shadow-red-500/50 text-red-500' : ''}
-            ${isPowerupRapid ? 'bg-yellow-950/90 border-yellow-400 shadow-yellow-400/50 text-yellow-400' : ''}
-            ${isPowerupShield ? 'bg-blue-950/90 border-blue-400 shadow-blue-400/50 text-blue-400' : ''}
+          <div className={`relative flex items-center justify-center w-16 h-16 rounded-xl shadow-[0_0_14px_rgba(255,255,255,0.18)] border-2 animate-pulse overflow-hidden
+            ${isPowerupDamage ? 'bg-red-950/95 border-red-500 text-red-500' : ''}
+            ${isPowerupRapid ? 'bg-yellow-950/95 border-yellow-400 text-yellow-400' : ''}
+            ${isPowerupShield ? 'bg-blue-950/95 border-blue-400 text-blue-400' : ''}
           `}>
             <PowerupCardBackdrop type={target.type} />
             <div className="absolute inset-0 bg-current opacity-20 rounded-xl" />
@@ -1140,3 +1140,20 @@ export default function Target({ target, onHit, cursorPos }: TargetProps) {
     </motion.div>
   );
 }
+
+// Memoised so unrelated parent re-renders (HUD ticking score, dust drift,
+// etc.) do not force every Target on screen to re-render. The parent passes a
+// freshly-constructed cursorPos object every render; compare it by value so
+// shallow churn doesn't defeat the memo, but phantom reveal logic still gets
+// fresh coords when the cursor actually moves.
+const Target = React.memo(TargetImpl, (prev, next) => {
+  if (prev.target !== next.target) return false;
+  if (prev.onHit !== next.onHit) return false;
+  const a = prev.cursorPos;
+  const b = next.cursorPos;
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return a.x === b.x && a.y === b.y;
+});
+
+export default Target;

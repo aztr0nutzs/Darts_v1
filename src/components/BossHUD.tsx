@@ -12,10 +12,12 @@ interface BossHUDProps {
   boss: BossState | null;
   /** Whether the boss was just defeated (show victory banner) */
   bossDefeated: boolean;
+  /** When true, skip backdrop-filter blur passes — used by reducedEffects. */
+  reducedEffects?: boolean;
 }
 
 // ── Intro Banner ─────────────────────────────────────────────────────────
-function BossIntroBanner({ name }: { name: string }) {
+function BossIntroBanner({ name, enableBlur }: { name: string; enableBlur: boolean }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: -8 }}
@@ -32,8 +34,8 @@ function BossIntroBanner({ name }: { name: string }) {
           border: `1px solid ${TOKENS.magenta}`,
           borderLeft: `4px solid ${TOKENS.magenta}`,
           padding: '20px 28px 22px',
-          backdropFilter: 'blur(6px)',
-          WebkitBackdropFilter: 'blur(6px)',
+          backdropFilter: enableBlur ? 'blur(6px)' : undefined,
+          WebkitBackdropFilter: enableBlur ? 'blur(6px)' : undefined,
         }}
       >
         <span
@@ -79,7 +81,7 @@ function BossIntroBanner({ name }: { name: string }) {
 }
 
 // ── Victory Banner ───────────────────────────────────────────────────────
-function BossVictoryBanner() {
+function BossVictoryBanner({ enableBlur }: { enableBlur: boolean }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: -6 }}
@@ -97,8 +99,8 @@ function BossVictoryBanner() {
           borderLeft: `4px solid ${TOKENS.green}`,
           padding: '18px 24px 20px',
           textAlign: 'center',
-          backdropFilter: 'blur(6px)',
-          WebkitBackdropFilter: 'blur(6px)',
+          backdropFilter: enableBlur ? 'blur(6px)' : undefined,
+          WebkitBackdropFilter: enableBlur ? 'blur(6px)' : undefined,
         }}
       >
         <span
@@ -133,7 +135,7 @@ function BossVictoryBanner() {
 }
 
 // ── Phase Transition Alert ───────────────────────────────────────────────
-function PhaseTransitionAlert({ phase }: { phase: number }) {
+function PhaseTransitionAlert({ phase, enableBlur }: { phase: number; enableBlur: boolean }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: -12 }}
@@ -152,8 +154,8 @@ function PhaseTransitionAlert({ phase }: { phase: number }) {
           display: 'inline-flex',
           alignItems: 'center',
           gap: 12,
-          backdropFilter: 'blur(6px)',
-          WebkitBackdropFilter: 'blur(6px)',
+          backdropFilter: enableBlur ? 'blur(6px)' : undefined,
+          WebkitBackdropFilter: enableBlur ? 'blur(6px)' : undefined,
         }}
       >
         <span
@@ -176,7 +178,8 @@ function PhaseTransitionAlert({ phase }: { phase: number }) {
 }
 
 // ── BossHUD Root ─────────────────────────────────────────────────────────
-export default function BossHUD({ boss, bossDefeated }: BossHUDProps) {
+export default function BossHUD({ boss, bossDefeated, reducedEffects }: BossHUDProps) {
+  const enableBlur = reducedEffects !== true;
   const [showIntro, setShowIntro] = useState(false);
   const [showPhaseAlert, setShowPhaseAlert] = useState(false);
   const [showVictory, setShowVictory] = useState(false);
@@ -228,13 +231,13 @@ export default function BossHUD({ boss, bossDefeated }: BossHUDProps) {
   return (
     <>
       <AnimatePresence>
-        {showIntro && boss && <BossIntroBanner name={boss.displayName} />}
+        {showIntro && boss && <BossIntroBanner name={boss.displayName} enableBlur={enableBlur} />}
       </AnimatePresence>
       <AnimatePresence>
-        {showPhaseAlert && <PhaseTransitionAlert phase={phaseAlertNum} />}
+        {showPhaseAlert && <PhaseTransitionAlert phase={phaseAlertNum} enableBlur={enableBlur} />}
       </AnimatePresence>
       <AnimatePresence>
-        {showVictory && <BossVictoryBanner />}
+        {showVictory && <BossVictoryBanner enableBlur={enableBlur} />}
       </AnimatePresence>
 
       {/* Persistent BOSS dock — top-center during encounter */}
@@ -250,8 +253,8 @@ export default function BossHUD({ boss, bossDefeated }: BossHUDProps) {
               border: `1px solid ${TOKENS.magenta}55`,
               borderLeft: `3px solid ${TOKENS.magenta}`,
               padding: '12px 16px 14px',
-              backdropFilter: 'blur(8px)',
-              WebkitBackdropFilter: 'blur(8px)',
+              backdropFilter: enableBlur ? 'blur(8px)' : undefined,
+              WebkitBackdropFilter: enableBlur ? 'blur(8px)' : undefined,
             }}
           >
             {/* Top-tick magenta accent */}
