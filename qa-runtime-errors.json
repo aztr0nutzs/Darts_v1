@@ -1,0 +1,11 @@
+{
+  "consoleErrors": [
+    "[desktop] Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID",
+    "[mobile] Failed to load resource: net::ERR_CERT_AUTHORITY_INVALID"
+  ],
+  "pageErrors": [],
+  "failedRequests": [
+    "[desktop] https://fonts.googleapis.com/css2?family=Antonio:wght@400;600;700&family=Saira:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700;800&family=Inter:wght@400;500;600;900&display=swap :: net::ERR_CERT_AUTHORITY_INVALID",
+    "[mobile] https://fonts.googleapis.com/css2?family=Antonio:wght@400;600;700&family=Saira:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700;800&family=Inter:wght@400;500;600;900&display=swap :: net::ERR_CERT_AUTHORITY_INVALID"
+  ]
+}
