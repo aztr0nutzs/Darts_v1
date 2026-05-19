@@ -24,7 +24,7 @@ export interface WaveConfig {
   maxConcurrent: number;
   swarmChance: number;
   intensity: WaveIntensity;
-  bossTypes?: TargetData['type'][];
+  eliteTypes?: TargetData['type'][];
   powerupChance: number;
   depthBias: 'close' | 'mid' | 'far' | 'any';
   lanePattern: 'center' | 'spread' | 'flanks' | 'any';
@@ -217,7 +217,7 @@ export const WAVES: WaveConfig[] = [
     objective: 'survival', objectiveValue: 0, duration: 35,
     targetPool: ['heavy_armor', 'shielded', 'reflector', 'hostile', 'armored'],
     spawnRateMs: 1050, maxConcurrent: 5, swarmChance: 0.10,
-    intensity: 'normal', bossTypes: ['sentinel_bot'],
+    intensity: 'normal', eliteTypes: ['sentinel_bot'],
     powerupChance: 0.06, depthBias: 'close', lanePattern: 'spread',
   },
   // ── Wave 7: QUANTUM SHADOWS — tricky evasive targets ──────────────
@@ -256,22 +256,22 @@ export const WAVES: WaveConfig[] = [
     intensity: 'rest', powerupChance: 0.32,
     depthBias: 'mid', lanePattern: 'spread',
   },
-  // ── Wave 11: SENTINEL PROTOCOL — boss wave ────────────────────────
+  // ── Wave 11: SENTINEL PROTOCOL — elite pressure wave ──────────────
   {
     id: 11, name: 'SENTINEL PROTOCOL',
     objective: 'survival', objectiveValue: 0, duration: 40,
     targetPool: ['drone', 'hostile', 'armored', 'moving'],
     spawnRateMs: 900, maxConcurrent: 6, swarmChance: 0.20,
-    intensity: 'boss', bossTypes: ['sentinel_bot', 'phase_target'],
+    intensity: 'boss', eliteTypes: ['sentinel_bot', 'phase_target'],
     powerupChance: 0.06, depthBias: 'any', lanePattern: 'flanks',
   },
-  // ── Wave 12: ORBITAL ASSAULT — climax boss wave ───────────────────
+  // ── Wave 12: ORBITAL ASSAULT — climax elite wave ──────────────────
   {
     id: 12, name: 'ORBITAL ASSAULT',
     objective: 'score', objectiveValue: 15000,
     targetPool: ['kinetic_swarm', 'hostile', 'drone', 'exploding', 'moving'],
     spawnRateMs: 450, maxConcurrent: 9, swarmChance: 0.50,
-    intensity: 'boss', bossTypes: ['orbital_array', 'warp_gate', 'neural_grid'],
+    intensity: 'boss', eliteTypes: ['orbital_array', 'warp_gate', 'neural_grid'],
     powerupChance: 0.08, depthBias: 'any', lanePattern: 'any',
   },
 
@@ -309,7 +309,7 @@ export const WAVES: WaveConfig[] = [
     objective: 'survival', objectiveValue: 0, duration: 32,
     targetPool: ['heavy_armor', 'heavy_armor', 'shielded', 'armored'],
     spawnRateMs: 1500, maxConcurrent: 4, swarmChance: 0.05,
-    intensity: 'normal', bossTypes: ['sentinel_bot'],
+    intensity: 'normal', eliteTypes: ['sentinel_bot'],
     powerupChance: 0.05, depthBias: 'mid', lanePattern: 'spread',
   },
 ];
@@ -542,10 +542,10 @@ export class GameplayDirector {
       swarmChance = Math.max(0, Math.min(0.9, swarmChance + arenaTune.swarmDelta));
     }
 
-    // ── Boss spawn: when the arena clears, give the boss a stage ───
-    if (config.bossTypes?.length && activeTargetCount === 0 && Math.random() < 0.06) {
-      const boss = config.bossTypes[Math.floor(Math.random() * config.bossTypes.length)];
-      return [this._makeTarget(boss, depthBias, config.lanePattern)];
+    // ── Elite spawn: when the arena clears, add a heavy special target ───
+    if (config.eliteTypes?.length && activeTargetCount === 0 && Math.random() < 0.06) {
+      const elite = config.eliteTypes[Math.floor(Math.random() * config.eliteTypes.length)];
+      return [this._makeTarget(elite, depthBias, config.lanePattern)];
     }
 
     // ── Powerup injection ─────────────────────────────────────────
@@ -696,7 +696,7 @@ export class GameplayDirector {
       maxConcurrent: Math.min(12, 9 + Math.floor(escalation / 2)),
       swarmChance: Math.min(0.85, 0.5 + escalation * 0.05),
       intensity: overflow % 4 === 0 ? 'boss' : 'intense',
-      bossTypes: overflow % 4 === 0 ? [bossCandidates[escalation % bossCandidates.length]] : undefined,
+      eliteTypes: overflow % 4 === 0 ? [bossCandidates[escalation % bossCandidates.length]] : undefined,
       powerupChance: 0.05,
       depthBias: 'any',
       lanePattern: 'any',
