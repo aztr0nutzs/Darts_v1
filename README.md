@@ -15,6 +15,7 @@ Darts is a fast-paced React/WebView action game where the player clears timed wa
 ### Current feature set (high level)
 - Single-player timed run flow (boot → menu → loadout → gameplay → pause/settings → results).
 - Multiplayer entry/lobby flow backed by Socket.IO when backend is reachable.
+- CO-OP in the mode row is an online multiplayer entry path (lobby/server-backed), not an offline/local co-op gameplay mode.
 - Centralized image asset registry for arenas, targets, blasters, and darts with fallback rendering.
 - Android WebView packaging path with deterministic web asset sync into app assets.
 - QA evidence structure for browser runtime and Android runtime reports/screenshots.
