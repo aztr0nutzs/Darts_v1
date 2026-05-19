@@ -5,8 +5,9 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import type { GameMode, DartType } from '../App';
+import type { GameMode, DartType, ArenaMeta } from '../App';
 import { GUNS, type GunType } from '../lib/guns';
+import type { ArenaId } from './ArenaScene';
 import { getBlasterAsset } from '../lib/assetRegistry';
 import type {
   MultiplayerConnectionStatus,
@@ -29,12 +30,20 @@ export interface MainMenuProps {
   roomError: string | null;
   onRetryMultiplayer: () => void;
   setIsMultiplayerWaiting: (b: boolean) => void;
-  startGame: (mode: GameMode) => void;
+  startGame: (mode: GameMode, arenaId?: ArenaId) => void;
+  selectedArenaId: ArenaId;
+  selectedArena: ArenaMeta;
+  arenas: ArenaMeta[];
+  onSelectArena: (arenaId: ArenaId) => void;
   setShowUpgradeMenu: (b: boolean) => void;
   credits: number;
   unlockedGuns: string[];
   currentGun: GunType;
   setCurrentGun: (gun: GunType) => void;
+  primaryGunId: string;
+  secondaryGunId: string | null;
+  setPrimaryGunId: (id: string) => void;
+  setSecondaryGunId: (id: string | null) => void;
   buyGun: (gun: GunType) => void;
   unlockedDarts: string[];
   currentDart: DartType;
@@ -59,11 +68,19 @@ export default function MainMenu(props: MainMenuProps) {
     onRetryMultiplayer,
     setIsMultiplayerWaiting,
     startGame,
+    selectedArenaId,
+    selectedArena,
+    arenas,
+    onSelectArena,
     setShowUpgradeMenu,
     credits,
     unlockedGuns,
     currentGun,
     setCurrentGun,
+    primaryGunId,
+    secondaryGunId,
+    setPrimaryGunId,
+    setSecondaryGunId,
     buyGun,
     unlockedDarts,
     currentDart,
@@ -72,6 +89,7 @@ export default function MainMenu(props: MainMenuProps) {
   } = props;
 
   const [view, setView] = React.useState<MenuView>('main');
+  const [showDeployBriefing, setShowDeployBriefing] = React.useState(false);
 
   const blasterAsset = React.useMemo(() => getBlasterAsset(currentGun.id), [currentGun.id]);
 
@@ -107,7 +125,7 @@ export default function MainMenu(props: MainMenuProps) {
     { id: 'endless',    label: 'SURVIVAL',   sub: 'GAUNTLET' },
     { id: 'targetRush', label: 'ASSAULT',    sub: '50 TARGETS' },
     { id: 'hardcore',   label: 'HARDCORE',   sub: '1-HIT KO' },
-    { id: 'coop',       label: 'CO-OP',      sub: 'TEAM' },
+    { id: 'multiplayer', label: 'CO-OP',      sub: 'ONLINE TEAM' },
   ];
   const currentModeLabel = modes.find((m) => m.id === gameMode)?.label ?? 'STANDARD';
 
@@ -120,6 +138,10 @@ export default function MainMenu(props: MainMenuProps) {
         currentGun={currentGun}
         setCurrentGun={setCurrentGun}
         buyGun={buyGun}
+        primaryGunId={primaryGunId}
+        secondaryGunId={secondaryGunId}
+        setPrimaryGunId={setPrimaryGunId}
+        setSecondaryGunId={setSecondaryGunId}
         unlockedDarts={unlockedDarts}
         currentDart={currentDart}
         setCurrentDart={setCurrentDart}
@@ -132,7 +154,7 @@ export default function MainMenu(props: MainMenuProps) {
 
   // ── ARENAS SUB-VIEW (light) ───────────────────────────────────────────
   if (view === 'arenas') {
-    return <ArenasPanel onBack={() => setView('main')} />;
+    return <ArenasPanel onBack={() => setView('main')} arenas={arenas} selectedArenaId={selectedArenaId} onSelectArena={onSelectArena} gameMode={gameMode} />;
   }
 
   // ── MULTIPLAYER SUB-VIEW ──────────────────────────────────────────────
@@ -407,7 +429,14 @@ export default function MainMenu(props: MainMenuProps) {
               <button
                 key={m.id}
                 type="button"
-                onClick={() => setGameMode(m.id)}
+                onClick={() => {
+                  if (m.id === 'multiplayer') {
+                    setGameMode('multiplayer');
+                    setView('multiplayer');
+                    return;
+                  }
+                  setGameMode(m.id);
+                }}
                 className="select-none"
                 style={{
                   background: active ? 'rgba(255,106,26,0.08)' : 'transparent',
@@ -444,7 +473,7 @@ export default function MainMenu(props: MainMenuProps) {
                 setView('multiplayer');
                 return;
               }
-              startGame(gameMode);
+              setShowDeployBriefing(true);
             }}
             height={140}
             notch={22}
@@ -462,7 +491,7 @@ export default function MainMenu(props: MainMenuProps) {
           <NavRow
             index="03"
             label="ARENAS"
-            hint="4 MAPS UNLOCKED"
+            hint={`${selectedArena.name} · SOLO SELECT`}
             onClick={() => setView('arenas')}
           />
           <NavRow
@@ -487,6 +516,40 @@ export default function MainMenu(props: MainMenuProps) {
             onClick={() => setShowUpgradeMenu(true)}
           />
         </div>
+
+
+
+        <AnimatePresence>
+          {showDeployBriefing && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-[90] flex items-center justify-center px-4"
+              style={{ background: 'rgba(0,0,0,0.84)' }}
+            >
+              <motion.div
+                initial={{ y: 18, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 12, opacity: 0 }}
+                style={{ width: 'min(720px, 100%)', background: TOKENS.bgPanelSolid, border: `1px solid ${TOKENS.hairlineHi}`, padding: 20 }}
+              >
+                <Kicker color={TOKENS.orange} size={12}>MATCH BRIEFING</Kicker>
+                <div style={{ marginTop: 12, display: 'grid', gap: 8, font: `600 12px/1.3 ${TOKENS.fontMono}`, letterSpacing: '.12em', textTransform: 'uppercase' }}>
+                  <div>ARENA: <span style={{ color: TOKENS.textHi }}>{selectedArena.name}</span></div>
+                  <div>MODE: <span style={{ color: TOKENS.textHi }}>{currentModeLabel}</span></div>
+                  <div>PRIMARY: <span style={{ color: TOKENS.textHi }}>{currentGun.name}</span></div>
+                  <div>DART: <span style={{ color: TOKENS.textHi }}>{currentDart.name}</span></div>
+                  <div>BOSS WARNING: <span style={{ color: TOKENS.orange }}>{selectedArena.bossName ?? 'UNKNOWN THREAT'}</span></div>
+                </div>
+                <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+                  <button type="button" onClick={() => setShowDeployBriefing(false)} style={{ flex: 1, background: 'transparent', border: `1px solid ${TOKENS.hairlineHi}`, color: TOKENS.text, padding: '12px 14px' }}>CANCEL</button>
+                  <button type="button" onClick={() => { setShowDeployBriefing(false); startGame(gameMode, selectedArenaId); }} style={{ flex: 1, background: TOKENS.orange, border: 'none', color: '#111', fontWeight: 800, padding: '12px 14px' }}>START MATCH</button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* FOOTER */}
         <div
@@ -702,113 +765,52 @@ function MultiplayerPanel({
   );
 }
 
-function ArenasPanel({ onBack }: { onBack: () => void }) {
+function ArenasPanel({
+  onBack,
+  arenas,
+  selectedArenaId,
+  onSelectArena,
+  gameMode,
+}: {
+  onBack: () => void;
+  arenas: ArenaMeta[];
+  selectedArenaId: ArenaId;
+  onSelectArena: (arenaId: ArenaId) => void;
+  gameMode: GameMode;
+}) {
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="absolute inset-0 z-[55] overflow-y-auto custom-scrollbar select-none"
-      style={{ background: TOKENS.bg, color: TOKENS.textHi, fontFamily: TOKENS.fontUi }}
-    >
-      <div
-        className="mx-auto"
-        style={{ maxWidth: 1080, padding: `40px 24px 56px`, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}
-      >
-        <button
-          type="button"
-          onClick={onBack}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            font: `500 13px/1 ${TOKENS.fontMono}`,
-            color: TOKENS.text,
-            letterSpacing: '.22em',
-            textTransform: 'uppercase',
-            padding: 0,
-            alignSelf: 'flex-start',
-          }}
-        >
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[55] overflow-y-auto custom-scrollbar select-none" style={{ background: TOKENS.bg, color: TOKENS.textHi, fontFamily: TOKENS.fontUi }}>
+      <div className="mx-auto" style={{ maxWidth: 1080, padding: `40px 24px 56px`, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+        <button type="button" onClick={onBack} style={{ background: 'transparent', border: 'none', cursor: 'pointer', font: `500 13px/1 ${TOKENS.fontMono}`, color: TOKENS.text, letterSpacing: '.22em', textTransform: 'uppercase', padding: 0, alignSelf: 'flex-start' }}>
           <span style={{ color: TOKENS.textHi, marginRight: 8 }}>‹</span>BACK
         </button>
-
         <div style={{ marginTop: 28 }}>
-          <Kicker color={TOKENS.orange} size={14}>ARENAS · 04 MAPS</Kicker>
-          <div
-            style={{
-              marginTop: 14,
-              font: `900 italic 76px/0.88 ${TOKENS.fontDisplay}`,
-              color: TOKENS.textHi,
-              letterSpacing: '.02em',
-              textTransform: 'uppercase',
-            }}
-          >
-            ARENAS
-          </div>
+          <Kicker color={TOKENS.orange} size={14}>ARENAS · 03 LIVE MAPS</Kicker>
+          <div style={{ marginTop: 14, font: `900 italic 76px/0.88 ${TOKENS.fontDisplay}`, color: TOKENS.textHi, letterSpacing: '.02em', textTransform: 'uppercase' }}>ARENAS</div>
+          <div style={{ marginTop: 10, font: `500 11px/1.4 ${TOKENS.fontMono}`, color: TOKENS.textMute, letterSpacing: '.12em', textTransform: 'uppercase' }}>Arena selection applies to solo modes only.</div>
         </div>
-
-        <div
-          style={{
-            marginTop: 24,
-            display: 'grid',
-            gridTemplateColumns: 'repeat(2, 1fr)',
-            gap: 10,
-          }}
-        >
-          {[
-            { id: 'training', label: 'TRAINING BAY', sub: 'LVL 01 · DRILLS' },
-            { id: 'warehouse', label: 'WAREHOUSE RUSH', sub: 'LVL 02 · CQB' },
-            { id: 'rooftop', label: 'SKYLINE ROOFTOP', sub: 'LVL 03 · LONG SIGHT' },
-            { id: 'reactor', label: 'REACTOR CORE', sub: 'LVL 04 · LOCKED' },
-          ].map((a, i) => {
-            const locked = i === 3;
+        <div style={{ marginTop: 24, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+          {arenas.map((a) => {
+            const selected = selectedArenaId === a.id;
             return (
-              <div
-                key={a.id}
-                style={{
-                  position: 'relative',
-                  background: TOKENS.bgTranslucent,
-                  border: `1px solid ${TOKENS.hairline}`,
-                  padding: '20px',
-                  opacity: locked ? 0.5 : 1,
-                }}
-              >
-                <span
-                  style={{
-                    position: 'absolute',
-                    left: 0,
-                    top: -1,
-                    height: 3,
-                    width: 38,
-                    background: locked ? TOKENS.textDim : TOKENS.orange,
-                  }}
-                />
-                <div
-                  style={{
-                    font: `500 11px/1 ${TOKENS.fontMono}`,
-                    color: TOKENS.textMute,
-                    letterSpacing: '.22em',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  {a.sub}
-                </div>
-                <div
-                  style={{
-                    marginTop: 8,
-                    font: `900 italic 28px/1 ${TOKENS.fontDisplay}`,
-                    color: TOKENS.textHi,
-                    letterSpacing: '.04em',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  {a.label}
-                </div>
-              </div>
+              <button key={a.id} type="button" onClick={() => onSelectArena(a.id)} style={{ textAlign: 'left', position: 'relative', background: selected ? 'rgba(249,115,22,0.08)' : TOKENS.bgTranslucent, border: `1px solid ${selected ? TOKENS.orange : TOKENS.hairline}`, padding: '18px', cursor: 'pointer' }}>
+                <span style={{ position: 'absolute', left: 0, top: -1, height: 3, width: 48, background: selected ? TOKENS.orange : TOKENS.textDim }} />
+                <div style={{ font: `500 11px/1 ${TOKENS.fontMono}`, color: TOKENS.textMute, letterSpacing: '.22em', textTransform: 'uppercase' }}>{a.difficultyLabel}</div>
+                <div style={{ marginTop: 8, font: `900 italic 24px/1 ${TOKENS.fontDisplay}`, color: TOKENS.textHi, letterSpacing: '.04em', textTransform: 'uppercase' }}>{a.name}</div>
+                <div style={{ marginTop: 10, font: `500 10px/1.3 ${TOKENS.fontMono}`, color: TOKENS.text }}>BOSS: {a.bossName ?? 'NONE'} · BIAS: {a.targetBiasSummary}</div>
+                <div style={{ marginTop: 10, font: `700 10px/1 ${TOKENS.fontMono}`, color: selected ? TOKENS.orange : TOKENS.textDim, letterSpacing: '.18em', textTransform: 'uppercase' }}>{selected ? 'SELECTED' : 'SELECT'}</div>
+              </button>
             );
           })}
+          <div style={{ position: 'relative', background: TOKENS.bgTranslucent, border: `1px dashed ${TOKENS.hairline}`, padding: '18px', opacity: 0.7 }}>
+            <div style={{ font: `500 11px/1 ${TOKENS.fontMono}`, color: TOKENS.textMute, letterSpacing: '.22em', textTransform: 'uppercase' }}>FUTURE EXPANSION</div>
+            <div style={{ marginTop: 8, font: `900 italic 24px/1 ${TOKENS.fontDisplay}`, color: TOKENS.textHi, letterSpacing: '.04em', textTransform: 'uppercase' }}>REACTOR CORE</div>
+            <div style={{ marginTop: 10, font: `500 10px/1.3 ${TOKENS.fontMono}`, color: TOKENS.textDim }}>Not a playable arena in the current build.</div>
+          </div>
         </div>
+        {gameMode === 'multiplayer' && (
+          <div style={{ marginTop: 18, font: `500 11px/1.4 ${TOKENS.fontMono}`, color: TOKENS.orange, letterSpacing: '.14em', textTransform: 'uppercase' }}>Multiplayer arena comes from the host/server state.</div>
+        )}
       </div>
     </motion.div>
   );

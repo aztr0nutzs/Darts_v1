@@ -709,19 +709,19 @@ function TargetImpl({ target, onHit, cursorPos }: TargetProps) {
       case 'phantom':
         return (
           <div className={`relative w-24 h-32 flex flex-col items-center transition-opacity duration-300 ${isRevealed ? 'opacity-100' : 'opacity-30'}`}>
-            <div className="relative w-20 h-20 rounded-full border-2 border-cyan-200/70 bg-cyan-200/10 shadow-[0_0_10px_rgba(165,243,252,0.22)]" data-hit-zone="body">
-              <div className="absolute inset-2 rounded-full border-2 border-cyan-300/60" />
-              <div className="absolute inset-5 rounded-full border-2 border-cyan-300/60" />
-              <div className="absolute inset-[42%] rounded-full bg-cyan-200/60 shadow-[0_0_8px_#67e8f9]" data-hit-zone="weak_point" />
+            <div className="relative w-20 h-20 rounded-full border-2 border-zinc-500/80 bg-zinc-950/70 shadow-[0_8px_16px_rgba(0,0,0,0.6)]" data-hit-zone="body">
+              <div className="absolute inset-2 rounded-full border-2 border-zinc-400/60" />
+              <div className="absolute inset-5 rounded-full border-2 border-violet-300/35" />
+              <div className="absolute inset-[42%] rounded-full bg-violet-200/70 shadow-[0_0_8px_rgba(216,180,254,0.45)]" data-hit-zone="weak_point" />
               {/* Glitch lines */}
               <motion.div
                 animate={{ y: ['-100%', '100%'] }}
                 transition={{ duration: 1.4, repeat: Infinity, ease: 'linear' }}
-                className="absolute inset-x-0 h-[2px] bg-cyan-300/70 mix-blend-screen"
+                className="absolute inset-x-0 h-[2px] bg-zinc-200/45 mix-blend-screen"
               />
             </div>
-            <div className="w-1.5 h-4 bg-cyan-200/40" />
-            <div className="w-10 h-1.5 rounded-full bg-cyan-100/30 blur-[1px]" />
+            <div className="w-1.5 h-4 bg-zinc-400/40" />
+            <div className="w-10 h-1.5 rounded-full bg-zinc-200/25 blur-[1px]" />
           </div>
         );
 
@@ -735,46 +735,45 @@ function TargetImpl({ target, onHit, cursorPos }: TargetProps) {
       case 'orbital_array':
         return (
           <div className="relative w-40 h-40 flex items-center justify-center">
-             <div className={`absolute inset-0 rounded-full border-[10px] ${nerdBlue} bg-blue-900/40`} />
-             <div className="absolute inset-4 rounded-full border-4 border-orange-500 shadow-[0_0_15px_#f97316]" data-hit-zone="armor" />
-             <div className="absolute inset-8 rounded-full border-2 border-cyan-400 shadow-[0_0_10px_#22d3ee]" data-hit-zone="weak_point" />
+             <div className="absolute inset-0 rounded-full border-[10px] border-zinc-700 bg-zinc-900 shadow-[0_8px_20px_rgba(0,0,0,0.6)]" />
+             <div className="absolute inset-4 rounded-full border-4 border-orange-500/80" data-hit-zone="armor" />
+             <div className="absolute inset-8 rounded-full border-2 border-zinc-200/70" data-hit-zone="weak_point" />
              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-2xl font-black text-white italic" data-hit-zone="weak_point">100</div>
-             {/* Thruster Vents */}
-             <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-6 h-6 bg-blue-500 border-2 border-cyan-300 rounded-sm" />
-             <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-8 h-4 bg-orange-500 rounded-custom" />
-             <div className="absolute left-[-10px] top-1/2 -translate-y-1/2 w-4 h-8 bg-blue-600 rounded-full" />
-             <div className="absolute right-[-10px] top-1/2 -translate-y-1/2 w-4 h-8 bg-blue-600 rounded-full" />
+             <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-6 h-6 bg-zinc-800 border-2 border-zinc-500 rounded-sm" />
+             <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-8 h-4 bg-zinc-800 border border-orange-500/70 rounded-sm" />
+             <div className="absolute left-[-10px] top-1/2 -translate-y-1/2 w-4 h-8 bg-zinc-800 rounded-full border border-zinc-500" />
+             <div className="absolute right-[-10px] top-1/2 -translate-y-1/2 w-4 h-8 bg-zinc-800 rounded-full border border-zinc-500" />
           </div>
         );
       case 'code_matrix':
         return (
-          <div className="relative w-36 h-48 bg-slate-900 border-4 border-cyan-500 rounded-xl p-4 flex flex-col gap-2 shadow-[0_0_30px_rgba(6,182,212,0.4)]">
-             <div className="text-[8px] font-black text-cyan-400 mb-1 opacity-60">MATRIX_INPUT_V.04</div>
+          <div className="relative w-36 h-48 bg-zinc-900 border-4 border-zinc-600 rounded-xl p-4 flex flex-col gap-2 shadow-[0_10px_22px_rgba(0,0,0,0.6)]">
+             <div className="text-[8px] font-black text-zinc-400 mb-1 opacity-80">RACK MODULE · 04</div>
              <div className="grid grid-cols-3 gap-2">
                 {[75, 75, 125, 75, 125, 75].map((s, i) => (
-                  <HexNode key={i} color={i % 2 === 0 ? 'stroke-orange-500' : 'stroke-cyan-500'} score={s} active={hpPercentage > 0.3} />
+                  <HexNode key={i} color={i % 2 === 0 ? 'stroke-orange-500' : 'stroke-zinc-300'} score={s} active={hpPercentage > 0.3} />
                 ))}
              </div>
              <div className="mt-auto flex justify-between items-end">
-                <div className="w-16 h-1 bg-cyan-900 rounded-full">
-                  <motion.div animate={{ width: ['0%', '100%', '0%'] }} transition={{ duration: 2, repeat: Infinity }} className="h-full bg-cyan-400" />
+                <div className="w-16 h-1 bg-zinc-800 rounded-full">
+                  <motion.div animate={{ width: ['0%', '100%', '0%'] }} transition={{ duration: 2, repeat: Infinity }} className="h-full bg-orange-500" />
                 </div>
-                <div className="text-[10px] font-black text-orange-500 animate-pulse">OVERRICE</div>
+                <div className="text-[10px] font-black text-orange-500 animate-pulse">OVERRIDE</div>
              </div>
           </div>
         );
       case 'warp_gate':
         return (
           <div className="relative w-44 h-44 flex items-center justify-center">
-             <div className="absolute inset-0 rounded-full border-8 border-blue-600 shadow-[0_0_40px_rgba(37,99,235,0.6)]" />
+             <div className="absolute inset-0 rounded-full border-8 border-zinc-700 bg-zinc-900 shadow-[0_10px_24px_rgba(0,0,0,0.62)]" />
              <div className="absolute inset-4 rounded-full overflow-hidden">
                 <motion.div
                   animate={{ rotate: 360 }}
                   transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
-                  className="absolute inset-0 bg-[conic-gradient(from_0deg,#1e1b4b,#3b82f6,#60a5fa,#1e1b4b)] opacity-65"
+                  className="absolute inset-0 bg-[conic-gradient(from_0deg,#111827,#f97316,#d4d4d8,#111827)] opacity-45"
                 />
              </div>
-             <div className="absolute bottom-[-10px] w-24 h-12 bg-slate-800 border-t-4 border-blue-500 rounded-t-2xl flex items-center justify-center">
+             <div className="absolute bottom-[-10px] w-24 h-12 bg-zinc-900 border-t-4 border-orange-500 rounded-t-2xl flex items-center justify-center">
                 <span className="text-xl font-black text-white italic">100</span>
              </div>
           </div>
@@ -782,13 +781,13 @@ function TargetImpl({ target, onHit, cursorPos }: TargetProps) {
       case 'kinetic_swarm':
         return (
           <div className="relative w-48 h-48 flex items-center justify-center">
-             <div className="w-20 h-20 rounded-full border-4 border-blue-500 bg-slate-900 flex items-center justify-center shadow-[0_0_20px_#3b82f6]" data-hit-zone="weak_point">
-                <div className="text-[10px] font-black text-blue-400 text-center uppercase pointer-events-none">SWARM<br/><span className="text-xl text-white">500</span></div>
+             <div className="w-20 h-20 rounded-full border-4 border-orange-500 bg-zinc-950 flex items-center justify-center shadow-[0_10px_20px_rgba(0,0,0,0.5)]" data-hit-zone="weak_point">
+                <div className="text-[10px] font-black text-zinc-200 text-center uppercase pointer-events-none">SWARM<br/><span className="text-xl text-white">500</span></div>
              </div>
              {[0, 45, 90, 135, 180, 225, 270, 315].map(angle => (
                <div key={angle} className="absolute" style={{ transform: `rotate(${angle}deg) translateY(-80px)` }} data-hit-zone="armor">
-                  <div className="w-2 h-12 bg-slate-700" />
-                  <div className="w-10 h-10 -translate-x-4 rounded-full border-2 border-orange-400 bg-slate-900 flex items-center justify-center shadow-[0_0_10px_#fb923c]">
+                  <div className="w-2 h-12 bg-zinc-700" />
+                  <div className="w-10 h-10 -translate-x-4 rounded-full border-2 border-zinc-400 bg-zinc-900 flex items-center justify-center">
                      <span className="text-[10px] font-black text-white" style={{ transform: `rotate(${-angle}deg)` }}>50</span>
                   </div>
                </div>
@@ -798,30 +797,30 @@ function TargetImpl({ target, onHit, cursorPos }: TargetProps) {
       case 'aether_pylon':
         return (
           <div className="relative w-28 h-56 flex flex-col items-center">
-             <div className="w-full h-8 bg-orange-500 rounded-xl rounded-b-none border-b-2 border-slate-900" data-hit-zone="armor" />
-             <div className="w-3/4 flex-1 bg-slate-900 border-x-4 border-blue-500 relative overflow-hidden" data-hit-zone="weak_point">
+             <div className="w-full h-8 bg-zinc-800 rounded-xl rounded-b-none border-b-2 border-zinc-600" data-hit-zone="armor" />
+             <div className="w-3/4 flex-1 bg-zinc-950 border-x-4 border-zinc-600 relative overflow-hidden" data-hit-zone="weak_point">
                 <motion.div
                   animate={{ y: [-100, 100], opacity: [0.2, 0.5, 0.2] }}
                   transition={{ duration: 1.4, repeat: Infinity }}
-                  className="absolute inset-0 bg-blue-500/40"
+                  className="absolute inset-0 bg-orange-500/25"
                 />
-                <div className="absolute inset-4 border border-blue-400/30 flex items-center justify-center">
-                   <div className="text-3xl font-black text-blue-400 drop-shadow-[0_0_10px_#60a5fa] animate-pulse">300</div>
+                <div className="absolute inset-4 border border-zinc-300/25 flex items-center justify-center">
+                   <div className="text-3xl font-black text-orange-300 drop-shadow-[0_0_6px_rgba(251,146,60,0.45)] animate-pulse">300</div>
                 </div>
              </div>
-             <div className="w-full h-12 bg-orange-500 rounded-xl rounded-t-none border-t-4 border-slate-900 p-2 flex justify-between">
-                <div className="text-[8px] font-black bg-blue-900 px-1 rounded">100</div>
-                <div className="text-[8px] font-black bg-blue-900 px-1 rounded">50</div>
+             <div className="w-full h-12 bg-zinc-800 rounded-xl rounded-t-none border-t-4 border-zinc-700 p-2 flex justify-between">
+                <div className="text-[8px] font-black bg-zinc-900 border border-orange-500/60 px-1 rounded">100</div>
+                <div className="text-[8px] font-black bg-zinc-900 border border-orange-500/60 px-1 rounded">50</div>
              </div>
           </div>
         );
       case 'gravity_tower':
         return (
           <div className="relative w-24 h-64 flex flex-col items-center">
-             <div className="w-full h-12 bg-blue-600 rounded-t-xl border-b-4 border-slate-900 flex items-center justify-center">
+             <div className="w-full h-12 bg-zinc-800 rounded-t-xl border-b-4 border-zinc-700 flex items-center justify-center">
                 <span className="text-[10px] font-black text-white px-2 py-0.5 bg-orange-500 rounded">NERD</span>
              </div>
-             <div className="w-16 flex-1 bg-blue-500 relative border-x-4 border-slate-800">
+             <div className="w-16 flex-1 bg-zinc-700 relative border-x-4 border-zinc-900">
                 <div className="absolute inset-0 bg-[repeating-linear-gradient(45deg,transparent,transparent_20px,rgba(0,0,0,0.1)_20px,rgba(0,0,0,0.1)_40px)]" />
                 {[50, 100, 50, 150, 150].map((s, i) => (
                   <div key={i} className={`absolute w-12 h-12 rounded-lg border-2 border-orange-500 bg-slate-900 flex items-center justify-center shadow-[0_0_10px_#f97316]`}
@@ -835,7 +834,7 @@ function TargetImpl({ target, onHit, cursorPos }: TargetProps) {
                   </div>
                 ))}
              </div>
-             <div className="w-32 h-16 bg-blue-600 rounded-xl border-t-4 border-slate-800 flex items-center justify-center">
+             <div className="w-32 h-16 bg-zinc-800 rounded-xl border-t-4 border-zinc-900 flex items-center justify-center">
                 <div className="text-[10px] font-black text-white drop-shadow-[0_0_5px_white]">GRAVITY_SENSOR</div>
              </div>
           </div>
@@ -843,15 +842,15 @@ function TargetImpl({ target, onHit, cursorPos }: TargetProps) {
       case 'data_sphere':
         return (
           <div className="relative w-44 h-44 flex items-center justify-center scale-90">
-             <div className="absolute inset-0 bg-blue-600 rounded-full border-4 border-slate-900" />
+             <div className="absolute inset-0 bg-zinc-800 rounded-full border-4 border-zinc-950" />
              <div className="absolute inset-2 grid grid-cols-3 gap-1 rotate-12">
                 {[50, 100, 150, 50, 100, 150, 50, 100, 150].map((s, i) => (
-                  <div key={i} className={`w-full h-full flex items-center justify-center bg-slate-900/40 border border-orange-400 rounded-sm`}>
+                  <div key={i} className={`w-full h-full flex items-center justify-center bg-zinc-900/50 border border-zinc-300/30 rounded-sm`}>
                     <span className="text-[10px] font-black text-orange-400">{s}</span>
                   </div>
                 ))}
              </div>
-             <div className="absolute bottom-[-15px] w-28 h-12 bg-blue-600 border-2 border-slate-800 rounded-xl flex items-center justify-center">
+             <div className="absolute bottom-[-15px] w-28 h-12 bg-zinc-800 border-2 border-zinc-900 rounded-xl flex items-center justify-center">
                 <span className="text-[10px] font-black text-white">DATA_CORE</span>
              </div>
           </div>
@@ -893,10 +892,10 @@ function TargetImpl({ target, onHit, cursorPos }: TargetProps) {
         );
       case 'neural_grid':
         return (
-          <div className="relative w-56 h-40 bg-slate-900 border-4 border-blue-500 rounded-xl p-4 grid grid-cols-4 gap-2 shadow-[0_0_30px_rgba(37,99,235,0.3)]">
-             <div className="col-span-2 row-span-2 bg-blue-900/40 border-2 border-cyan-400 rounded-lg flex items-center justify-center" data-hit-zone="weak_point">
+          <div className="relative w-56 h-40 bg-zinc-900 border-4 border-zinc-700 rounded-xl p-4 grid grid-cols-4 gap-2 shadow-[0_10px_24px_rgba(0,0,0,0.6)]">
+             <div className="col-span-2 row-span-2 bg-zinc-800/70 border-2 border-orange-500/70 rounded-lg flex items-center justify-center" data-hit-zone="weak_point">
                 <div className="text-center">
-                   <div className="text-[8px] font-black text-cyan-400 pointer-events-none">NEURAL_TAG</div>
+                   <div className="text-[8px] font-black text-zinc-300 pointer-events-none">GRID CORE</div>
                    <div className="text-3xl font-black text-white pointer-events-none">500</div>
                 </div>
              </div>
@@ -913,7 +912,7 @@ function TargetImpl({ target, onHit, cursorPos }: TargetProps) {
       case 'sentinel_bot':
         return (
           <div className="relative w-40 h-44 flex flex-col items-center">
-             <div className="w-32 h-28 bg-slate-800 border-4 border-blue-500 rounded-xl relative flex items-center justify-center" data-hit-zone="armor">
+             <div className="w-32 h-28 bg-zinc-900 border-4 border-zinc-600 rounded-xl relative flex items-center justify-center" data-hit-zone="armor">
                 <div className="absolute -top-4 w-20 h-4 bg-orange-600 rounded-full flex items-center justify-center">
                    <div className="flex gap-1" data-hit-zone="weak_point">
                       <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
@@ -922,7 +921,7 @@ function TargetImpl({ target, onHit, cursorPos }: TargetProps) {
                    </div>
                 </div>
                 <div className="text-center pointer-events-none" data-hit-zone="weak_point">
-                   <div className="text-[10px] font-black text-blue-400 pointer-events-none">SENTINEL</div>
+                   <div className="text-[10px] font-black text-zinc-300 pointer-events-none">SENTINEL</div>
                    <div className="text-3xl font-black text-white pointer-events-none">200</div>
                 </div>
                 <div className="absolute -left-4 top-1/2 -translate-y-1/2 w-8 h-10 bg-orange-500 rounded border-2 border-slate-900 flex items-center justify-center">
@@ -942,11 +941,11 @@ function TargetImpl({ target, onHit, cursorPos }: TargetProps) {
       case 'phase_target':
         return (
           <div className="relative w-40 h-40 flex items-center justify-center">
-             <div className="absolute inset-0 rounded-full border-x-[12px] border-y-[6px] border-blue-500 rotate-45 shadow-[0_0_30px_#3b82f6]" data-hit-zone="armor" />
-             <div className="absolute inset-4 rounded-full border-4 border-blue-400 opacity-60" />
-             <div className="absolute inset-8 rounded-full border-8 border-orange-500 flex items-center justify-center bg-slate-900 shadow-[0_0_20px_#f97316]" data-hit-zone="weak_point">
+             <div className="absolute inset-0 rounded-full border-x-[12px] border-y-[6px] border-zinc-600 rotate-45 shadow-[0_10px_20px_rgba(0,0,0,0.65)]" data-hit-zone="armor" />
+             <div className="absolute inset-4 rounded-full border-4 border-fuchsia-300/50 opacity-70" />
+             <div className="absolute inset-8 rounded-full border-8 border-orange-500 flex items-center justify-center bg-zinc-900 shadow-[0_0_14px_rgba(249,115,22,0.45)]" data-hit-zone="weak_point">
                 <div className="text-center">
-                   <div className="text-[8px] font-black text-orange-400 mb-1">PHASE-CORE</div>
+                   <div className="text-[8px] font-black text-fuchsia-200 mb-1">PHASE-CORE</div>
                    <div className="text-2xl font-black text-white italic underline">200</div>
                 </div>
              </div>
@@ -999,7 +998,7 @@ function TargetImpl({ target, onHit, cursorPos }: TargetProps) {
           <div className={`relative flex items-center justify-center w-16 h-16 rounded-xl shadow-[0_0_14px_rgba(255,255,255,0.18)] border-2 animate-pulse overflow-hidden
             ${isPowerupDamage ? 'bg-red-950/95 border-red-500 text-red-500' : ''}
             ${isPowerupRapid ? 'bg-yellow-950/95 border-yellow-400 text-yellow-400' : ''}
-            ${isPowerupShield ? 'bg-blue-950/95 border-blue-400 text-blue-400' : ''}
+            ${isPowerupShield ? 'bg-zinc-900/95 border-cyan-300/70 text-cyan-200' : ''}
           `}>
             <PowerupCardBackdrop type={target.type} />
             <div className="absolute inset-0 bg-current opacity-20 rounded-xl" />
