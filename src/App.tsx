@@ -567,10 +567,12 @@ const HitEffect = React.memo(function HitEffect({ x, y, color, isDestroy, isMiss
   );
 });
 
-const ARENAS: { id: ArenaId; name: string; level: number; targetScore: number }[] = [
-  { id: 'training',  name: "TRAINING BAY",     level: 1, targetScore: 25000 },
-  { id: 'warehouse', name: "WAREHOUSE RUSH",   level: 2, targetScore: 30000 },
-  { id: 'rooftop',   name: "SKYLINE ROOFTOP",  level: 3, targetScore: 45000 },
+export type ArenaMeta = { id: ArenaId; name: string; level: number; targetScore: number; difficultyLabel: string; bossName?: string; targetBiasSummary: string };
+
+export const ARENAS: ArenaMeta[] = [
+  { id: 'training',  name: "TRAINING BAY",     level: 1, targetScore: 25000, difficultyLabel: 'LVL 01 · DRILLS', bossName: 'Sentinel Bot', targetBiasSummary: 'Standard + moving drills' },
+  { id: 'warehouse', name: "WAREHOUSE RUSH",   level: 2, targetScore: 30000, difficultyLabel: 'LVL 02 · CQB', bossName: 'Kinetic Swarm', targetBiasSummary: 'Drone-heavy close quarters chaos' },
+  { id: 'rooftop',   name: "SKYLINE ROOFTOP",  level: 3, targetScore: 45000, difficultyLabel: 'LVL 03 · LONG SIGHT', bossName: 'Aether Pylon', targetBiasSummary: 'Long-range shield + phase threats' },
 ];
 
 function arenaById(id: unknown) {
@@ -1107,6 +1109,13 @@ export default function App() {
   const [gameState, setGameState] = useState<'menu' | 'playing' | 'gameover' | 'paused'>('menu');
   const [showCountdown, setShowCountdown] = useState(false);
   const [currentArena, setCurrentArena] = useState(ARENAS[0]);
+  const [selectedArenaId, setSelectedArenaId] = useState<ArenaId>(() => {
+    try {
+      const stored = window.localStorage.getItem('selectedArenaId');
+      if (stored === 'training' || stored === 'warehouse' || stored === 'rooftop') return stored;
+    } catch {}
+    return ARENAS[0].id;
+  });
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(60);
   const [currentGun, setCurrentGun] = useState<GunType>(GUNS.peacemaker);
@@ -1134,6 +1143,12 @@ export default function App() {
   const [isFlinching, setIsFlinching] = useState(false);
 
   const [gameMode, setGameMode] = useState<GameMode>('classic');
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('selectedArenaId', selectedArenaId);
+    } catch {}
+  }, [selectedArenaId]);
   const [lives, setLives] = useState(5);
   const [targetsHit, setTargetsHit] = useState(0);
   const [totalShots, setTotalShots] = useState(0);
@@ -1608,10 +1623,8 @@ export default function App() {
     }
   };
 
-  const startGame = (mode: GameMode = gameMode) => {
-    // Pick the arena first so the director can bias spawns to match the
-    // arena's signature target mix from wave 1.
-    const pickedArena = ARENAS[Math.floor(Math.random() * ARENAS.length)];
+  const startGame = (mode: GameMode = gameMode, arenaId?: ArenaId) => {
+    const pickedArena = arenaById(arenaId ?? selectedArenaId);
     directorRef.current.startMatch(mode, pickedArena.id);
     setGameMode(mode);
     setGameState('playing');
@@ -1635,6 +1648,7 @@ export default function App() {
     setWave(1);
     setMaxWave(directorRef.current.getMaxWaves());
     setCurrentArena(pickedArena);
+    directorRef.current.setArena(pickedArena.id);
   };
 
   const handleCountdownComplete = useCallback(() => {
@@ -2924,6 +2938,10 @@ export default function App() {
             onRetryMultiplayer={retryMultiplayerConnection}
             setIsMultiplayerWaiting={setIsMultiplayerWaiting}
             startGame={startGame}
+            selectedArenaId={selectedArenaId}
+            selectedArena={arenaById(selectedArenaId)}
+            arenas={ARENAS}
+            onSelectArena={setSelectedArenaId}
             setShowUpgradeMenu={setShowUpgradeMenu}
             credits={credits}
             unlockedGuns={unlockedGuns}
