@@ -1309,6 +1309,18 @@ export default function App() {
     const saved = localStorage.getItem('nerf_unlocked');
     return saved ? JSON.parse(saved) : ['peacemaker'];
   });
+  const [primaryGunId, setPrimaryGunId] = useState<string>(() => localStorage.getItem('nerf_primary_gun') || 'peacemaker');
+  const [secondaryGunId, setSecondaryGunId] = useState<string | null>(() => localStorage.getItem('nerf_secondary_gun'));
+  const [ammoByGun, setAmmoByGun] = useState<Record<string, number>>({ peacemaker: GUNS.peacemaker.maxAmmo });
+
+  useEffect(() => {
+    localStorage.setItem('nerf_primary_gun', primaryGunId);
+  }, [primaryGunId]);
+
+  useEffect(() => {
+    if (secondaryGunId) localStorage.setItem('nerf_secondary_gun', secondaryGunId);
+    else localStorage.removeItem('nerf_secondary_gun');
+  }, [secondaryGunId]);
   const [unlockedDarts, setUnlockedDarts] = useState<string[]>(() => {
     const saved = localStorage.getItem('nerf_unlocked_darts');
     return saved ? JSON.parse(saved) : ['standard'];
@@ -1317,6 +1329,41 @@ export default function App() {
     const saved = localStorage.getItem('nerf_upgrades');
     return saved ? JSON.parse(saved) : { damage: 0, reloadSpeed: 0, ammoCapacity: 0 };
   });
+
+  const getGunById = useCallback((gunId: string | null | undefined): GunType | null => {
+    if (!gunId) return null;
+    return Object.values(GUNS).find((g) => g.id === gunId) ?? null;
+  }, []);
+
+  const primaryGun = getGunById(primaryGunId) ?? GUNS.peacemaker;
+  const secondaryGun = getGunById(secondaryGunId);
+
+  const syncGunAmmo = useCallback((nextGun: GunType) => {
+    setAmmoByGun((prev) => {
+      const currentMax = currentGun.maxAmmo + upgrades.ammoCapacity * 2;
+      const nextMax = nextGun.maxAmmo + upgrades.ammoCapacity * 2;
+      const nextMap = { ...prev, [currentGun.id]: Math.min(ammo, currentMax) };
+      if (typeof nextMap[nextGun.id] !== 'number') nextMap[nextGun.id] = nextMax;
+      setAmmo(Math.min(nextMap[nextGun.id], nextMax));
+      return nextMap;
+    });
+  }, [ammo, currentGun.id, currentGun.maxAmmo, upgrades.ammoCapacity]);
+
+  const setActiveGun = useCallback((nextGun: GunType) => {
+    if (nextGun.id === currentGun.id) return;
+    syncGunAmmo(nextGun);
+    setIsReloading(false);
+    setCurrentGun(nextGun);
+  }, [currentGun.id, syncGunAmmo]);
+
+  const togglePrimarySecondary = useCallback(() => {
+    if (!secondaryGun || secondaryGun.id === primaryGun.id) return;
+    if (currentGun.id === primaryGun.id) {
+      setActiveGun(secondaryGun);
+      return;
+    }
+    setActiveGun(primaryGun);
+  }, [secondaryGun, primaryGun, currentGun.id, setActiveGun]);
 
   const upgradedGun = {
     ...currentGun,
@@ -1329,8 +1376,14 @@ export default function App() {
   };
 
   useEffect(() => {
-    setAmmo(currentGun.maxAmmo + upgrades.ammoCapacity * 2);
-  }, [currentGun, upgrades.ammoCapacity]);
+    setAmmoByGun((prev) => {
+      const maxAmmoForGun = currentGun.maxAmmo + upgrades.ammoCapacity * 2;
+      const next = { ...prev };
+      next[currentGun.id] = Math.min(typeof prev[currentGun.id] === 'number' ? prev[currentGun.id] : maxAmmoForGun, maxAmmoForGun);
+      setAmmo(next[currentGun.id]);
+      return next;
+    });
+  }, [currentGun.id, currentGun.maxAmmo, upgrades.ammoCapacity]);
 
   const gameAreaRef = useRef<HTMLDivElement>(null);
   const targetIdCounter = useRef(0);
@@ -1608,8 +1661,8 @@ export default function App() {
     if (credits >= gun.unlockCost && !unlockedGuns.includes(gun.id)) {
       setCredits(prev => prev - gun.unlockCost);
       setUnlockedGuns(prev => [...prev, gun.id]);
-      setCurrentGun(gun);
-      setAmmo(gun.maxAmmo);
+      setPrimaryGunId(gun.id);
+      setActiveGun(gun);
       vibrate([50, 100, 50]);
     }
   };
@@ -1631,7 +1684,8 @@ export default function App() {
     setShowCountdown(true);
     setScore(0);
     setTimeLeft(mode === 'classic' || mode === 'multiplayer' ? 60 : mode === 'timeAttack' ? 30 : 0);
-    setAmmo(currentGun.maxAmmo);
+    setAmmoByGun({ [currentGun.id]: currentGun.maxAmmo + upgrades.ammoCapacity * 2 });
+    setAmmo(currentGun.maxAmmo + upgrades.ammoCapacity * 2);
     setTargets([]);
     setDarts([]);
     setCombo(0);
@@ -1704,40 +1758,23 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ammo, gameState]);
 
-  // Keyboard weapon switching
+  // Weapon switching: 1 = primary, 2 = secondary (if equipped), wheel/SWAP toggles slots.
   useEffect(() => {
     if (gameState !== 'playing') return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Numbers 1-9 for weapon switching
-      const num = parseInt(e.key);
-      if (!isNaN(num) && num > 0 && num <= unlockedGuns.length) {
-        const gunIdToSwitch = unlockedGuns[num - 1];
-        const newGun = Object.values(GUNS).find(g => g.id === gunIdToSwitch);
-        if (newGun && newGun.id !== currentGun.id) {
-          setCurrentGun(newGun);
-        }
+      if (e.key === '1') {
+        setActiveGun(primaryGun);
+        return;
+      }
+      if (e.key === '2' && secondaryGun) {
+        setActiveGun(secondaryGun);
       }
     };
 
     const handleWheel = (e: WheelEvent) => {
-      if (unlockedGuns.length <= 1) return;
-      const currentIndex = unlockedGuns.indexOf(currentGun.id);
-      let nextIndex = currentIndex;
-      if (e.deltaY > 0) {
-        // Scroll down -> next weapon
-        nextIndex = (currentIndex + 1) % unlockedGuns.length;
-      } else if (e.deltaY < 0) {
-        // Scroll up -> prev weapon
-        nextIndex = (currentIndex - 1 + unlockedGuns.length) % unlockedGuns.length;
-      }
-      
-      if (currentIndex !== nextIndex) {
-        const newGun = Object.values(GUNS).find(g => g.id === unlockedGuns[nextIndex]);
-        if (newGun) {
-          setCurrentGun(newGun);
-        }
-      }
+      if (e.deltaY === 0) return;
+      togglePrimarySecondary();
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -1746,7 +1783,7 @@ export default function App() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('wheel', handleWheel);
     };
-  }, [gameState, unlockedGuns, currentGun.id]);
+  }, [gameState, primaryGun, secondaryGun, setActiveGun, togglePrimarySecondary]);
 
   const directorRef = useRef(new GameplayDirector());
 
@@ -2000,7 +2037,8 @@ export default function App() {
     const reloadDuration = Date.now() < activeBuffs.rapidFire ? currentGun.reloadTime * 0.3 : currentGun.reloadTime;
     
     setTimeout(() => {
-      setAmmo(currentGun.maxAmmo);
+      setAmmoByGun({ [currentGun.id]: currentGun.maxAmmo + upgrades.ammoCapacity * 2 });
+    setAmmo(currentGun.maxAmmo + upgrades.ammoCapacity * 2);
       setIsReloading(false);
       vibrate(HAPTIC.RELOAD_FINISH);
       sounds.playReloadFinish(currentGun.id);
@@ -2946,7 +2984,11 @@ export default function App() {
             credits={credits}
             unlockedGuns={unlockedGuns}
             currentGun={currentGun}
-            setCurrentGun={setCurrentGun}
+            setCurrentGun={setActiveGun}
+            primaryGunId={primaryGunId}
+            secondaryGunId={secondaryGunId}
+            setPrimaryGunId={setPrimaryGunId}
+            setSecondaryGunId={setSecondaryGunId}
             buyGun={buyGun}
             unlockedDarts={unlockedDarts}
             currentDart={currentDart}
@@ -3224,13 +3266,7 @@ export default function App() {
                   onFire={() => handleShoot()}
                   onReload={reload}
                   onWeaponSwap={() => {
-                      const currentIndex = unlockedGuns.indexOf(currentGun.id);
-                      if (currentIndex !== -1) {
-                         const nextIndex = (currentIndex + 1) % unlockedGuns.length;
-                         const nextGunId = unlockedGuns[nextIndex];
-                         const nextGun = Object.values(GUNS).find(g => g.id === nextGunId);
-                         if (nextGun) setCurrentGun(nextGun);
-                      }
+                      togglePrimarySecondary();
                   }}
                   leftHanded={uiSettings.leftHanded}
                   buttonScale={uiSettings.controlScale}

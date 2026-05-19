@@ -40,6 +40,10 @@ export interface MainMenuProps {
   unlockedGuns: string[];
   currentGun: GunType;
   setCurrentGun: (gun: GunType) => void;
+  primaryGunId: string;
+  secondaryGunId: string | null;
+  setPrimaryGunId: (id: string) => void;
+  setSecondaryGunId: (id: string | null) => void;
   buyGun: (gun: GunType) => void;
   unlockedDarts: string[];
   currentDart: DartType;
@@ -73,6 +77,10 @@ export default function MainMenu(props: MainMenuProps) {
     unlockedGuns,
     currentGun,
     setCurrentGun,
+    primaryGunId,
+    secondaryGunId,
+    setPrimaryGunId,
+    setSecondaryGunId,
     buyGun,
     unlockedDarts,
     currentDart,
@@ -130,6 +138,10 @@ export default function MainMenu(props: MainMenuProps) {
         currentGun={currentGun}
         setCurrentGun={setCurrentGun}
         buyGun={buyGun}
+        primaryGunId={primaryGunId}
+        secondaryGunId={secondaryGunId}
+        setPrimaryGunId={setPrimaryGunId}
+        setSecondaryGunId={setSecondaryGunId}
         unlockedDarts={unlockedDarts}
         currentDart={currentDart}
         setCurrentDart={setCurrentDart}

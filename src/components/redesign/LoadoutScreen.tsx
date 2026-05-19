@@ -42,6 +42,10 @@ export interface LoadoutScreenProps {
   unlockedGuns: string[];
   currentGun: GunType;
   setCurrentGun: (g: GunType) => void;
+  primaryGunId: string;
+  secondaryGunId: string | null;
+  setPrimaryGunId: (id: string) => void;
+  setSecondaryGunId: (id: string | null) => void;
   buyGun: (g: GunType) => void;
   unlockedDarts: string[];
   currentDart: DartType;
@@ -56,6 +60,10 @@ export default function LoadoutScreen({
   unlockedGuns,
   currentGun,
   setCurrentGun,
+  primaryGunId,
+  secondaryGunId,
+  setPrimaryGunId,
+  setSecondaryGunId,
   buyGun,
   unlockedDarts,
   currentDart,
@@ -162,7 +170,7 @@ export default function LoadoutScreen({
           >
             <span style={{ color: TOKENS.textHi, marginRight: 8 }}>‹</span>BACK
           </button>
-          <span>LOADOUT · PRIMARY</span>
+          <span>LOADOUT · PRIMARY / SECONDARY</span>
           <span style={{ color: TOKENS.cyan }}>◇ CACHE {credits.toLocaleString()}</span>
         </div>
 
@@ -395,12 +403,29 @@ export default function LoadoutScreen({
             {visible.map((g) => {
               const isUnlocked = unlockedGuns.includes(g.id);
               const isActive = currentGun.id === g.id;
+              const isPrimary = primaryGunId === g.id;
+              const isSecondary = secondaryGunId === g.id;
               const asset = getBlasterAsset(g.id);
               return (
                 <button
                   key={g.id}
                   type="button"
                   onClick={() => (isUnlocked ? setCurrentGun(g) : buyGun(g))}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    if (!isUnlocked) return;
+                    if (primaryGunId !== g.id) {
+                      setPrimaryGunId(g.id);
+                      setCurrentGun(g);
+                      if (secondaryGunId === g.id) setSecondaryGunId(null);
+                      return;
+                    }
+                    if (secondaryGunId === g.id) {
+                      setSecondaryGunId(null);
+                    } else {
+                      setSecondaryGunId(g.id);
+                    }
+                  }}
                   className="select-none"
                   style={{
                     position: 'relative',
@@ -467,7 +492,7 @@ export default function LoadoutScreen({
                         letterSpacing: '.22em',
                       }}
                     >
-                      {isUnlocked ? g.archetype.toUpperCase() : `◇ ${g.unlockCost.toLocaleString()}`}
+                      {isUnlocked ? `${isPrimary ? 'P ' : ''}${isSecondary ? 'S ' : ''}${g.archetype.toUpperCase()}` : `◇ ${g.unlockCost.toLocaleString()}`}
                     </div>
                   </div>
                 </button>
@@ -510,7 +535,7 @@ export default function LoadoutScreen({
                 textTransform: 'uppercase',
               }}
             >
-              {currentGun.archetype.toUpperCase()} SIDEARM
+{secondaryGunId ? (Object.values(GUNS).find((g) => g.id === secondaryGunId)?.name ?? 'UNRESOLVED') : 'EMPTY SLOT'}
             </div>
             <div
               style={{
@@ -521,7 +546,7 @@ export default function LoadoutScreen({
                 textTransform: 'uppercase',
               }}
             >
-              {currentGun.fireMode.toUpperCase()} FIRE
+{secondaryGunId ? 'EQUIPPED FOR SWAP' : 'LONG-PRESS A BLASTER CARD TO ASSIGN'}
             </div>
           </div>
 
@@ -593,7 +618,7 @@ export default function LoadoutScreen({
         <div className="relative" style={{ marginTop: 28, marginBottom: 8 }}>
           <PrimaryCta
             label="EQUIP"
-            sub={`CONFIRM LOADOUT · ${currentGun.name.toUpperCase()}`}
+            sub={`CONFIRM LOADOUT · P:${(Object.values(GUNS).find((g) => g.id === primaryGunId)?.name ?? currentGun.name).toUpperCase()}${secondaryGunId ? ` · S:${(Object.values(GUNS).find((g) => g.id === secondaryGunId)?.name ?? 'NONE').toUpperCase()}` : ' · S:EMPTY'}`}
             onClick={onConfirm}
             height={120}
             notch={22}
