@@ -1149,7 +1149,6 @@ export default function App() {
       window.localStorage.setItem('selectedArenaId', selectedArenaId);
     } catch {}
   }, [selectedArenaId]);
-
   const [lives, setLives] = useState(5);
   const [targetsHit, setTargetsHit] = useState(0);
   const [totalShots, setTotalShots] = useState(0);
