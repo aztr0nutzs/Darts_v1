@@ -117,7 +117,7 @@ export default function MainMenu(props: MainMenuProps) {
     { id: 'endless',    label: 'SURVIVAL',   sub: 'GAUNTLET' },
     { id: 'targetRush', label: 'ASSAULT',    sub: '50 TARGETS' },
     { id: 'hardcore',   label: 'HARDCORE',   sub: '1-HIT KO' },
-    { id: 'coop',       label: 'CO-OP',      sub: 'TEAM' },
+    { id: 'multiplayer', label: 'CO-OP',      sub: 'ONLINE TEAM' },
   ];
   const currentModeLabel = modes.find((m) => m.id === gameMode)?.label ?? 'STANDARD';
 
@@ -417,7 +417,14 @@ export default function MainMenu(props: MainMenuProps) {
               <button
                 key={m.id}
                 type="button"
-                onClick={() => setGameMode(m.id)}
+                onClick={() => {
+                  if (m.id === 'multiplayer') {
+                    setGameMode('multiplayer');
+                    setView('multiplayer');
+                    return;
+                  }
+                  setGameMode(m.id);
+                }}
                 className="select-none"
                 style={{
                   background: active ? 'rgba(255,106,26,0.08)' : 'transparent',

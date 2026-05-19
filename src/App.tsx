@@ -64,7 +64,7 @@ export const DART_TYPES: Record<string, DartType> = {
   void: { id: 'void', name: 'VOID_SPIKE', damage: 100, speed: 400, blastRadius: 30, color: '#312e81', shape: 'laser', unlockCost: 12000, description: 'EXPERIMENTAL_SINGULARITY' },
 };
 
-export type GameMode = 'classic' | 'endless' | 'timeAttack' | 'targetRush' | 'multiplayer' | 'hardcore' | 'coop';
+export type GameMode = 'classic' | 'endless' | 'timeAttack' | 'targetRush' | 'multiplayer' | 'hardcore';
 
 type DartData = {
   id: string;
