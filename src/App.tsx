@@ -873,131 +873,115 @@ function CustomCrosshair({ x, y, isShooting, hitMarkerTime, hitMarkerType, ammo,
 
 function UpgradeMenu({ credits, upgrades, onUpgrade, onClose, currentGun, currentDart }: { credits: number, upgrades: any, onUpgrade: (type: string) => void, onClose: () => void, currentGun: GunType, currentDart: DartType }) {
   const costs = { damage: [500, 1000, 2000], reloadSpeed: [500, 1000, 2000], ammoCapacity: [500, 1000, 2000] };
-  
+
+  const cards = [
+    { id: 'damage', name: 'BALLISTIC POWER', icon: Zap, accent: 'text-orange-400', bar: 'bg-orange-500', effect: '+5 DAMAGE / LVL' },
+    { id: 'reloadSpeed', name: 'REFLEX SYNC', icon: Wind, accent: 'text-cyan-300', bar: 'bg-cyan-400', effect: '-10% RELOAD / LVL' },
+    { id: 'ammoCapacity', name: 'MAG DENSITY', icon: ShieldPlus, accent: 'text-emerald-400', bar: 'bg-emerald-500', effect: '+2 AMMO / LVL' },
+  ] as const;
+
   return (
-    <motion.div 
-      initial={{ opacity: 0, scale: 1.1 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      className="absolute inset-0 z-[200] flex items-center justify-center bg-black/95 backdrop-blur-3xl md:p-8"
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="absolute inset-0 z-[200] bg-black/92"
     >
-      {/* Background Grids */}
-      <div className="absolute inset-0 overflow-hidden opacity-10 pointer-events-none">
-         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,#22d3ee_0%,transparent_70%)]" />
-         <div className="absolute inset-0" style={{ backgroundImage: 'linear-gradient(#22d3ee 1px, transparent 1px), linear-gradient(90deg, #22d3ee 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+      <div className="absolute inset-0 pointer-events-none" aria-hidden>
+        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(0,0,0,0.88),rgba(0,0,0,0.96))]" />
+        <div className="absolute left-0 right-0 top-[54%] h-px bg-white/10" />
+        <div className="absolute left-0 top-[calc(54%-4px)] h-2 w-28 bg-orange-500" />
       </div>
 
-      <div className="bg-black/90 border-2 border-cyan-500/30 w-full h-full md:h-auto md:max-w-5xl relative overflow-hidden flex flex-col md:flex-row">
-        {/* Left Stats Panel */}
-        <div className="w-full md:w-1/3 bg-zinc-950/50 border-r border-cyan-500/10 p-8 flex flex-col">
-           <div className="mb-6">
-              <div className="text-[10px] font-black text-cyan-500 tracking-[0.4em] uppercase mb-2 flex items-center gap-2">
-                 <Activity className="w-4 h-4" /> CURRENT_CONFIG
-              </div>
-              <h3 className="text-4xl font-black text-white italic tracking-tighter uppercase">{currentGun.name}</h3>
-              <p className="text-[10px] text-zinc-500 mt-2 font-mono">{currentGun.description}</p>
-           </div>
-
-           <div className="space-y-4 flex-1">
-              {[
-                { label: 'CALIBER', val: currentDart.name, color: 'text-yellow-500' },
-                { label: 'DMG_MOD', val: `+${upgrades.damage * 5}`, color: 'text-orange-500' },
-                { label: 'CY_SPEED', val: `-${upgrades.reloadSpeed * 10}%`, color: 'text-cyan-500' },
-                { label: 'MAG_EXT', val: `+${upgrades.ammoCapacity * 2}`, color: 'text-green-500' },
-              ].map(stat => (
-                <div key={stat.label} className="flex justify-between items-center border-b border-white/5 pb-2">
-                   <span className="text-[9px] font-black text-zinc-600">{stat.label}</span>
-                   <span className={`text-xs font-black italic ${stat.color}`}>{stat.val}</span>
-                </div>
-              ))}
-           </div>
-
-           <div className="mt-8 p-4 bg-cyan-950/20 border border-cyan-500/20">
-              <div className="text-[8px] font-black text-cyan-400 mb-2">NEURAL_CALIBRATION_READY</div>
-              <div className="h-1 bg-zinc-800 w-full overflow-hidden">
-                 <motion.div 
-                   animate={{ x: [-100, 100] }} 
-                   transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-                   className="h-full w-1/4 bg-cyan-400" 
-                 />
-              </div>
-           </div>
+      <div className="relative mx-auto flex h-full max-w-6xl flex-col px-4 pb-6 pt-6 md:px-8 md:pb-8 md:pt-8">
+        <div className="mb-4 flex items-center justify-between border-b border-white/10 pb-3">
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-[0.32em] text-orange-400">UPGRADE BAY</div>
+            <h2 className="mt-2 text-3xl font-black italic uppercase tracking-tight text-white md:text-5xl">WEAPON TUNING</h2>
+          </div>
+          <div className="flex items-center gap-2 border border-yellow-500/25 bg-black/70 px-4 py-2">
+            <Coins className="h-5 w-5 text-yellow-400" />
+            <span className="text-xl font-black tracking-tight text-yellow-400 md:text-2xl">{credits.toLocaleString()}</span>
+          </div>
         </div>
 
-        {/* Right Upgrades Panel */}
-        <div className="flex-1 p-8 md:p-10 flex flex-col">
-          <div className="absolute -top-4 -right-4 bg-cyan-500 text-black px-4 py-1 font-black text-xs tracking-widest italic uppercase z-50">WEAPON_REFINEMENT_MODULE</div>
-          
-          <div className="flex justify-between items-end mb-8 border-b border-white/5 pb-4">
-            <h2 className="text-4xl md:text-5xl font-black text-white italic tracking-tighter uppercase">Upgrades</h2>
-            <div className="flex items-center gap-3 bg-zinc-900/80 px-6 py-3 border border-yellow-500/20 shadow-[0_0_20px_rgba(234,179,8,0.05)]">
-              <Coins className="w-6 h-6 text-yellow-500" />
-              <span className="text-2xl font-black text-yellow-500 tracking-tighter">{credits.toLocaleString()}</span>
+        <div className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-[minmax(280px,0.9fr)_1.6fr] md:gap-5">
+          <section className="border border-white/10 bg-black/55 p-4 md:p-5">
+            <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">CURRENT BUILD</div>
+            <h3 className="mt-2 text-2xl font-black italic uppercase text-white md:text-3xl">{currentGun.name}</h3>
+            <p className="mt-2 text-[10px] font-mono uppercase tracking-[0.14em] text-zinc-500">{currentGun.description}</p>
+
+            <div className="mt-4 space-y-2 border-t border-white/10 pt-4 text-[11px] font-bold uppercase tracking-[0.14em]">
+              <div className="flex items-center justify-between"><span className="text-zinc-400">DART PROFILE</span><span className="text-yellow-400">{currentDart.name.replace(/_/g, ' ')}</span></div>
+              <div className="flex items-center justify-between"><span className="text-zinc-400">DAMAGE MOD</span><span className="text-orange-400">+{upgrades.damage * 5}</span></div>
+              <div className="flex items-center justify-between"><span className="text-zinc-400">RELOAD MOD</span><span className="text-cyan-300">-{upgrades.reloadSpeed * 10}%</span></div>
+              <div className="flex items-center justify-between"><span className="text-zinc-400">CAPACITY MOD</span><span className="text-emerald-400">+{upgrades.ammoCapacity * 2}</span></div>
             </div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-auto">
-            {[
-              { id: 'damage', name: 'Ballistic_Power', icon: Zap, color: 'text-orange-500', glow: 'shadow-orange-500/20' },
-              { id: 'reloadSpeed', name: 'Reflex_Sync', icon: Wind, color: 'text-cyan-500', glow: 'shadow-cyan-500/20' },
-              { id: 'ammoCapacity', name: 'Mag_Density', icon: ShieldPlus, color: 'text-green-500', glow: 'shadow-green-500/20' },
-            ].map((item) => {
-              const Icon = item.icon;
-              const level = upgrades[item.id as keyof typeof upgrades];
-              const cost = costs[item.id as keyof typeof costs][level];
-              const isMax = level >= 3;
-              const canAfford = credits >= cost;
+          </section>
 
-              return (
-                <div key={item.id} className="bg-zinc-950/40 border border-white/5 p-6 flex flex-col gap-4 relative group hover:border-white/20 transition-all">
-                  <div className="flex justify-between items-start">
-                     <div className={`p-3 bg-black border border-white/5 ${item.glow} group-hover:scale-110 transition-transform`}>
-                        <Icon className={`w-6 h-6 ${item.color}`} />
-                     </div>
-                     <div className="text-[9px] font-black text-zinc-400 bg-black px-2 py-0.5 border border-zinc-800">LVL_0{level}</div>
-                  </div>
-                  <div className="text-[11px] font-black text-white uppercase tracking-[0.2em]">{item.name}</div>
-                  
-                  <div className="flex gap-1.5 h-1.5">
-                     {[1, 2, 3].map(i => (
-                       <div key={i} className={`flex-1 transform -skew-x-12 ${i <= level ? item.color.replace('text', 'bg') : 'bg-white/5'} transition-all`} />
-                     ))}
-                  </div>
+          <section className="border border-white/10 bg-black/55 p-4 md:p-5">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              {cards.map((item) => {
+                const Icon = item.icon;
+                const level = upgrades[item.id as keyof typeof upgrades];
+                const cost = costs[item.id as keyof typeof costs][level];
+                const isMax = level >= 3;
+                const canAfford = credits >= cost;
 
-                  <button 
-                    className={`mt-4 py-4 font-black text-[10px] tracking-widest uppercase transition-all flex items-center justify-center gap-2 relative overflow-hidden
-                      ${isMax ? 'bg-zinc-900 text-zinc-700 cursor-default grayscale' : 
-                        canAfford ? 'bg-white text-black hover:bg-cyan-500 hover:scale-[1.02] active:scale-[0.98]' : 'bg-black text-zinc-800 border border-zinc-900 pointer-events-none'}`}
-                    disabled={isMax || !canAfford}
-                    onClick={() => onUpgrade(item.id)}
-                  >
-                    {isMax ? 'MAX_POTENTIAL' : (
-                      <>
-                        <ArrowUpCircle className="w-4 h-4" />
-                        <span>UPGRADE: {cost}</span>
-                      </>
-                    )}
-                    {canAfford && !isMax && (
-                      <motion.div 
-                        animate={{ x: ['100%', '-100%'] }}
-                        transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-                        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent w-full"
-                      />
-                    )}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-          
-          <button 
-            className="w-full bg-zinc-950 border border-white/10 text-white/40 font-black tracking-[0.7em] py-6 mt-8 hover:bg-white hover:text-black transition-all flex items-center justify-center gap-3 uppercase text-xs" 
-            onClick={onClose}
-          >
-            <XCircle className="w-5 h-5" />
-            <span>EXIT_SYSTEM</span>
-          </button>
+                return (
+                  <article key={item.id} className="flex min-h-[248px] flex-col border border-white/10 bg-black/60 p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex h-10 w-10 items-center justify-center border border-white/10 bg-black">
+                        <Icon className={`h-5 w-5 ${item.accent}`} />
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">LVL {level}/3</span>
+                    </div>
+
+                    <h4 className="mt-3 text-sm font-black uppercase tracking-[0.16em] text-white">{item.name}</h4>
+                    <p className="mt-1 text-[10px] font-mono uppercase tracking-[0.12em] text-zinc-500">NEXT: {isMax ? 'MAXED' : item.effect}</p>
+
+                    <div className="mt-3 flex gap-1">
+                      {[1, 2, 3].map((n) => (
+                        <span key={n} className={`h-1.5 flex-1 ${n <= level ? item.bar : 'bg-white/10'}`} />
+                      ))}
+                    </div>
+
+                    <div className="mt-4 text-[10px] font-black uppercase tracking-[0.18em]">
+                      {isMax ? (
+                        <span className="text-zinc-500">MAXED</span>
+                      ) : canAfford ? (
+                        <span className="text-emerald-400">PURCHASE READY</span>
+                      ) : (
+                        <span className="text-zinc-600">INSUFFICIENT CACHE</span>
+                      )}
+                    </div>
+
+                    <button
+                      className={`mt-auto h-12 w-full text-[10px] font-black uppercase tracking-[0.24em] transition ${
+                        isMax
+                          ? 'cursor-default border border-white/10 bg-zinc-900 text-zinc-600'
+                          : canAfford
+                          ? 'border border-orange-500/60 bg-orange-500 text-black hover:bg-orange-400'
+                          : 'cursor-not-allowed border border-white/10 bg-black text-zinc-700'
+                      }`}
+                      disabled={isMax || !canAfford}
+                      onClick={() => onUpgrade(item.id)}
+                    >
+                      {isMax ? 'MAXED' : `UPGRADE · ${cost.toLocaleString()}`}
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
         </div>
+
+        <button
+          className="mt-4 h-14 w-full border border-white/15 bg-black/70 text-[11px] font-black uppercase tracking-[0.32em] text-zinc-300 transition hover:border-orange-500/60 hover:text-white"
+          onClick={onClose}
+        >
+          CLOSE
+        </button>
       </div>
     </motion.div>
   );
