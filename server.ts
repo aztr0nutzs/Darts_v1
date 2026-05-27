@@ -202,16 +202,16 @@ interface WaveConfig {
   spawnRateMs: number;
   maxConcurrent: number;
   swarmChance: number;
-  bossTypes?: TargetType[];
+  eliteTypes?: TargetType[];
 }
 
 const WAVES: WaveConfig[] = [
   { id: 1, name: 'BASIC TRAINING',  objective: 'hit_count',  objectiveValue: 15,    targetPool: ['standard','moving','bonus'], spawnRateMs: 1200, maxConcurrent: 3, swarmChance: 0 },
   { id: 2, name: 'SKIRMISH',        objective: 'hit_count',  objectiveValue: 20,    targetPool: ['standard','moving','armored','shielded'], spawnRateMs: 900,  maxConcurrent: 5, swarmChance: 0.1 },
   { id: 3, name: 'DRONE ASSAULT',   objective: 'timed_rush', objectiveValue: 25, duration: 30, targetPool: ['drone','moving','standard','exploding'], spawnRateMs: 700, maxConcurrent: 6, swarmChance: 0.3 },
-  { id: 4, name: 'HEAVY RESISTANCE',objective: 'survival',   objectiveValue: 0,  duration: 30, targetPool: ['heavy_armor','shielded','reflector','hostile'], spawnRateMs: 1000, maxConcurrent: 4, swarmChance: 0.1, bossTypes: ['sentinel_bot'] },
+  { id: 4, name: 'HEAVY RESISTANCE',objective: 'survival',   objectiveValue: 0,  duration: 30, targetPool: ['heavy_armor','shielded','reflector','hostile'], spawnRateMs: 1000, maxConcurrent: 4, swarmChance: 0.1, eliteTypes: ['sentinel_bot'] },
   { id: 5, name: 'QUANTUM SHADOWS', objective: 'hit_count',  objectiveValue: 25,    targetPool: ['phase_target','teleporting','decoy','standard'], spawnRateMs: 800, maxConcurrent: 5, swarmChance: 0.2 },
-  { id: 6, name: 'OVERWHELM',       objective: 'score',      objectiveValue: 10000, targetPool: ['kinetic_swarm','hostile','drone','exploding','moving'], spawnRateMs: 400, maxConcurrent: 8, swarmChance: 0.5, bossTypes: ['orbital_array','warp_gate'] },
+  { id: 6, name: 'OVERWHELM',       objective: 'score',      objectiveValue: 10000, targetPool: ['kinetic_swarm','hostile','drone','exploding','moving'], spawnRateMs: 400, maxConcurrent: 8, swarmChance: 0.5, eliteTypes: ['orbital_array','warp_gate'] },
 ];
 
 const MATCH_DURATION_MS = 60_000;
@@ -418,9 +418,9 @@ function generateSpawn(room: Room): ServerTarget[] {
     pool = pool.concat(['moving', 'drone']);
   }
 
-  if (wave.bossTypes && wave.bossTypes.length > 0 && room.targets.length === 0 && Math.random() < 0.05) {
-    const bossType = wave.bossTypes[Math.floor(Math.random() * wave.bossTypes.length)];
-    return [buildTarget(room, bossType)];
+  if (wave.eliteTypes && wave.eliteTypes.length > 0 && room.targets.length === 0 && Math.random() < 0.05) {
+    const eliteType = wave.eliteTypes[Math.floor(Math.random() * wave.eliteTypes.length)];
+    return [buildTarget(room, eliteType)];
   }
 
   if (Math.random() < 0.08) {
